@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/*
+ * Pegasus brand tokens, read off real screenshots of the live app.
+ *
+ * The important correction over the first guess: the primary call to action is
+ * YELLOW, not orange. Orange is an accent only — the BolBol mark, the active tab
+ * underline, the GBP/BolPoints toggle. Getting this backwards made the first pass
+ * look like a different airline.
+ */
+@theme {
+  /* Primary. SEARCH FLIGHT, List Selected Dates, the flights-screen header. */
+  --color-pg-yellow: #fdb913;
+  --color-pg-yellow-dark: #e5a70c;
+
+  /* Accent only. BolBol, active underlines, the currency toggle. */
+  --color-pg-orange: #ff5c00;
+
+  /* The translucent grey bar the header becomes once the home screen scrolls. */
+  --color-pg-header: #a9b2bb;
+
+  --color-pg-navy: #1f2a37;
+  --color-pg-ink: #6b7684;
+  --color-pg-line: #e3e8ef;
+  --color-pg-surface: #f2f6fa;
+
+  --font-sans: var(--font-app), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  /* The device frame sits on this; it is never the app's own background. */
+  background: #0f1420;
+  color: var(--color-pg-navy);
+  -webkit-font-smoothing: antialiased;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The Pegasus wordmark is a backward-slanted italic. Faux-italic is close enough
+   for a mock and avoids shipping a font nobody licensed. */
+.wordmark {
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  transform: skewX(-6deg);
+}
