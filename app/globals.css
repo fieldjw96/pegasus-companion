@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/*
+ * Pegasus brand tokens.
+ *
+ * The orange is #FF5C00, taken from Pegasus's own hackathon site rather than
+ * eyedropped from a screenshot, so it is exact. The rest are chosen to sit with
+ * it and should be corrected against real screenshots when those arrive.
+ */
+@theme {
+  --color-pg-orange: #ff5c00;
+  --color-pg-orange-dark: #e65300;
+  --color-pg-yellow: #ffc800;
+  --color-pg-navy: #1b2a4a;
+  --color-pg-ink: #52647b;
+  --color-pg-line: #e4e9f0;
+  --color-pg-surface: #f6f8fb;
+
+  --font-sans: var(--font-app), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  /* The device frame sits on this; it is never the app's own background. */
+  background: #0f1420;
+  color: var(--color-pg-navy);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide the scrollbar inside the phone frame without disabling scrolling. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
