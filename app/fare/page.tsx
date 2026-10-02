@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReportStep } from "@/components/companion/report-step";
+import { compareBaggagePaths } from "@/lib/journey/baggage";
 import {
   FARE_FAMILIES,
   FARE_RULES,
@@ -55,13 +56,15 @@ export default async function FareScreen({
     );
   }
 
-  // Computed here, in code, and handed to the Companion as a finished sentence.
-  // The judgement layer is never asked to do this arithmetic.
+  /*
+   * Computed here, in code, and handed to the Companion as a finished sentence.
+   *
+   * The comparison is across all four routes to a checked bag, not just the
+   * upgrade offer: SAVER strictly dominates, and the route the app itself badges
+   * "Recommended" is 28.00 GBP worse for 5 kg less. See lib/journey/baggage.ts.
+   */
   const gap = selected === null ? null : baggageUpsellGap(selected);
-  const finding =
-    gap === null
-      ? null
-      : `LIGHT is selected. Adding the same baggage after this screen costs ${formatFare(gap.payLater)} GBP, against ${formatFare(gap.payNow)} GBP to take SAVER now — ${formatFare(gap.worseOffBy)} GBP worse off.`;
+  const finding = gap === null ? null : compareBaggagePaths().finding;
 
   return (
     <>
