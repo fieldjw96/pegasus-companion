@@ -61,24 +61,45 @@ describe("when it does speak", () => {
     expect(chooseIntervention(state, stubJudgement(state))?.channel).toBe("push");
   });
 
-  it("recommends the bundled fare when a checked bag is likely", () => {
-    const state: CompanionState = { ...base, step: "fare" };
+  it("recommends the bundled package when a checked bag is likely", () => {
+    const state: CompanionState = {
+      ...base,
+      step: "fare",
+      findings: ["nothing numeric here"],
+    };
     const judgement = { ...stubJudgement(state), openQuestion: "fare_family" as const };
-    expect(chooseIntervention(state, judgement)?.headline).toContain("Advantage");
+    expect(chooseIntervention(state, judgement)?.headline).toContain("SAVER");
   });
 
-  it("recommends the cheaper fare when no bag is needed", () => {
+  it("recommends the cheaper package when no bag is needed", () => {
     const state: CompanionState = {
       ...base,
       step: "fare",
       party: { adults: 1, children: 0, infants: 0 },
+      findings: ["nothing numeric here"],
     };
     const judgement = {
       ...stubJudgement(state),
       openQuestion: "fare_family" as const,
       needsCheckedBag: 0.2,
     };
-    expect(chooseIntervention(state, judgement)?.headline).toContain("Essentials");
+    expect(chooseIntervention(state, judgement)?.headline).toContain("LIGHT");
+  });
+
+  it("warns about the baggage upsell gap when the screen reports it", () => {
+    const state: CompanionState = {
+      ...base,
+      step: "fare",
+      findings: [
+        "LIGHT is selected. Adding the same baggage after this screen costs 59.00 GBP, against 30.00 GBP to take SAVER now — 29.00 GBP worse off.",
+      ],
+    };
+    const judgement = { ...stubJudgement(state), openQuestion: "fare_family" as const };
+    const intervention = chooseIntervention(state, judgement);
+
+    expect(intervention?.headline).toContain("cheaper than adding a bag later");
+    expect(intervention?.detail).toContain("29.00");
+    expect(intervention?.action?.href).toContain("saver");
   });
 
   it("reaches for email when the passenger is blocked on someone else", () => {

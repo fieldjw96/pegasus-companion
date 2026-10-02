@@ -13,7 +13,7 @@ import {
 import type { CompanionState, Intervention, Judgement } from "@/lib/companion/types";
 
 type Reportable = Partial<
-  Pick<CompanionState, "step" | "route" | "departDate" | "party" | "shortlist">
+  Pick<CompanionState, "step" | "route" | "departDate" | "party" | "shortlist" | "findings">
 >;
 
 type CompanionContextValue = {

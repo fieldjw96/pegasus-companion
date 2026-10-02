@@ -47,7 +47,7 @@ export default async function ResultsScreen({
     const date = shiftDate(query.departDate, offset);
     const cheapest = inventory(query.origin, query.destination, date).reduce<number | null>(
       (min, f) => {
-        const price = f.fares.essentials;
+        const price = f.fares.light;
         if (price === undefined) return min;
         return min === null || price < min ? price : min;
       },
@@ -177,7 +177,7 @@ export default async function ResultsScreen({
                 🕐
               </span>
               <span className="text-[22px] font-bold">
-                {formatFare(flight.fares.essentials ?? 0)} GBP
+                {formatFare(flight.fares.light ?? 0)} GBP
               </span>
             </div>
           </Link>

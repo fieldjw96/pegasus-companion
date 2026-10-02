@@ -53,7 +53,7 @@ export default async function CalendarScreen({
     const hasFlights = (day * 7 + month) % 3 !== 1;
     const cheapest = hasFlights
       ? inventory(origin, destination, iso).reduce<number | null>((min, f) => {
-          const price = f.fares.essentials;
+          const price = f.fares.light;
           if (price === undefined) return min;
           return min === null || price < min ? price : min;
         }, null)

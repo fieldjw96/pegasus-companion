@@ -53,7 +53,30 @@ export function chooseIntervention(
         judgement,
       };
 
-    case "fare_family":
+    case "fare_family": {
+      /*
+       * The strongest thing this Companion can say, and the one the live app
+       * does the opposite of.
+       *
+       * Choosing LIGHT and then accepting the baggage interstitial costs 59.00
+       * GBP for inclusions that were 30.00 GBP on the previous screen. A
+       * passenger who picks the cheaper fare ends up 29.00 worse off than one
+       * who picked SAVER outright, and nothing in the funnel tells them.
+       *
+       * The arithmetic is done on the screen and arrives here as a Finding, so
+       * this branch only decides whether saying it is welcome.
+       */
+      const gapFinding = state.findings.find((f) => /worse off/i.test(f));
+      if (gapFinding !== undefined) {
+        return {
+          channel: "inline",
+          headline: "Taking SAVER now is cheaper than adding a bag later",
+          detail: gapFinding,
+          action: { label: "Switch to SAVER", href: "/fare?package=saver" },
+          rationale: `The baggage upsell after this screen is priced above the same inclusions on it. Said so because the passenger cannot see the next screen yet, and needsCheckedBag is ${judgement.needsCheckedBag.toFixed(2)}.`,
+          judgement,
+        };
+      }
       return {
         channel: "inline",
         headline: bagHeadline(judgement),
@@ -62,6 +85,7 @@ export function chooseIntervention(
         rationale: `Stuck between fares, and the baggage judgement decides it. needsCheckedBag ${judgement.needsCheckedBag.toFixed(2)}, family ${judgement.isFamilyTrip.toFixed(2)}.`,
         judgement,
       };
+    }
 
     case "seat_choice":
       return {
@@ -95,15 +119,13 @@ export function chooseIntervention(
 }
 
 function bagHeadline(judgement: Judgement): string {
-  return judgement.needsCheckedBag > 0.6
-    ? "Advantage works out cheaper here"
-    : "Essentials is enough";
+  return judgement.needsCheckedBag > 0.6 ? "SAVER works out cheaper here" : "LIGHT is enough";
 }
 
 function bagDetail(judgement: Judgement): string {
   return judgement.needsCheckedBag > 0.6
-    ? "A 20 kg bag added to Essentials costs more than the Advantage fare that includes it."
-    : "Nothing in this trip looks like it needs a checked bag, and Essentials covers the cabin bag.";
+    ? "This trip looks like it needs a checked bag, and SAVER includes 25 kg rather than charging for it later."
+    : "Nothing in this trip looks like it needs a checked bag. LIGHT covers the underseat bag.";
 }
 
 /** The whole decision, judgement and all. What the API route calls. */

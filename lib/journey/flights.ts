@@ -33,45 +33,102 @@ export type AirportCode = keyof typeof AIRPORTS;
 export const airportCodes = Object.keys(AIRPORTS) as AirportCode[];
 
 /**
- * Pegasus fare families. These names should be checked against real screenshots:
- * they are the publicly advertised set, but the mock must match what Jack is
- * showing the jury, not what a search engine says.
+ * Pegasus fare packages, read off the live app's "Outbound Flight Package
+ * Selection" screen. These are the real four, with the real inclusions and the
+ * real accent colour on each card's left edge.
  */
-export const FARE_FAMILIES = ["essentials", "advantage", "extra"] as const;
+export const FARE_FAMILIES = ["light", "saver", "saverPlus", "comfortFlex"] as const;
 export type FareFamily = (typeof FARE_FAMILIES)[number];
 
-export const FARE_RULES: Record<
-  FareFamily,
-  {
-    label: string;
-    cabinBag: string;
-    checked: number;
-    seatChoice: boolean;
-    changeable: boolean;
-  }
-> = {
-  essentials: {
-    label: "Essentials",
-    cabinBag: "8 kg cabin bag",
-    checked: 0,
-    seatChoice: false,
-    changeable: false,
+export type FarePackage = {
+  label: string;
+  /** Tailwind class for the coloured bar down the left of the card. */
+  accent: string;
+  /** Uplift over LIGHT, in GBP, as shown at package selection. */
+  uplift: number;
+  inclusions: { text: string; detail?: string }[];
+  note?: string;
+};
+
+export const FARE_RULES: Record<FareFamily, FarePackage> = {
+  light: {
+    label: "LIGHT",
+    accent: "bg-[#2E8FE0]",
+    uplift: 0,
+    inclusions: [{ text: "1 Piece of Underseat Bag Only", detail: "(40x30x15 cm, 3 kg)" }],
+    note: "When you choose the Light package, you may add cabin baggage and/or 12 kg of checked baggage during baggage selection.",
   },
-  advantage: {
-    label: "Advantage",
-    cabinBag: "8 kg cabin bag",
-    checked: 20,
-    seatChoice: true,
-    changeable: true,
+  saver: {
+    label: "SAVER",
+    accent: "bg-[#19A34A]",
+    uplift: 30,
+    inclusions: [
+      { text: "1 piece of cabin baggage", detail: "(55x40x23 cm, 8 kg)" },
+      { text: "1 Piece of Underseat Bag Only", detail: "(40x30x15 cm, 3 kg)" },
+      { text: "25 Kg Check-in Baggage" },
+    ],
   },
-  extra: {
-    label: "Extra",
-    cabinBag: "8 kg cabin bag",
-    checked: 25,
-    seatChoice: true,
-    changeable: true,
+  saverPlus: {
+    label: "SAVER PLUS",
+    accent: "bg-[#E03E1A]",
+    uplift: 50,
+    inclusions: [
+      { text: "1 piece of cabin baggage", detail: "(55x40x23 cm, 8 kg)" },
+      { text: "1 Piece of Underseat Bag Only", detail: "(40x30x15 cm, 3 kg)" },
+      { text: "25 Kg Check-in Baggage" },
+      { text: "Standard Seat Selection" },
+      { text: "Flexible Refund/Change Right (up to 7 days before the flight)" },
+    ],
+  },
+  comfortFlex: {
+    label: "COMFORT FLEX",
+    accent: "bg-[#6B4FD8]",
+    uplift: 63,
+    inclusions: [
+      { text: "1 piece of cabin baggage", detail: "(55x40x23 cm, 8 kg)" },
+      { text: "1 Piece of Underseat Bag Only", detail: "(40x30x15 cm, 3 kg)" },
+      { text: "30 Kg Check-in Baggage" },
+      { text: "Preferred Seat Selection" },
+      { text: "Flexible Refund/Change Right (up to 2 hours before the flight)" },
+      { text: "Sandwich" },
+    ],
   },
 };
+
+/**
+ * What the app charges to add baggage *after* LIGHT has been selected.
+ *
+ * Read straight off the "Upgrade Your Package" interstitial: 59.00 GBP for the
+ * Saver inclusions that cost 30.00 GBP one screen earlier. This constant is the
+ * reason the Companion has anything worth saying at the fare step.
+ */
+export const LIGHT_TO_SAVER_UPSELL = 59;
+
+/**
+ * The gap between buying baggage now and buying the identical baggage in sixty
+ * seconds. Returns null when there is nothing to warn about.
+ *
+ * Deliberately arithmetic, in code. The judgement layer cannot count and must
+ * never be asked to; it is handed the finished sentence and decides only whether
+ * saying it is welcome.
+ */
+export function baggageUpsellGap(selected: FareFamily): {
+  payNow: number;
+  payLater: number;
+  worseOffBy: number;
+  multiple: number;
+} | null {
+  if (selected !== "light") return null;
+  const payNow = FARE_RULES.saver.uplift;
+  const payLater = LIGHT_TO_SAVER_UPSELL;
+  if (payLater <= payNow) return null;
+  return {
+    payNow,
+    payLater,
+    worseOffBy: Math.round((payLater - payNow) * 100) / 100,
+    multiple: Math.round((payLater / payNow) * 100) / 100,
+  };
+}
 
 export const flightSchema = z.object({
   id: z.string(),
@@ -202,9 +259,10 @@ export function inventory(origin: string, destination: string, date: string): Fl
       via,
       layoverMinutes,
       fares: {
-        essentials,
-        advantage: Math.round(essentials * 145) / 100,
-        extra: Math.round(essentials * 195) / 100,
+        light: essentials,
+        saver: Math.round((essentials + FARE_RULES.saver.uplift) * 100) / 100,
+        saverPlus: Math.round((essentials + FARE_RULES.saverPlus.uplift) * 100) / 100,
+        comfortFlex: Math.round((essentials + FARE_RULES.comfortFlex.uplift) * 100) / 100,
       },
     });
   }
@@ -249,7 +307,7 @@ export function search(input: unknown): SearchResult {
   const parsed = searchSchema.parse(input);
   const flights = inventory(parsed.origin, parsed.destination, parsed.departDate);
   const cheapest = flights.reduce<number | null>((min, f) => {
-    const price = f.fares.essentials;
+    const price = f.fares.light;
     if (price === undefined) return min;
     return min === null || price < min ? price : min;
   }, null);
