@@ -21,6 +21,7 @@ type CompanionContextValue = {
   intervention: Intervention | null;
   judgement: Judgement | null;
   source: "jev" | "stub" | null;
+  reason: string | null;
   elapsedMs: number | null;
   /** A screen tells the companion where the passenger is. Cheap, call freely. */
   report: (next: Reportable) => void;
@@ -50,6 +51,7 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
   const [judgement, setJudgement] = useState<Judgement | null>(null);
   const [source, setSource] = useState<"jev" | "stub" | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
 
   /*
    * `report` is called from render-adjacent code on several screens, so it must be
@@ -87,6 +89,7 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
     setJudgement(null);
     setSource(null);
     setElapsedMs(null);
+    setReason(null);
     setState(INITIAL);
   }, []);
 
@@ -109,12 +112,14 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
           judgement: Judgement;
           source: "jev" | "stub";
           elapsedMs: number;
+          reason: string | null;
         };
         if (cancelled) return;
         setIntervention(body.intervention);
         setJudgement(body.judgement);
         setSource(body.source);
         setElapsedMs(body.elapsedMs);
+        setReason(body.reason ?? null);
       } catch {
         // The journey must work with the companion dead. Silence is the fallback.
       }
@@ -132,6 +137,7 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
       judgement,
       source,
       elapsedMs,
+      reason,
       report,
       simulateReturn,
       dismiss,
@@ -143,6 +149,7 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
       judgement,
       source,
       elapsedMs,
+      reason,
       report,
       simulateReturn,
       dismiss,
