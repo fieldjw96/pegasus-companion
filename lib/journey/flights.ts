@@ -85,6 +85,13 @@ export const flightSchema = z.object({
   arrivesNextDay: z.boolean(),
   aircraft: z.string(),
   seatsLeft: z.number().int().nonnegative(),
+  /**
+   * Pegasus is not purely point-to-point. The live app routes long thin pairs
+   * through the hub and shows "Via ADB, 11 hours 50 minutes layover", so the
+   * mock has to model a connection or the results screen cannot be reproduced.
+   */
+  via: z.string().nullable(),
+  layoverMinutes: z.number().int().nonnegative(),
   fares: z.record(z.enum(FARE_FAMILIES), z.number().positive()),
 });
 
@@ -144,18 +151,41 @@ export function formatDuration(minutes: number): string {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
-/** Every flight on one route on one date. Pegasus is point-to-point, so no stops. */
+/** Fares are shown in GBP to two decimals in the live app ("199.13 GBP"). */
+export function formatFare(amount: number): string {
+  return amount.toFixed(2);
+}
+
+/** Hub for connections. Domestic Turkish pairs route through Istanbul or Izmir. */
+const HUBS = ["ADB", "SAW", "ESB"] as const;
+
+/**
+ * Every flight on one route on one date.
+ *
+ * Some are direct and some route through a hub with a long layover, because the
+ * live app shows both and the difference is exactly the kind of thing a companion
+ * should have an opinion about.
+ */
 export function inventory(origin: string, destination: string, date: string): Flight[] {
   const random = rng(seedOf(`${origin}|${destination}|${date}`));
   const duration = baseDuration(origin, destination);
-  const count = 4 + Math.floor(random() * 4);
+  const count = 3 + Math.floor(random() * 4);
   const flights: Flight[] = [];
 
   for (let i = 0; i < count; i += 1) {
     const departMinute = 5 * 60 + Math.floor(random() * (16 * 60));
     const number = 1000 + Math.floor(random() * 899);
-    const base = Math.round((28 + duration * 0.42 + random() * 55) / 5) * 5;
-    const total = departMinute + duration;
+
+    const connects = random() < 0.35;
+    const hub = HUBS[Math.floor(random() * HUBS.length)] ?? "ADB";
+    const via = connects && hub !== origin && hub !== destination ? hub : null;
+    const layoverMinutes = via === null ? 0 : 90 + Math.floor(random() * 660);
+    const total = duration + layoverMinutes;
+
+    // A connection is cheaper per hour but costs the traveller a day; price it so
+    // the trade-off is real rather than decorative.
+    const base = 28 + duration * 0.42 + random() * 55 - (via === null ? 0 : 22);
+    const essentials = Math.max(19, Math.round(base * 100) / 100);
 
     flights.push({
       id: `PC${number}-${date.replace(/-/g, "")}-${i}`,
@@ -164,15 +194,17 @@ export function inventory(origin: string, destination: string, date: string): Fl
       destination,
       date,
       departs: formatTime(departMinute),
-      arrives: formatTime(total),
-      durationMinutes: duration,
-      arrivesNextDay: total >= 24 * 60,
+      arrives: formatTime(departMinute + total),
+      durationMinutes: total,
+      arrivesNextDay: departMinute + total >= 24 * 60,
       aircraft: random() < 0.6 ? "A320neo" : "A321neo",
       seatsLeft: 1 + Math.floor(random() * 23),
+      via,
+      layoverMinutes,
       fares: {
-        essentials: base,
-        advantage: Math.round((base * 1.45) / 5) * 5,
-        extra: Math.round((base * 1.95) / 5) * 5,
+        essentials,
+        advantage: Math.round(essentials * 145) / 100,
+        extra: Math.round(essentials * 195) / 100,
       },
     });
   }

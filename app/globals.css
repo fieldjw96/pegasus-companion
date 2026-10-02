@@ -1,20 +1,28 @@
 @import "tailwindcss";
 
 /*
- * Pegasus brand tokens.
+ * Pegasus brand tokens, read off real screenshots of the live app.
  *
- * The orange is #FF5C00, taken from Pegasus's own hackathon site rather than
- * eyedropped from a screenshot, so it is exact. The rest are chosen to sit with
- * it and should be corrected against real screenshots when those arrive.
+ * The important correction over the first guess: the primary call to action is
+ * YELLOW, not orange. Orange is an accent only — the BolBol mark, the active tab
+ * underline, the GBP/BolPoints toggle. Getting this backwards made the first pass
+ * look like a different airline.
  */
 @theme {
+  /* Primary. SEARCH FLIGHT, List Selected Dates, the flights-screen header. */
+  --color-pg-yellow: #fdb913;
+  --color-pg-yellow-dark: #e5a70c;
+
+  /* Accent only. BolBol, active underlines, the currency toggle. */
   --color-pg-orange: #ff5c00;
-  --color-pg-orange-dark: #e65300;
-  --color-pg-yellow: #ffc800;
-  --color-pg-navy: #1b2a4a;
-  --color-pg-ink: #52647b;
-  --color-pg-line: #e4e9f0;
-  --color-pg-surface: #f6f8fb;
+
+  /* The translucent grey bar the header becomes once the home screen scrolls. */
+  --color-pg-header: #a9b2bb;
+
+  --color-pg-navy: #1f2a37;
+  --color-pg-ink: #6b7684;
+  --color-pg-line: #e3e8ef;
+  --color-pg-surface: #f2f6fa;
 
   --font-sans: var(--font-app), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -31,10 +39,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Hide the scrollbar inside the phone frame without disabling scrolling. */
 .no-scrollbar {
   scrollbar-width: none;
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* The Pegasus wordmark is a backward-slanted italic. Faux-italic is close enough
+   for a mock and avoids shipping a font nobody licensed. */
+.wordmark {
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  transform: skewX(-6deg);
 }
