@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReportStep } from "@/components/companion/report-step";
+import { CardForm } from "@/components/card-form";
 import { JourneyFooter } from "@/components/journey-footer";
 import { href, packageLabel, parseBooking, passengerCount } from "@/lib/journey/booking";
 import { AIRPORTS, type AirportCode } from "@/lib/journey/flights";
@@ -102,27 +103,7 @@ export default async function PaymentScreen({
             <span className="text-[18px]">⌃</span>
           </div>
 
-          <div className="mt-4 flex items-start gap-3">
-            <span className="mt-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-pg-yellow bg-pg-yellow">
-              <span className="h-2 w-2 rounded-full bg-white" />
-            </span>
-            <span>
-              <span className="block text-[17px]">Enter Card Information</span>
-              <span className="block text-[15px] text-pg-ink">
-                (Visa, Master Card, Maestro, Electron, American Express, Troy)
-              </span>
-            </span>
-          </div>
-
-          <div className="mt-3 flex items-center gap-3 text-pg-line">
-            <span className="h-6 w-6 rounded-full border-2 border-pg-line" />
-            <span className="text-[17px]">Choose from your saved cards</span>
-          </div>
-
-          <CardField label="Card number" placeholder="Enter" />
-          <CardField label="Credit card holder" placeholder="Enter" />
-          <CardField label="Expiry date" placeholder="Month/Year" />
-          <CardField label="CVV" placeholder="Enter" />
+          <CardForm />
 
           <p className="mt-5 text-[17px] font-bold">Installment Options</p>
           <p className="text-[15px] text-pg-ink">
@@ -162,13 +143,4 @@ function deadline(): string {
   const d = new Date(Date.now() + 58 * 60 * 1000);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function CardField({ label, placeholder }: { label: string; placeholder: string }) {
-  return (
-    <div className="mt-4">
-      <p className="text-[15px] text-pg-ink">{label}</p>
-      <p className="border-b border-pg-line pb-1 text-[19px] text-pg-line">{placeholder}</p>
-    </div>
-  );
 }
