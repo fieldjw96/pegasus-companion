@@ -1,3 +1,4 @@
+import { findBaggageGap } from "./gap-finding";
 import { judge } from "./jev";
 import {
   INTERRUPTION_BUDGET,
@@ -66,8 +67,10 @@ export function chooseIntervention(
        * The arithmetic is done on the screen and arrives here as a Finding, so
        * this branch only decides whether saying it is welcome.
        */
-      const gapFinding = state.findings.find((f) => /worse off/i.test(f));
-      if (gapFinding !== undefined) {
+      // Predicate lives in gap-finding.ts, with its own test. See that file
+      // for the two ways this recognition has already been broken.
+      const gapFinding = findBaggageGap(state.findings);
+      if (gapFinding !== null) {
         return {
           channel: "inline",
           headline: "Taking SAVER now is cheaper than adding a bag later",

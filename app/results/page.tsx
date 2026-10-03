@@ -128,14 +128,7 @@ export default async function ResultsScreen({
         {flights.map((flight) => (
           <Link
             key={flight.id}
-            href={`/fare?${new URLSearchParams({
-              flightId: flight.id,
-              origin: query.origin,
-              destination: query.destination,
-              departDate: query.departDate,
-              adults: String(query.adults),
-              children: String(query.children),
-            }).toString()}`}
+            href={`/fare?${new URLSearchParams({ origin: query.origin, destination: query.destination, departDate: query.departDate, adults: String(query.adults), children: String(query.children), infants: String(query.infants), flightId: flight.id }).toString()}`}
             className="mb-3 block rounded-2xl bg-white p-4"
           >
             <div className="flex items-center justify-between">
