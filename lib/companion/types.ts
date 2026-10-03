@@ -19,6 +19,7 @@ export const companionStateSchema = z.object({
     "fare",
     "passengers",
     "seats",
+    "baggage",
     "extras",
     "payment",
     "confirmation",

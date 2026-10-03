@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chooseIntervention } from "./decide";
 import { stubJudgement } from "./jev";
 import { INTERRUPTION_BUDGET, type CompanionState } from "./types";
+import { compareBaggagePaths } from "../journey/baggage";
 
 const base: CompanionState = {
   step: "results",
@@ -87,18 +88,20 @@ describe("when it does speak", () => {
   });
 
   it("warns about the baggage upsell gap when the screen reports it", () => {
+    // The real finding, not a hand-written one. An earlier version of this test
+    // asserted against invented wording, so when the finding's prose changed the
+    // trigger stopped matching and only this test's fixture still agreed with it.
     const state: CompanionState = {
       ...base,
       step: "fare",
-      findings: [
-        "LIGHT is selected. Adding the same baggage after this screen costs 59.00 GBP, against 30.00 GBP to take SAVER now — 29.00 GBP worse off.",
-      ],
+      findings: [compareBaggagePaths().finding],
     };
     const judgement = { ...stubJudgement(state), openQuestion: "fare_family" as const };
     const intervention = chooseIntervention(state, judgement);
 
     expect(intervention?.headline).toContain("cheaper than adding a bag later");
-    expect(intervention?.detail).toContain("29.00");
+    expect(intervention?.detail).toContain("SAVER");
+    expect(intervention?.detail).toContain("25 kg");
     expect(intervention?.action?.href).toContain("saver");
   });
 

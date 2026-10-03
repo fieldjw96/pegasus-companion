@@ -1,51 +1,26 @@
 import Link from "next/link";
 import { ReportStep } from "@/components/companion/report-step";
+import { JourneyFooter } from "@/components/journey-footer";
 import { compareBaggagePaths } from "@/lib/journey/baggage";
-import {
-  FARE_FAMILIES,
-  FARE_RULES,
-  baggageUpsellGap,
-  formatFare,
-  inventory,
-  type FareFamily,
-} from "@/lib/journey/flights";
+import { href, parseBooking, selectedFlight } from "@/lib/journey/booking";
+import { FARE_FAMILIES, FARE_RULES, formatFare, type FareFamily } from "@/lib/journey/flights";
 
 /**
  * Outbound Flight Package Selection.
  *
- * Matched to the live app: four cards, each with a coloured bar down the left,
- * the package name, the price, a bulleted inclusion list, and a radio.
- *
- * This is the screen the Companion has the most to say about, and the reason is
- * on the "Upgrade Your Package" interstitial that follows it. See
- * `baggageUpsellGap`.
+ * The screen the Companion has most to say about, and the reason is one screen
+ * further on: the same baggage costs 59.00 after this point and 30.00 on it.
+ * See `compareBaggagePaths`.
  */
 export default async function FareScreen({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const raw = await searchParams;
-  const one = (key: string, fallback: string): string => {
-    const value = raw[key];
-    if (Array.isArray(value)) return value[0] ?? fallback;
-    return value ?? fallback;
-  };
+  const booking = parseBooking(await searchParams);
+  const flight = selectedFlight(booking);
 
-  const origin = one("origin", "STN");
-  const destination = one("destination", "SAW");
-  const fallbackDate = new Date();
-  fallbackDate.setDate(fallbackDate.getDate() + 17);
-  const departDate = one("departDate", fallbackDate.toISOString().slice(0, 10));
-  const flightId = one("flightId", "");
-  const adults = Number(one("adults", "1"));
-  const children = Number(one("children", "0"));
-  const selected = (one("package", "") || null) as FareFamily | null;
-
-  const flights = inventory(origin, destination, departDate);
-  const flight = flights.find((f) => f.id === flightId) ?? flights[0];
-
-  if (flight === undefined) {
+  if (flight === null) {
     return (
       <div className="p-6">
         <p className="text-[15px] font-semibold">No flights on this route.</p>
@@ -56,23 +31,20 @@ export default async function FareScreen({
     );
   }
 
-  /*
-   * Computed here, in code, and handed to the Companion as a finished sentence.
-   *
-   * The comparison is across all four routes to a checked bag, not just the
-   * upgrade offer: SAVER strictly dominates, and the route the app itself badges
-   * "Recommended" is 28.00 GBP worse for 5 kg less. See lib/journey/baggage.ts.
-   */
-  const gap = selected === null ? null : baggageUpsellGap(selected);
-  const finding = gap === null ? null : compareBaggagePaths().finding;
+  // Arithmetic here, in code. The judgement layer receives a finished sentence.
+  const finding = booking.package === "light" ? compareBaggagePaths().finding : null;
 
   return (
     <>
       <ReportStep
         step="fare"
-        route={`${origin}-${destination}`}
-        departDate={departDate}
-        party={{ adults, children, infants: 0 }}
+        route={`${booking.origin}-${booking.destination}`}
+        departDate={booking.departDate}
+        party={{
+          adults: booking.adults,
+          children: booking.children,
+          infants: booking.infants,
+        }}
         findings={finding === null ? undefined : [finding]}
       />
 
@@ -81,7 +53,12 @@ export default async function FareScreen({
         <h1 className="text-[17px] font-bold text-pg-navy">
           Outbound Flight Package Selection
         </h1>
-        <span className="text-[22px] leading-none text-pg-navy">✕</span>
+        <Link
+          href={href("results", booking)}
+          className="text-[22px] leading-none text-pg-navy"
+        >
+          ✕
+        </Link>
       </div>
 
       <div className="flex items-center justify-between bg-white px-4 py-3 text-[15px]">
@@ -92,18 +69,21 @@ export default async function FareScreen({
           <strong className="text-pg-ink">{flight.destination}</strong>{" "}
           <strong className="text-[17px]">{flight.arrives}</strong>
         </span>
-        <span className="text-[14px] text-pg-ink">{formatUk(departDate)}</span>
+        <span className="text-[14px] text-pg-ink">{formatUk(booking.departDate)}</span>
       </div>
 
-      <div className="bg-pg-surface px-3 pt-3 pb-32">
+      <div className="bg-pg-surface px-3 pt-3 pb-56">
         {FARE_FAMILIES.map((family: FareFamily) => {
           const pkg = FARE_RULES[family];
           const price = flight.fares[family] ?? 0;
-          const isSelected = selected === family;
+          const isSelected = booking.package === family;
           return (
-            <div
+            <Link
               key={family}
-              className="mb-3 flex overflow-hidden rounded-2xl bg-white shadow-sm"
+              href={href("fare", booking, { package: family, flightId: flight.id })}
+              className={`mb-3 flex overflow-hidden rounded-2xl bg-white shadow-sm ${
+                isSelected ? "ring-2 ring-pg-orange" : ""
+              }`}
             >
               <span className={`w-1.5 shrink-0 ${pkg.accent}`} />
               <div className="min-w-0 flex-1 p-4">
@@ -111,23 +91,13 @@ export default async function FareScreen({
                   <p className="text-[19px] font-bold">{pkg.label}</p>
                   <span className="flex items-center gap-3">
                     <span className="text-[19px] font-bold">{formatFare(price)} GBP</span>
-                    <Link
-                      href={`/fare?${new URLSearchParams({
-                        flightId: flight.id,
-                        origin,
-                        destination,
-                        departDate,
-                        adults: String(adults),
-                        children: String(children),
-                        package: family,
-                      }).toString()}`}
-                      aria-label={`Select ${pkg.label}`}
+                    <span
                       className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${
                         isSelected ? "border-pg-orange bg-pg-orange" : "border-pg-line"
                       }`}
                     >
                       {isSelected && <span className="text-[13px] text-white">✓</span>}
-                    </Link>
+                    </span>
                   </span>
                 </div>
 
@@ -152,10 +122,18 @@ export default async function FareScreen({
                   </div>
                 )}
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
+
+      <JourneyFooter
+        booking={booking}
+        label="Continue"
+        href={href("passengers", booking, { flightId: flight.id })}
+        disabled={booking.package === null}
+        note={booking.package === null ? "Choose a package to continue." : undefined}
+      />
     </>
   );
 }
