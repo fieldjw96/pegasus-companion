@@ -10,7 +10,7 @@ import { useCompanion } from "./companion/companion-provider";
  * the time travel is fake, the judgement that follows is not.
  */
 export function DemoControls() {
-  const { state, judgement, source, elapsedMs, simulateReturn, reset, intervention } =
+  const { state, judgement, source, elapsedMs, reason, simulateReturn, reset, intervention } =
     useCompanion();
 
   return (
@@ -85,10 +85,18 @@ export function DemoControls() {
       )}
 
       {source === "stub" && (
-        <p className="mt-4 rounded-lg bg-pg-yellow/10 p-2 text-[11px] leading-snug text-pg-yellow">
-          Running on the deterministic stub. Set <code>JEV_API_KEY</code> to decide with Jev
-          instead — the judgements get better, the architecture does not change.
-        </p>
+        <div className="mt-4 rounded-lg bg-pg-yellow/10 p-2 text-[11px] leading-snug text-pg-yellow">
+          <p className="font-semibold">Deciding with the deterministic stub.</p>
+          {/* The reason matters: a missing key and a broken call used to look
+              identical from here, which hid a wrong endpoint URL for an evening. */}
+          <p className="mt-1 opacity-90">{reason ?? "no reason reported"}</p>
+          {reason === "JEV_API_KEY is not set" && (
+            <p className="mt-1 opacity-80">
+              Set <code>JEV_API_KEY</code> and redeploy to decide with Jev instead. The
+              judgements get better; the architecture does not change.
+            </p>
+          )}
+        </div>
       )}
     </aside>
   );

@@ -134,7 +134,14 @@ export async function decide(state: CompanionState): Promise<{
   judgement: Judgement;
   source: "jev" | "stub";
   elapsedMs: number;
+  reason: string | null;
 }> {
-  const { judgement, source, elapsedMs } = await judge(state);
-  return { intervention: chooseIntervention(state, judgement), judgement, source, elapsedMs };
+  const { judgement, source, elapsedMs, reason } = await judge(state);
+  return {
+    intervention: chooseIntervention(state, judgement),
+    judgement,
+    source,
+    elapsedMs,
+    reason,
+  };
 }
