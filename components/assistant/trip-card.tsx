@@ -52,21 +52,21 @@ export function TripCard({
   }
 
   return (
-    <section className="rounded-3xl border border-pg-edge bg-white shadow-[0_8px_30px_rgba(31,42,55,0.06)]">
-      <header className="flex items-baseline justify-between border-b border-pg-edge px-5 py-4">
+    <section className="pg-card">
+      <header className="flex items-baseline justify-between border-b border-pg-line px-5 py-4">
         <div>
           <h2 className="text-[19px] font-bold">Your trip</h2>
-          <p className="mt-0.5 text-[12px] text-pg-soft">
+          <p className="mt-0.5 text-[12px] text-pg-ink">
             {counts.said} from you · {counts.profile} remembered · {counts.predicted} predicted
           </p>
         </div>
         <span className="text-right">
           <span className="block text-[22px] font-bold">{formatFare(total)}</span>
-          <span className="block text-[12px] text-pg-soft">GBP total</span>
+          <span className="block text-[12px] text-pg-ink">GBP total</span>
         </span>
       </header>
 
-      <dl className="divide-y divide-pg-edge">
+      <dl className="divide-y divide-pg-line">
         {FIELD_ORDER.map((key) => {
           const entry = draft[key];
           const style = SOURCE_STYLE[entry.source];
@@ -74,7 +74,7 @@ export function TripCard({
           return (
             <div key={key} className="px-5 py-3">
               <div className="flex items-start gap-3">
-                <dt className="w-24 shrink-0 pt-0.5 text-[13px] text-pg-soft">
+                <dt className="w-24 shrink-0 pt-0.5 text-[13px] text-pg-ink">
                   {FIELD_LABELS[key]}
                 </dt>
                 <dd className="min-w-0 flex-1">
@@ -92,7 +92,7 @@ export function TripCard({
                     )}
                   </div>
                   {entry.source !== "said" && (
-                    <p className="mt-1 text-[12px] leading-snug text-pg-soft">{entry.why}</p>
+                    <p className="mt-1 text-[12px] leading-snug text-pg-ink">{entry.why}</p>
                   )}
                   {open && <Editor draftKey={key} draft={draft} onPick={set} />}
                 </dd>
@@ -110,7 +110,7 @@ export function TripCard({
       </dl>
 
       {draft.notes.length > 0 && (
-        <div className="border-t border-pg-edge bg-pg-mist/60 px-5 py-4">
+        <div className="border-t border-pg-line bg-pg-surface/60 px-5 py-4">
           <ul className="space-y-2">
             {draft.notes.map((note) => (
               <li key={note} className="flex gap-2 text-[13px] leading-snug text-pg-navy/85">
@@ -191,7 +191,7 @@ function Editor({
         autoFocus
         value={draft[draftKey].value}
         onChange={(e) => onPick(draftKey, e.target.value)}
-        className="mt-3 w-full rounded-lg border border-pg-edge px-3 py-2 text-[15px]"
+        className="mt-3 w-full rounded-lg border border-pg-line px-3 py-2 text-[15px]"
       >
         {airportCodes.map((code) => (
           <option key={code} value={code}>
@@ -209,7 +209,7 @@ function Editor({
         type="date"
         value={draft.departDate.value}
         onChange={(e) => onPick("departDate", e.target.value)}
-        className="mt-3 w-full rounded-lg border border-pg-edge px-3 py-2 text-[15px]"
+        className="mt-3 w-full rounded-lg border border-pg-line px-3 py-2 text-[15px]"
       />
     );
   }
@@ -221,12 +221,12 @@ function Editor({
           type="date"
           value={draft.returnDate.value ?? ""}
           onChange={(e) => onPick("returnDate", e.target.value === "" ? null : e.target.value)}
-          className="flex-1 rounded-lg border border-pg-edge px-3 py-2 text-[15px]"
+          className="flex-1 rounded-lg border border-pg-line px-3 py-2 text-[15px]"
         />
         <button
           type="button"
           onClick={() => onPick("returnDate", null)}
-          className="rounded-lg bg-pg-mist px-3 py-2 text-[13px] font-semibold"
+          className="rounded-lg bg-pg-surface px-3 py-2 text-[13px] font-semibold"
         >
           One way
         </button>
@@ -350,7 +350,7 @@ function Chip({
       type="button"
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-[13px] font-semibold capitalize ${
-        on ? "bg-pg-navy text-white" : "bg-pg-mist text-pg-navy"
+        on ? "bg-pg-navy text-white" : "bg-pg-surface text-pg-navy"
       }`}
     >
       {children}
@@ -363,7 +363,7 @@ function Step({ children, onClick }: { children: React.ReactNode; onClick: () =>
     <button
       type="button"
       onClick={onClick}
-      className="h-7 w-7 rounded-full bg-pg-mist text-[16px] leading-none font-bold"
+      className="h-7 w-7 rounded-full bg-pg-surface text-[16px] leading-none font-bold"
     >
       {children}
     </button>

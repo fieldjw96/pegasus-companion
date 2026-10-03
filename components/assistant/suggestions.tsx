@@ -1,6 +1,7 @@
 "use client";
 
 import { formatFare } from "@/lib/journey/flights";
+import { DestinationArt } from "./destination-art";
 import type { Suggestion } from "@/lib/assistant/discover";
 
 /**
@@ -11,7 +12,7 @@ import type { Suggestion } from "@/lib/assistant/discover";
  * wrong question.
  *
  * Each card carries the reason it is in the list. A ranking nobody can audit is
- * just a slot machine with a brand on it.
+ * a slot machine with a brand on it.
  */
 export function Suggestions({
   suggestions,
@@ -26,9 +27,9 @@ export function Suggestions({
 
   return (
     <section>
-      <h2 className="text-[19px] font-bold">Three that fit</h2>
-      <p className="mt-0.5 text-[13px] text-pg-soft">
-        Prices are the cheapest LIGHT fare for {travellers} travelling.
+      <h2 className="text-[20px] font-bold tracking-tight">Three that fit</h2>
+      <p className="mt-0.5 text-[13px] text-pg-ink">
+        Cheapest LIGHT fare, for {travellers} travelling.
       </p>
 
       <div className="mt-3 space-y-3">
@@ -37,19 +38,32 @@ export function Suggestions({
             key={s.code}
             type="button"
             onClick={() => onChoose(s.code)}
-            className="block w-full rounded-2xl border border-pg-edge bg-white p-4 text-left transition hover:border-pg-yellow"
+            className="pg-card block w-full overflow-hidden text-left transition active:scale-[0.99]"
           >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-[18px] font-bold">{s.city}</span>
-              <span className="shrink-0 text-right">
-                <span className="block text-[17px] font-bold">{formatFare(s.from)}</span>
-                <span className="block text-[11px] text-pg-soft">from, each way</span>
+            <span className="relative block h-32">
+              <DestinationArt code={s.code} className="absolute inset-0 h-full w-full" />
+              <span className="relative flex h-full items-end justify-between gap-3 p-4">
+                <span className="text-[22px] leading-none font-bold text-white drop-shadow">
+                  {s.city}
+                </span>
+                <span className="shrink-0 rounded-full bg-white/95 px-3 py-1 text-right">
+                  <span className="block text-[15px] leading-tight font-bold text-pg-navy">
+                    {formatFare(s.from)}
+                  </span>
+                  <span className="block text-[10px] leading-tight text-pg-ink">from</span>
+                </span>
               </span>
-            </div>
-            <p className="mt-1 text-[14px] leading-snug text-pg-navy/85">{s.pitch}</p>
-            <p className="mt-2 text-[12px] leading-snug text-pg-soft">{s.because}</p>
-            <span className="mt-3 inline-block text-[13px] font-semibold text-pg-orange">
-              Plan this one →
+            </span>
+
+            <span className="block p-4">
+              <span className="block text-[14px] leading-snug text-pg-navy/90">{s.pitch}</span>
+              <span className="mt-2 block text-[12px] leading-snug text-pg-ink">
+                {s.because}
+              </span>
+              <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-bold text-pg-orange">
+                Plan this one
+                <span aria-hidden>→</span>
+              </span>
             </span>
           </button>
         ))}

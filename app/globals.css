@@ -58,24 +58,28 @@ body {
 /*
  * Assistant surface.
  *
- * Same Pegasus palette, calmer execution: more air, softer edges, one accent
- * rather than three competing. The yellow stays the only call to action, which
- * is what keeps it recognisably Pegasus while the layout stops looking like a
- * 2014 booking funnel.
+ * Pegasus palette, not a cream one. The first pass borrowed Claude's warm paper
+ * and stopped looking like the airline: the live app is white cards on a cool
+ * blue-grey, yellow for the one action that matters, orange reserved for
+ * accents. Same tokens as the rest of the mock, more air between them.
  */
-@theme {
-  --color-pg-paper: #fffdf8;
-  --color-pg-mist: #f4f1ea;
-  --color-pg-edge: #e8e3d8;
-  --color-pg-soft: #8b8578;
-}
-
 .assistant-bg {
   background:
-    radial-gradient(90% 60% at 50% -10%, rgba(253, 185, 19, 0.16), transparent 60%),
-    var(--color-pg-paper);
+    radial-gradient(120% 70% at 50% -20%, rgba(253, 185, 19, 0.22), transparent 62%),
+    linear-gradient(180deg, #ffffff 0%, var(--color-pg-surface) 28%);
 }
 
-.serif {
-  font-family: ui-serif, Georgia, "Times New Roman", serif;
+/* The one card treatment used throughout, so nothing looks bolted on. */
+.pg-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow:
+    0 1px 2px rgba(31, 42, 55, 0.04),
+    0 8px 24px rgba(31, 42, 55, 0.07);
+}
+
+.pg-chip {
+  border-radius: 999px;
+  background: var(--color-pg-surface);
+  color: var(--color-pg-navy);
 }

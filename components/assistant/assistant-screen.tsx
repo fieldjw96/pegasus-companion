@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ChatBox } from "./chat-box";
 import { Suggestions } from "./suggestions";
 import { TripCard } from "./trip-card";
+import { DestinationArt } from "./destination-art";
 import { PROFILES, type Profile } from "@/lib/assistant/profiles";
 import { buildDraft, extract } from "@/lib/assistant/understand";
 import { suggest, type Suggestion } from "@/lib/assistant/discover";
@@ -25,10 +26,22 @@ import { FARE_RULES, inventory } from "@/lib/journey/flights";
  * the same answer.
  */
 
-const EXAMPLES = [
-  "Stansted to Izmir on 19 October, back on the 25th, checking a bag",
-  "Somewhere warm in October, under £600, nothing too long",
-  "Two nights in Berlin next month, hand luggage only",
+const EXAMPLES: { code: string; title: string; prompt: string }[] = [
+  {
+    code: "ADB",
+    title: "Izmir",
+    prompt: "Stansted to Izmir on 19 October, back on the 25th, checking a bag",
+  },
+  {
+    code: "AYT",
+    title: "Somewhere warm",
+    prompt: "Somewhere warm in October, under £600, nothing too long",
+  },
+  {
+    code: "BER",
+    title: "Berlin",
+    prompt: "Two nights in Berlin next month, hand luggage only",
+  },
 ];
 
 type Phase = "idle" | "thinking" | "discovery" | "trip";
@@ -99,14 +112,14 @@ export function AssistantScreen() {
           <p className="serif text-[34px] leading-tight font-normal text-pg-navy">
             Hello, Jack
           </p>
-          <p className="mt-2 text-[15px] leading-snug text-pg-soft">
+          <p className="mt-2 text-[15px] leading-snug text-pg-ink">
             Tell me where you want to go, or everything about the trip at once.
           </p>
         </div>
       ) : (
         <div className="flex items-start justify-between gap-3 pt-6 pb-4">
           <p className="min-w-0 flex-1 text-[15px] leading-snug text-pg-navy/80">
-            <span className="text-pg-soft">You said: </span>
+            <span className="text-pg-ink">You said: </span>
             {prompt}
           </p>
           <button
@@ -132,17 +145,30 @@ export function AssistantScreen() {
       />
 
       {phase === "idle" && (
-        <div className="mt-6">
-          <p className="text-[12px] font-medium text-pg-soft">Try</p>
-          <div className="mt-2 space-y-2">
+        <div className="mt-7">
+          <p className="px-1 text-[11px] font-bold tracking-wider text-pg-ink uppercase">
+            Try
+          </p>
+          <div className="mt-2.5 space-y-3">
             {EXAMPLES.map((example) => (
               <button
-                key={example}
+                key={example.prompt}
                 type="button"
-                onClick={() => run(example)}
-                className="block w-full rounded-xl border border-pg-edge bg-white/70 px-3 py-2.5 text-left text-[14px] leading-snug"
+                onClick={() => run(example.prompt)}
+                className="pg-card relative block h-28 w-full overflow-hidden text-left"
               >
-                {example}
+                <DestinationArt
+                  code={example.code}
+                  className="absolute inset-0 h-full w-full"
+                />
+                <span className="relative flex h-full flex-col justify-end p-4">
+                  <span className="text-[19px] leading-tight font-bold text-white drop-shadow">
+                    {example.title}
+                  </span>
+                  <span className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-white/90">
+                    {example.prompt}
+                  </span>
+                </span>
               </button>
             ))}
           </div>
@@ -154,11 +180,11 @@ export function AssistantScreen() {
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="h-14 animate-pulse rounded-2xl bg-white/70"
+              className="h-14 animate-pulse rounded-2xl bg-white"
               style={{ animationDelay: `${i * 120}ms` }}
             />
           ))}
-          <p className="text-center text-[13px] text-pg-soft">
+          <p className="text-center text-[13px] text-pg-ink">
             Filling in what you did not say…
           </p>
         </div>
@@ -177,10 +203,10 @@ export function AssistantScreen() {
       )}
 
       {phase === "trip" && draft !== null && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-pg-edge bg-white/95 px-4 pt-3 pb-5 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-pg-line bg-white/95 px-4 pt-3 pb-5 backdrop-blur">
           <div className="mx-auto flex max-w-[358px] items-center gap-3">
             <span className="flex-1">
-              <span className="block text-[12px] text-pg-soft">Total for {travellers}</span>
+              <span className="block text-[12px] text-pg-ink">Total for {travellers}</span>
               <span className="block text-[20px] font-bold">{total.toFixed(2)} GBP</span>
             </span>
             <button
