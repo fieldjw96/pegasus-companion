@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { href, parseBooking } from "@/lib/journey/booking";
 
 /**
@@ -21,20 +20,6 @@ export default async function SkipSeatScreen({
 
   return (
     <>
-      <ReportStep
-        step="seats"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-        findings={[
-          "The seat warning says counter fees 'may be higher' without saying how much. Front Row Comfort is 24.00-25.00 GBP here.",
-        ]}
-      />
-
       <div className="flex items-center justify-between bg-pg-yellow px-4 py-3">
         <span className="w-6" />
         <h1 className="text-[17px] font-bold text-pg-navy">Attention!</h1>

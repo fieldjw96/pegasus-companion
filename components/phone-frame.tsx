@@ -1,6 +1,4 @@
 import type { ReactNode } from "react";
-import { DemoControls } from "@/components/demo-controls";
-import { CompanionSurface } from "@/components/companion/companion-surface";
 import { BottomNav } from "@/components/bottom-nav";
 
 /**
@@ -30,11 +28,8 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
           </div>
 
           <BottomNav />
-          <CompanionSurface />
         </div>
       </div>
-
-      <DemoControls />
     </div>
   );
 }

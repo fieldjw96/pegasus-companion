@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { CardForm } from "@/components/card-form";
 import { JourneyFooter } from "@/components/journey-footer";
 import { href, packageLabel, parseBooking, passengerCount } from "@/lib/journey/booking";
@@ -27,20 +26,6 @@ export default async function PaymentScreen({
 
   return (
     <>
-      <ReportStep
-        step="payment"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-        findings={[
-          "Payment shows a countdown of about an hour. Nothing about the fare actually expires then; it is a hold, not a deadline.",
-        ]}
-      />
-
       <div className="flex items-center justify-between bg-pg-yellow px-4 py-3">
         <Link href={href("extras", booking)} className="text-[22px] leading-none text-pg-navy">
           ←

@@ -1,5 +1,4 @@
 import { FlightsHeader } from "@/components/bolbol-header";
-import { ReportStep } from "@/components/companion/report-step";
 import { AIRPORTS, formatFare, inventory, type AirportCode } from "@/lib/journey/flights";
 
 /**
@@ -71,7 +70,6 @@ export default async function CalendarScreen({
 
   return (
     <>
-      <ReportStep step="results" route={`${origin}-${destination}`} departDate={selected} />
       <FlightsHeader title="Calendar/Chart" />
 
       <div className="flex border-b border-pg-line bg-white text-[15px] font-semibold">

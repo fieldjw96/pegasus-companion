@@ -54,3 +54,28 @@ body {
   letter-spacing: -0.03em;
   transform: skewX(-6deg);
 }
+
+/*
+ * Assistant surface.
+ *
+ * Same Pegasus palette, calmer execution: more air, softer edges, one accent
+ * rather than three competing. The yellow stays the only call to action, which
+ * is what keeps it recognisably Pegasus while the layout stops looking like a
+ * 2014 booking funnel.
+ */
+@theme {
+  --color-pg-paper: #fffdf8;
+  --color-pg-mist: #f4f1ea;
+  --color-pg-edge: #e8e3d8;
+  --color-pg-soft: #8b8578;
+}
+
+.assistant-bg {
+  background:
+    radial-gradient(90% 60% at 50% -10%, rgba(253, 185, 19, 0.16), transparent 60%),
+    var(--color-pg-paper);
+}
+
+.serif {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+}

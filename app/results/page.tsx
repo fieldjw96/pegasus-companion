@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { FlightsHeader } from "@/components/bolbol-header";
 import {
   AIRPORTS,
@@ -58,13 +57,6 @@ export default async function ResultsScreen({
 
   return (
     <>
-      <ReportStep
-        step="results"
-        route={`${query.origin}-${query.destination}`}
-        departDate={query.departDate}
-        party={{ adults: query.adults, children: query.children, infants: query.infants }}
-      />
-
       <FlightsHeader
         title="Departure Flights"
         action={<span className="text-[18px] text-pg-navy">☰</span>}

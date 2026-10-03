@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { JourneyFooter } from "@/components/journey-footer";
 import { bookingQuery, href, parseBooking, selectedFlight } from "@/lib/journey/booking";
 import { AIRPORTS, type AirportCode } from "@/lib/journey/flights";
@@ -43,17 +42,6 @@ export default async function SeatsScreen({
 
   return (
     <>
-      <ReportStep
-        step="seats"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-      />
-
       <div className="flex items-center justify-between bg-pg-yellow px-4 py-3">
         <Link
           href={href("passengers", booking)}

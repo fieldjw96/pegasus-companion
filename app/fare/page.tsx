@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { JourneyFooter } from "@/components/journey-footer";
-import { compareBaggagePaths } from "@/lib/journey/baggage";
 import { href, parseBooking, selectedFlight } from "@/lib/journey/booking";
 import { FARE_FAMILIES, FARE_RULES, formatFare, type FareFamily } from "@/lib/journey/flights";
 
@@ -31,23 +29,8 @@ export default async function FareScreen({
     );
   }
 
-  // Arithmetic here, in code. The judgement layer receives a finished sentence.
-  const finding = booking.package === "light" ? compareBaggagePaths().finding : null;
-
   return (
     <>
-      <ReportStep
-        step="fare"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-        findings={finding === null ? undefined : [finding]}
-      />
-
       <div className="flex items-center justify-between bg-pg-yellow px-4 py-3">
         <span className="w-6" />
         <h1 className="text-[17px] font-bold text-pg-navy">

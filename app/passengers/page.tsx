@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { JourneyFooter } from "@/components/journey-footer";
 import { PassengerForm } from "@/components/passenger-form";
 import { href, parseBooking } from "@/lib/journey/booking";
@@ -27,20 +26,6 @@ export default async function PassengersScreen({
 
   return (
     <>
-      <ReportStep
-        step="passengers"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-        findings={[
-          `Departure is ${originCity}, the fare is in GBP and the account is Jack Field — yet Nationality defaults to Turkish Citizen and the phone code to CA (+1).`,
-        ]}
-      />
-
       <div className="flex items-center justify-between bg-pg-yellow px-4 py-3">
         <Link href={href("fare", booking)} className="text-[22px] leading-none text-pg-navy">
           ←

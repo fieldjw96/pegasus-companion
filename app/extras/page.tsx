@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { JourneyFooter } from "@/components/journey-footer";
 import { href, parseBooking } from "@/lib/journey/booking";
 import { formatFare } from "@/lib/journey/flights";
@@ -34,24 +33,6 @@ export default async function ExtrasScreen({
 
   return (
     <>
-      <ReportStep
-        step="extras"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-        findings={
-          booking.freeChange
-            ? undefined
-            : [
-                `The Free Change Option at 6.00 GBP is being offered here having already been offered on Selected Flights. Departure is ${days} days away.`,
-              ]
-        }
-      />
-
       <div className="flex items-center justify-between bg-pg-yellow px-4 py-3">
         <Link
           href={href("baggage", booking)}

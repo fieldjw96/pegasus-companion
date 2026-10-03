@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { compareBaggagePaths } from "@/lib/journey/baggage";
 import {
   href,
@@ -38,17 +37,6 @@ export default async function ConfirmationScreen({
 
   return (
     <>
-      <ReportStep
-        step="confirmation"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-      />
-
       <div className="flex items-center justify-center bg-pg-yellow px-4 py-3">
         <h1 className="text-[17px] font-bold text-pg-navy">Booking Confirmed</h1>
       </div>

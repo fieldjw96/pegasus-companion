@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { PhoneFrame } from "@/components/phone-frame";
-import { CompanionProvider } from "@/components/companion/companion-provider";
 
 export const metadata: Metadata = {
   title: "Pegasus — booking mock",
@@ -18,9 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           root layout rather than per-page means a new screen cannot accidentally
           render full-width and look right in isolation but wrong in the demo.
         */}
-        <CompanionProvider>
-          <PhoneFrame>{children}</PhoneFrame>
-        </CompanionProvider>
+        <PhoneFrame>{children}</PhoneFrame>
       </body>
     </html>
   );

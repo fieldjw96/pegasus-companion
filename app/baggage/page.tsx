@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ReportStep } from "@/components/companion/report-step";
 import { JourneyFooter } from "@/components/journey-footer";
 import { BAGGAGE_PRICES, compareBaggagePaths } from "@/lib/journey/baggage";
 import { href, parseBooking } from "@/lib/journey/booking";
@@ -28,27 +27,8 @@ export default async function BaggageScreen({
   const verdict = compareBaggagePaths();
   const tookLight = booking.package === "light";
 
-  // Only a finding when it is actually true of this booking.
-  const findings = tookLight
-    ? [
-        `LIGHT was taken, so baggage is now priced a la carte: cabin ${formatFare(BAGGAGE_PRICES.cabin)}, 20 kg ${formatFare(BAGGAGE_PRICES.checked20)}. ${verdict.finding}`,
-      ]
-    : undefined;
-
   return (
     <>
-      <ReportStep
-        step="baggage"
-        route={`${booking.origin}-${booking.destination}`}
-        departDate={booking.departDate}
-        party={{
-          adults: booking.adults,
-          children: booking.children,
-          infants: booking.infants,
-        }}
-        findings={findings}
-      />
-
       <div className="flex items-center justify-between bg-pg-yellow px-4 py-3">
         <Link href={href("seats", booking)} className="text-[22px] leading-none text-pg-navy">
           ←
