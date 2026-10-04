@@ -17,11 +17,16 @@ export function ChatBox({
   onProfileChange,
   onSubmit,
   busy,
+  placeholder = "Where are we going? Or tell me the whole trip at once.",
+  action = "Plan it",
 }: {
   profile: Profile;
   onProfileChange: (next: Profile) => void;
   onSubmit: (prompt: string) => void;
   busy: boolean;
+  /** Changes once a trip exists: the ask is no longer "where", it is "what else". */
+  placeholder?: string;
+  action?: string;
 }) {
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
@@ -48,7 +53,7 @@ export function ChatBox({
             }
           }}
           rows={2}
-          placeholder="Where are we going? Or tell me the whole trip at once."
+          placeholder={placeholder}
           className="w-full resize-none bg-transparent px-2 pt-1 text-[16px] leading-snug outline-none placeholder:text-pg-ink/70"
         />
 
@@ -92,7 +97,7 @@ export function ChatBox({
             disabled={text.trim() === "" || busy}
             className="ml-auto flex h-11 items-center rounded-full bg-pg-yellow px-6 text-[15px] font-bold text-pg-navy transition disabled:opacity-30"
           >
-            {busy ? "Thinking" : "Plan it"}
+            {busy ? "Thinking" : action}
           </button>
         </div>
       </div>

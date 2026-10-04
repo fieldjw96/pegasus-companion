@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDraft, extract } from "./understand";
 import { PROFILES, profileById } from "./profiles";
+import { FIELD_ORDER } from "./draft";
 
 const family = profileById("family")!;
 const business = profileById("business")!;
@@ -133,6 +134,42 @@ describe("every profile produces a usable draft", () => {
       expect(draft.destination.value.length).toBe(3);
       expect(draft.party.value.adults).toBeGreaterThanOrEqual(1);
       expect(draft.departDate.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+});
+
+describe("reasons belong to the trip they are shown on", () => {
+  /**
+   * A shipped bug, caught only by looking at a screenshot: every profile that
+   * chose a changeable fare explained it with one hardcoded sentence about work
+   * trips, so a family holiday justified itself with "your work trips get
+   * changed often enough". On a screen whose whole claim is that it shows its
+   * reasoning, a reason belonging to somebody else's trip is worse than silence.
+   */
+  it("gives each profile its own flexibility reason", () => {
+    for (const profile of PROFILES) {
+      const draft = buildDraft("Izmir in October", profile);
+      expect(draft.flexibility.why).toBe(profile.habits.flexibilityReason);
+    }
+  });
+
+  it("never mentions work on a trip that is not for work", () => {
+    for (const profile of PROFILES.filter((p) => p.id !== "business")) {
+      const draft = buildDraft("Izmir in October", profile);
+      expect(draft.flexibility.why.toLowerCase()).not.toContain("work");
+    }
+  });
+
+  it("explains itself in a full sentence on every inferred field", () => {
+    // An empty reason renders as a blank line under a value the passenger did
+    // not choose, which is the worst of both: visibly inferred, unexplained.
+    for (const profile of PROFILES) {
+      const draft = buildDraft("Izmir in October", profile);
+      for (const key of FIELD_ORDER) {
+        if (draft[key].source === "said") continue;
+        expect(draft[key].why.length).toBeGreaterThan(10);
+        expect(draft[key].why.endsWith(".")).toBe(true);
+      }
     }
   });
 });

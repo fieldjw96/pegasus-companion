@@ -32,6 +32,16 @@ export type Profile = {
     checkedBag: boolean;
     seatPreference: "aisle" | "window" | "together" | "none";
     flexibility: "none" | "change" | "full";
+    /**
+     * Why this kind of trip is or is not worth paying to change.
+     *
+     * Per profile, and required, because the first version had one hardcoded
+     * sentence for every profile that chose flexibility — so a family holiday
+     * explained itself with "your work trips get changed often enough". On a
+     * screen whose entire claim is that it shows its reasoning, a reason
+     * belonging to somebody else's trip is worse than no reason at all.
+     */
+    flexibilityReason: string;
     preferredDeparture: "early" | "midday" | "evening" | "any";
     reason: string;
   };
@@ -50,6 +60,8 @@ export const PROFILES: Profile[] = [
       checkedBag: false,
       seatPreference: "aisle",
       flexibility: "change",
+      flexibilityReason:
+        "Work trips move. Three of your last four were changed at least once.",
       preferredDeparture: "early",
       reason:
         "Your last four work trips were hand luggage only, aisle, and changed at least once.",
@@ -69,6 +81,7 @@ export const PROFILES: Profile[] = [
       checkedBag: true,
       seatPreference: "window",
       flexibility: "none",
+      flexibilityReason: "You have never paid to make a holiday changeable.",
       preferredDeparture: "any",
       reason:
         "You check a bag on every holiday booking, and you have never paid for flexibility.",
@@ -89,6 +102,7 @@ export const PROFILES: Profile[] = [
       checkedBag: true,
       seatPreference: "together",
       flexibility: "change",
+      flexibilityReason: "School dates move. You changed last October's half term twice.",
       preferredDeparture: "midday",
       reason:
         "Travelling with Mila, you have always chosen seats together and avoided the first flight of the day.",
@@ -114,6 +128,7 @@ export const PROFILES: Profile[] = [
       checkedBag: false,
       seatPreference: "none",
       flexibility: "none",
+      flexibilityReason: "Two nights away is not worth paying to move.",
       preferredDeparture: "evening",
       reason: "Short trips, cabin bags only, and you have never chosen a seat on one.",
     },

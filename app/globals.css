@@ -83,3 +83,117 @@ body {
   background: var(--color-pg-surface);
   color: var(--color-pg-navy);
 }
+
+/*
+ * The assistant's avatar.
+ *
+ * Wings beat only while it is thinking. The mirrored wing carries its flip on a
+ * nested group, because a CSS transform on the element would replace the SVG
+ * transform attribute rather than compose with it, and the wing would snap to
+ * the wrong side mid-animation.
+ */
+@keyframes pg-flap-l {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-17deg);
+  }
+}
+@keyframes pg-flap-r {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(17deg);
+  }
+}
+@keyframes pg-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes pg-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+.pg-flap-l {
+  animation: pg-flap-l 620ms ease-in-out infinite;
+}
+.pg-flap-r {
+  animation: pg-flap-r 620ms ease-in-out infinite;
+}
+.pg-bob {
+  animation: pg-bob 1.24s ease-in-out infinite;
+}
+/* The resting hover over the greeting. Slower and gentler than the work beat. */
+.pg-float {
+  animation: pg-float 4.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-flap-l,
+  .pg-flap-r,
+  .pg-bob,
+  .pg-float {
+    animation: none;
+  }
+}
+
+/*
+ * The ticket.
+ *
+ * Deliberately not `.pg-card`: it needs a heavier shadow so it lifts off the
+ * surface like a physical thing, and it must NOT clip, because the perforation
+ * notches are punched outside its own edges. Children that need clipping round
+ * the corners do it themselves.
+ */
+.pg-ticket {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow:
+    0 2px 4px rgba(31, 42, 55, 0.06),
+    0 20px 48px rgba(31, 42, 55, 0.16);
+}
+
+/* A hole bitten out of the card, in the colour of whatever is behind it. */
+.pg-notch {
+  position: absolute;
+  top: 50%;
+  height: 26px;
+  width: 26px;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  background: var(--color-pg-surface);
+}
+
+/* Decorative, and not a real symbology. See the note in ticket.tsx. */
+.pg-barcode {
+  display: flex;
+  gap: 1px;
+  height: 34px;
+  max-width: 152px;
+  overflow: hidden;
+}
+.pg-barcode > span {
+  display: block;
+  height: 100%;
+  background: var(--color-pg-navy);
+}
+
+/* The return leg's aeroplane points the other way. */
+.pg-flip {
+  display: inline-block;
+  transform: scaleX(-1);
+}

@@ -35,10 +35,16 @@ export function TripCard({
   draft,
   onChange,
   total,
+  showHeader = true,
 }: {
   draft: TripDraft;
   onChange: (next: TripDraft) => void;
   total: number;
+  /**
+   * Off when the card is the detail panel under the ticket, which already shows
+   * the route and the total. Repeating them there reads as a second booking.
+   */
+  showHeader?: boolean;
 }) {
   const [editing, setEditing] = useState<DraftKey | null>(null);
   const counts = countBySource(draft);
@@ -53,18 +59,29 @@ export function TripCard({
 
   return (
     <section className="pg-card">
-      <header className="flex items-baseline justify-between border-b border-pg-line px-5 py-4">
-        <div>
-          <h2 className="text-[19px] font-bold">Your trip</h2>
-          <p className="mt-0.5 text-[12px] text-pg-ink">
-            {counts.said} from you · {counts.profile} remembered · {counts.predicted} predicted
+      {showHeader ? (
+        <header className="flex items-baseline justify-between border-b border-pg-line px-5 py-4">
+          <div>
+            <h2 className="text-[19px] font-bold">Your trip</h2>
+            <p className="mt-0.5 text-[12px] text-pg-ink">
+              {counts.said} from you · {counts.profile} remembered · {counts.predicted}{" "}
+              predicted
+            </p>
+          </div>
+          <span className="text-right">
+            <span className="block text-[22px] font-bold">{formatFare(total)}</span>
+            <span className="block text-[12px] text-pg-ink">GBP total</span>
+          </span>
+        </header>
+      ) : (
+        <header className="border-b border-pg-line px-5 py-3.5">
+          <h2 className="text-[16px] font-bold">Change anything</h2>
+          <p className="mt-0.5 text-[12px] leading-snug text-pg-ink">
+            {counts.said} from you · {counts.profile} remembered · {counts.predicted}{" "}
+            predicted. Anything you change becomes yours and the ticket reprints.
           </p>
-        </div>
-        <span className="text-right">
-          <span className="block text-[22px] font-bold">{formatFare(total)}</span>
-          <span className="block text-[12px] text-pg-ink">GBP total</span>
-        </span>
-      </header>
+        </header>
+      )}
 
       <dl className="divide-y divide-pg-line">
         {FIELD_ORDER.map((key) => {

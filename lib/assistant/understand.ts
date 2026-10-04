@@ -334,11 +334,7 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
     flexibility: field(
       said.flexibility ?? habits.flexibility,
       said.flexibility !== null ? "said" : "profile",
-      said.flexibility !== null
-        ? "You said so."
-        : habits.flexibility === "none"
-          ? "You have never paid for flexibility on this kind of trip."
-          : "Your work trips get changed often enough to be worth it.",
+      said.flexibility !== null ? "You said so." : habits.flexibilityReason,
     ),
     notes: buildNotes(said, profile, checkedBag),
   };

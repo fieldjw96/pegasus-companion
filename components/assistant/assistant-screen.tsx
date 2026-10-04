@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { ChatBox } from "./chat-box";
+import { PegasusAvatar, PegasusSays } from "./pegasus-avatar";
 import { Suggestions } from "./suggestions";
-import { TripCard } from "./trip-card";
+import { Ticket } from "./ticket";
 import { DestinationPhoto } from "./destination-photo";
 import { Checkout } from "./checkout";
 import { PROFILES, type Profile } from "@/lib/assistant/profiles";
@@ -20,10 +21,16 @@ import { priceOf } from "@/lib/assistant/price";
  * is no funnel to walk, and nothing is hidden behind a step the passenger has
  * not reached yet.
  *
- * The thinking delay is deliberate and is the only piece of theatre here. An
- * answer that appears instantly reads as a lookup; a short pause reads as work.
- * Everything behind it is deterministic, so a rehearsal and the live run give
- * the same answer.
+ * The assistant has a face, and it is the same face everywhere — over the
+ * greeting, beating its wings while it works, and beside every sentence it says
+ * in its own voice. That is not decoration. Something that fills in six fields
+ * on your behalf needs an author those six fields can be attributed to, or they
+ * read as the app's defaults rather than as somebody's suggestion you are
+ * allowed to argue with.
+ *
+ * The thinking delay is the only piece of theatre here. An answer that appears
+ * instantly reads as a lookup; a short pause reads as work. Everything behind it
+ * is deterministic, so a rehearsal and the live run give the same answer.
  */
 
 const EXAMPLES: { code: string; title: string; prompt: string }[] = [
@@ -96,7 +103,29 @@ export function AssistantScreen() {
     setPrompt("");
   }
 
-  const travellers = profile.travellers.filter((t) => t.kind !== "infant").length;
+  const adultsAndChildren = profile.travellers.filter((t) => t.kind !== "infant");
+  const travellers = adultsAndChildren.length;
+  const travellerNames = adultsAndChildren.map((t) => t.name);
+
+  const chatBox = (
+    <ChatBox
+      profile={profile}
+      onProfileChange={(next) => {
+        setProfile(next);
+        // A different party changes the answer, so rebuild rather than leaving
+        // a trip on screen that no longer matches the context it was built in.
+        if (draft !== null && prompt !== "") setDraft(buildDraft(prompt, next));
+      }}
+      onSubmit={run}
+      busy={phase === "thinking"}
+      placeholder={
+        phase === "idle"
+          ? "Where are we going? Or tell me the whole trip at once."
+          : "Make it the 20th instead. Or add a bag. Or start again somewhere else."
+      }
+      action={phase === "idle" ? "Plan it" : "Redo it"}
+    />
+  );
 
   if (phase === "checkout" && draft !== null) {
     return (
@@ -110,22 +139,30 @@ export function AssistantScreen() {
     <div className="assistant-bg min-h-full px-4 pt-6 pb-40">
       <header className="flex items-center justify-between">
         <span className="wordmark text-[20px] text-pg-navy">PEGASUS</span>
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-pg-navy text-[13px] font-bold text-white">
-          JF
+        <span className="flex items-center gap-2">
+          {phase !== "idle" && (
+            /* Once the conversation has started the assistant stays on screen,
+               so everything it suggested keeps an author. */
+            <PegasusAvatar size={32} state={phase === "thinking" ? "thinking" : "idle"} />
+          )}
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-pg-navy text-[13px] font-bold text-white">
+            JF
+          </span>
         </span>
       </header>
 
       {phase === "idle" ? (
-        <div className="pt-12 pb-6 text-center">
-          <p className="serif text-[34px] leading-tight font-normal text-pg-navy">
+        <div className="pt-8 pb-6 text-center">
+          <PegasusAvatar size={104} className="pg-float mx-auto block" />
+          <p className="mt-4 text-[32px] leading-tight font-bold tracking-tight text-pg-navy">
             {greeting()}, Jack
           </p>
           <p className="mt-2 text-[15px] leading-snug text-pg-ink">
-            Tell me where you want to go, or everything about the trip at once.
+            Tell me where you want to go, or the whole trip at once.
           </p>
         </div>
       ) : (
-        <div className="flex items-start justify-between gap-3 pt-6 pb-4">
+        <div className="flex items-start justify-between gap-3 pt-5 pb-1">
           <p className="min-w-0 flex-1 text-[15px] leading-snug text-pg-navy/80">
             <span className="text-pg-ink">You said: </span>
             {prompt}
@@ -140,17 +177,7 @@ export function AssistantScreen() {
         </div>
       )}
 
-      <ChatBox
-        profile={profile}
-        onProfileChange={(next) => {
-          setProfile(next);
-          // A different party changes the answer, so rebuild rather than leaving
-          // a trip on screen that no longer matches the context it was built in.
-          if (draft !== null && prompt !== "") setDraft(buildDraft(prompt, next));
-        }}
-        onSubmit={run}
-        busy={phase === "thinking"}
-      />
+      {phase === "idle" && chatBox}
 
       {phase === "idle" && (
         <p className="mt-6 text-center text-[11px] text-pg-ink">
@@ -192,47 +219,46 @@ export function AssistantScreen() {
       )}
 
       {phase === "thinking" && (
-        <div className="mt-8 space-y-3">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse rounded-2xl bg-white"
-              style={{ animationDelay: `${i * 120}ms` }}
-            />
-          ))}
-          <p className="text-center text-[13px] text-pg-ink">
-            Filling in what you did not say…
-          </p>
+        <div className="mt-10 flex flex-col items-center">
+          <PegasusAvatar size={88} state="thinking" />
+          <p className="mt-4 text-[14px] text-pg-ink">Filling in what you did not say…</p>
         </div>
       )}
 
       {phase === "discovery" && (
         <div className="mt-8">
-          <Suggestions suggestions={suggestions} travellers={travellers} onChoose={choose} />
-        </div>
-      )}
-
-      {phase === "trip" && draft !== null && (
-        <div className="mt-8">
-          <TripCard draft={draft} onChange={setDraft} total={total} />
-        </div>
-      )}
-
-      {phase === "trip" && draft !== null && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-pg-line bg-white/95 px-4 pt-3 pb-5 backdrop-blur">
-          <div className="mx-auto flex max-w-[358px] items-center gap-3">
-            <span className="flex-1">
-              <span className="block text-[12px] text-pg-ink">Total for {travellers}</span>
-              <span className="block text-[20px] font-bold">{total.toFixed(2)} GBP</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setPhase("checkout")}
-              className="rounded-full bg-pg-yellow px-7 py-3.5 text-[16px] font-bold text-pg-navy"
-            >
-              Checkout
-            </button>
+          <PegasusSays>
+            You did not name anywhere, so here is what I would pick for a{" "}
+            {profile.label.toLowerCase()} — priced for {travellers} and already carrying
+            everything you usually book.
+          </PegasusSays>
+          <div className="mt-4">
+            <Suggestions suggestions={suggestions} travellers={travellers} onChoose={choose} />
           </div>
+        </div>
+      )}
+
+      {phase === "trip" && draft !== null && (
+        <div className="mt-6">
+          <Ticket
+            draft={draft}
+            onChange={setDraft}
+            travellerNames={travellerNames}
+            onCheckout={() => setPhase("checkout")}
+          />
+        </div>
+      )}
+
+      {(phase === "discovery" || phase === "trip") && (
+        /* The input moves below the answer once there is an answer. Keeping it
+           at the top cost about 220px, which put the whole ticket under the
+           fold on a 390x844 screen — the thing the demo is for was the thing
+           you could not see. */
+        <div className="mt-8 border-t border-pg-line pt-6">
+          <p className="mb-2.5 px-1 text-[11px] font-bold tracking-wider text-pg-ink uppercase">
+            Change it in a sentence
+          </p>
+          {chatBox}
         </div>
       )}
     </div>
