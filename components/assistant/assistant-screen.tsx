@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { ChatBox } from "./chat-box";
 import { Suggestions } from "./suggestions";
 import { TripCard } from "./trip-card";
-import { DestinationArt } from "./destination-art";
+import { DestinationPhoto } from "./destination-photo";
+import { Checkout } from "./checkout";
 import { PROFILES, type Profile } from "@/lib/assistant/profiles";
 import { buildDraft, extract } from "@/lib/assistant/understand";
 import { suggest, type Suggestion } from "@/lib/assistant/discover";
@@ -44,7 +45,7 @@ const EXAMPLES: { code: string; title: string; prompt: string }[] = [
   },
 ];
 
-type Phase = "idle" | "thinking" | "discovery" | "trip";
+type Phase = "idle" | "thinking" | "discovery" | "trip" | "checkout";
 
 export function AssistantScreen() {
   const [profile, setProfile] = useState<Profile>(PROFILES[2] ?? PROFILES[0]!);
@@ -98,6 +99,14 @@ export function AssistantScreen() {
 
   const travellers = profile.travellers.filter((t) => t.kind !== "infant").length;
 
+  if (phase === "checkout" && draft !== null) {
+    return (
+      <div className="assistant-bg min-h-full">
+        <Checkout draft={draft} total={total} onBack={() => setPhase("trip")} />
+      </div>
+    );
+  }
+
   return (
     <div className="assistant-bg min-h-full px-4 pt-6 pb-40">
       <header className="flex items-center justify-between">
@@ -110,7 +119,7 @@ export function AssistantScreen() {
       {phase === "idle" ? (
         <div className="pt-12 pb-6 text-center">
           <p className="serif text-[34px] leading-tight font-normal text-pg-navy">
-            Hello, Jack
+            {greeting()}, Jack
           </p>
           <p className="mt-2 text-[15px] leading-snug text-pg-ink">
             Tell me where you want to go, or everything about the trip at once.
@@ -145,6 +154,14 @@ export function AssistantScreen() {
       />
 
       {phase === "idle" && (
+        <p className="mt-6 text-center text-[11px] text-pg-ink">
+          <a href="/credits" className="underline">
+            Photography credits
+          </a>
+        </p>
+      )}
+
+      {phase === "idle" && (
         <div className="mt-7">
           <p className="px-1 text-[11px] font-bold tracking-wider text-pg-ink uppercase">
             Try
@@ -157,7 +174,7 @@ export function AssistantScreen() {
                 onClick={() => run(example.prompt)}
                 className="pg-card relative block h-28 w-full overflow-hidden text-left"
               >
-                <DestinationArt
+                <DestinationPhoto
                   code={example.code}
                   className="absolute inset-0 h-full w-full"
                 />
@@ -211,6 +228,7 @@ export function AssistantScreen() {
             </span>
             <button
               type="button"
+              onClick={() => setPhase("checkout")}
               className="rounded-full bg-pg-yellow px-7 py-3.5 text-[16px] font-bold text-pg-navy"
             >
               Checkout
@@ -261,4 +279,12 @@ function priceOf(draft: TripDraft): number {
 
   const outbound = draft.returnDate.value === null ? 1 : 2;
   return Math.round(sum * outbound * 100) / 100;
+}
+
+/** Morning, afternoon or evening, from the clock. */
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }

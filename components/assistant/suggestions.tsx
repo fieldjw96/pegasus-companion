@@ -1,7 +1,7 @@
 "use client";
 
 import { formatFare } from "@/lib/journey/flights";
-import { DestinationArt } from "./destination-art";
+import { DestinationPhoto } from "./destination-photo";
 import type { Suggestion } from "@/lib/assistant/discover";
 
 /**
@@ -41,7 +41,7 @@ export function Suggestions({
             className="pg-card block w-full overflow-hidden text-left transition active:scale-[0.99]"
           >
             <span className="relative block h-32">
-              <DestinationArt code={s.code} className="absolute inset-0 h-full w-full" />
+              <DestinationPhoto code={s.code} className="absolute inset-0 h-full w-full" />
               <span className="relative flex h-full items-end justify-between gap-3 p-4">
                 <span className="text-[22px] leading-none font-bold text-white drop-shadow">
                   {s.city}
