@@ -5,7 +5,7 @@ import { parse } from './lib/parse.js';
 import { resolve, optionsFor, buildTrip, priceTrip, buildSteps, bundleWhy, bundlePrice, flightOf, codeFor, TIME_LABEL } from './lib/agent.js';
 import { todayISO, fmtDay, fmtDob, fmtDuration, addDays, MONTHS } from './lib/dates.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 const params = new URLSearchParams(location.search);
 const TODAY = params.get('today') || todayISO();
 const NAME = params.get('name') || D.ME.first;
@@ -244,7 +244,7 @@ function paintSlots() {
   const pill = (k, ic, empty) => {
     const s = r && r.slots[k];
     const unknown = k === 'where' && !s && r && r.p.unknown;
-    const cls = ['slot', s ? 'on' : '', S.asking === k ? 'ask' : '', unknown ? 'warn' : ''].join(' ');
+    const cls = ['slot', s ? 'on' : '', S.asking === k ? 'pending' : '', unknown ? 'warn' : ''].join(' ');
     const label = s ? s.label : unknown ? `${unknown.name}?` : empty;
     return `<button type="button" class="${cls}" data-act="slot" data-slot="${k}">${icon(ic)}<span>${esc(label)}</span>${s ? src(s.src) : ''}</button>`;
   };

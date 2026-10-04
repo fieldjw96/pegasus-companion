@@ -647,7 +647,7 @@ button:disabled {
 .slot.on > .ic {
   color: var(--orange);
 }
-.slot.ask {
+.slot.pending {
   border-color: var(--orange);
   color: var(--orange);
   background: #fff4ec;

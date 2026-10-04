@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Where to · phone</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(1200px 700px at 50% 0%, #1a3556 0%, #0a2343 70%);
+      }
+      .stage {
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 16px;
+        box-sizing: border-box;
+      }
+      .phone {
+        width: 414px;
+        height: 868px;
+        flex: none;
+        padding: 12px;
+        box-sizing: border-box;
+        border-radius: 56px;
+        background: #050d1a;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), inset 0 0 0 2px #2b3c57;
+        transform-origin: top center;
+      }
+      .phone iframe {
+        display: block;
+        width: 390px;
+        height: 844px;
+        border: 0;
+        border-radius: 44px;
+        background: #f2f4f8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <div class="phone"><iframe id="screen" title="Where to"></iframe></div>
+    </div>
+    <script>
+      // Shows the app at real phone size. Query and hash pass through, so phone.html?say=... works too.
+      const screen = document.getElementById('screen');
+      screen.src = `index.html${location.search}${location.hash}`;
+      // Phones overlay their scrollbars, so hide the desktop one inside the frame.
+      screen.addEventListener('load', () => {
+        const style = screen.contentDocument.createElement('style');
+        style.textContent = 'html{scrollbar-width:none}::-webkit-scrollbar{display:none}';
+        screen.contentDocument.head.append(style);
+      });
+      const phone = document.querySelector('.phone');
+      const fit = () => (phone.style.transform = `scale(${Math.min(1, (innerHeight - 32) / 868, (innerWidth - 16) / 414)})`);
+      addEventListener('resize', fit);
+      fit();
+    </script>
+  </body>
+</html>
