@@ -1,13 +1,12 @@
-import { AssistantScreen } from "@/components/assistant/assistant-screen";
+import { BoardingScreen } from "@/components/boarding/boarding-screen";
 
 /**
- * The landing screen.
+ * Direction B: the pass.
  *
- * Chat first. The old step-by-step home still exists at /classic, so the two
- * can be shown side by side, but this is the product now: a passenger says what
- * they want and the trip assembles underneath, rather than being walked through
- * nine screens of questions the app could mostly have answered itself.
+ * Same brain as the conversational direction, a different claim about what a
+ * booking is. Here the output is an object you hold rather than a record you
+ * review, and what the assistant inferred is marked on the object itself.
  */
 export default function Home() {
-  return <AssistantScreen />;
+  return <BoardingScreen />;
 }
