@@ -1,13 +1,13 @@
-import { AssistantScreen } from "@/components/assistant/assistant-screen";
+import { AmbientScreen } from "@/components/ambient/ambient-screen";
 
 /**
- * The landing screen.
+ * Direction C: it has already decided.
  *
- * Chat first. The old step-by-step home still exists at /classic, so the two
- * can be shown side by side, but this is the product now: a passenger says what
- * they want and the trip assembles underneath, rather than being walked through
- * nine screens of questions the app could mostly have answered itself.
+ * Opens on a finished proposal rather than an empty box, and waits to be
+ * corrected rather than instructed. The biggest claim of the three, which is
+ * why the reasons sit above the price and the thing most likely to make it
+ * wrong is on the same screen.
  */
 export default function Home() {
-  return <AssistantScreen />;
+  return <AmbientScreen />;
 }
