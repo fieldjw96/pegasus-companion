@@ -10,8 +10,7 @@ import { PROFILES, type Profile } from "@/lib/assistant/profiles";
 import { buildDraft, extract } from "@/lib/assistant/understand";
 import { suggest, type Suggestion } from "@/lib/assistant/discover";
 import type { TripDraft } from "@/lib/assistant/draft";
-import { BAGGAGE_PRICES } from "@/lib/journey/baggage";
-import { FARE_RULES, inventory } from "@/lib/journey/flights";
+import { priceOf } from "@/lib/assistant/price";
 
 /**
  * The whole assistant surface.
@@ -238,47 +237,6 @@ export function AssistantScreen() {
       )}
     </div>
   );
-}
-
-/**
- * Price the draft.
- *
- * Fares come from the same deterministic inventory the rest of the mock uses,
- * so the number on this screen matches what the old funnel would have charged.
- */
-function priceOf(draft: TripDraft): number {
-  const flights = inventory(
-    draft.origin.value,
-    draft.destination.value,
-    draft.departDate.value,
-  );
-  const flight = flights[0];
-  if (flight === undefined) return 0;
-
-  const people = draft.party.value.adults + draft.party.value.children;
-  const base = flight.fares[draft.package.value] ?? 0;
-  const includedKg = FARE_RULES[draft.package.value].inclusions.some((i) =>
-    /25 Kg/.test(i.text),
-  )
-    ? 25
-    : FARE_RULES[draft.package.value].inclusions.some((i) => /30 Kg/.test(i.text))
-      ? 30
-      : 0;
-
-  let sum = base * people;
-  // Only charge for baggage the fare does not already include.
-  if (draft.checkedKg.value > includedKg) {
-    sum +=
-      (draft.checkedKg.value <= 12 ? BAGGAGE_PRICES.checked12 : BAGGAGE_PRICES.checked20) *
-      people;
-  }
-  if (draft.cabinBag.value && draft.package.value === "light") {
-    sum += BAGGAGE_PRICES.cabin * people;
-  }
-  if (draft.flexibility.value !== "none" && draft.package.value === "light") sum += 6 * people;
-
-  const outbound = draft.returnDate.value === null ? 1 : 2;
-  return Math.round(sum * outbound * 100) / 100;
 }
 
 /** Morning, afternoon or evening, from the clock. */
