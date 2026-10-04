@@ -67,3 +67,18 @@ test('ages decide the passenger type', () => {
 function r2party(text) {
   return run(`${text}, 10 to 14 Nov, morning`).party;
 }
+
+test('switches off really means off: no group roster, no contacts, no habits', () => {
+  const off = { whatsapp: false, gmail: false, calendar: false, contacts: false, work: false, trip: false, link: false };
+  const r = run("I'm going to Barcelona with five of my friends 13 to 16 Nov, no bags, cheapest", { connections: off });
+  const t = buildTrip(r);
+  assert.equal(t.travelers.length, 6);
+  assert.equal(t.travelers.filter((p) => p.placeholder).length, 5, 'friends become invites, not names from a chat');
+  assert.equal(t.group, null);
+  const dana = buildTrip(run('Rome with Dana 20 to 22 Nov, evening', { connections: off })).travelers[1];
+  assert.deepEqual([dana.first, !!dana.placeholder], ['Dana', true], 'Dana is a name you said, details still needed');
+  const habits = buildTrip(run('Paris 20 Nov, evening', { connections: off }));
+  assert.equal(habits.needs.bagsSrc, 'guess', 'no past-trip bag habit');
+  assert.equal(habits.heard.find((h) => h.k === 'back').src, 'guess', 'no past-trip trip length');
+  for (const h of [...t.heard, ...habits.heard]) assert.ok(!Object.keys(off).includes(h.src), `${h.k} still uses ${h.src}`);
+});
