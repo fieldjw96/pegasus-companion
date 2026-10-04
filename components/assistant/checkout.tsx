@@ -80,7 +80,11 @@ export function Checkout({
 
         <p className="mt-5 text-center text-[12px] leading-snug text-pg-ink">
           Nothing was booked and no payment was taken. This is a mock built for the Pegasus ×
-          Berkeley Haas AI Travel Companion Hackathon.
+          Berkeley Haas AI Travel Companion Hackathon.{" "}
+          <a href="/credits" className="underline">
+            Photography credits
+          </a>
+          .
         </p>
       </div>
     );

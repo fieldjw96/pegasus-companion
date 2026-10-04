@@ -1,5 +1,5 @@
 /**
- * The assistant's face: a cartoon of the mythological Pegasus.
+ * The assistant's face: a cartoon of the mythological Pegasus, whole, in flight.
  *
  * Drawn here as inline SVG rather than shipped as an image, for three reasons
  * that all turned out to matter:
@@ -11,83 +11,82 @@
  * 2. **It animates.** The wing beats while the assistant is thinking, which is
  *    the only honest way to show work in a mock where the work is instant.
  * 3. **It is one file at any size.** The avatar appears at 32px beside a line of
- *    chat and at 104px over the greeting; a raster asset would need both.
+ *    chat and at 120px over the greeting; a raster asset would need both.
  *
- * Three attempts, and the two failures are worth recording because both looked
- * fine in the source and wrong on screen:
+ * Four attempts. The failures are recorded because each looked fine in source:
  *
- * - **Face-on** read as a cartoon insect. A round head between two symmetric
- *   wings is a moth however carefully the ears are drawn. A horse is recognised
- *   by the long wedge of its muzzle, and you only see that from the side.
- * - **Short feathers** read as a mohican. Three yellow spikes rising behind a
- *   horse's head are hair, not flight. A wing has to be large, and it has to
- *   extend clearly past the body, or the eye files it under mane.
+ * - **Face-on head** read as a cartoon insect: a round head between two
+ *   symmetric wings is a moth however carefully the ears are drawn.
+ * - **Short feathers** read as a mohican. A wing has to be large and has to
+ *   extend clearly past the body or the eye files it under hair.
+ * - **A head alone** was a horse, not a pegasus. The wing on a bust reads as
+ *   decoration; the wing on a galloping body reads as the thing that lifts it.
  *
- * So: head turned right and sized to leave the left half of the disc empty, and
- * a four-feather wing that fills it. Everything is bounded inside the disc, so
- * no clip path is needed and therefore no generated element id — several of
- * these render on one screen and colliding ids are a horrible bug to find.
+ * So: the whole animal, in profile, facing right and climbing, forelegs tucked
+ * and hind legs trailing the way a horse holds them off the ground. Everything
+ * is bounded inside the disc, so no clip path is needed and therefore no
+ * generated element id — several of these render on one screen and colliding
+ * ids are a horrible bug to find.
+ *
+ * The small sparkle badge is the tell that this is the AI companion rather than
+ * mascot art. It sits on the disc, not on the animal, so it survives every size.
  */
 
-/** Head and neck, facing right. The muzzle is the whole reason this is a profile. */
+/** Barrel of the body, tilted nose-up a few degrees. */
+const BODY = { cx: 31, cy: 38, rx: 14, ry: 7.2, tilt: -6 };
+
+/** Neck, from the withers up to the poll. Thick, the way a cartoon neck is. */
+const NECK = "M 35 33 C 37 28 40 23 44 19 L 52 23 C 49 27 47 31 46 36 Z";
+
+/** Head in profile, muzzle down and forward. The wedge is what says "horse". */
 const HEAD =
-  "M 29 16 C 36 16 42 22 46 29 C 48 33 49 37 48 40 " +
-  "C 47 43 44 45 41 44 C 38 43 35 41 32 39 " +
-  "C 29 41 25 46 22 53 L 13 53 " +
-  "C 13 45 13 34 17 27 C 20 21 24 16 29 16 Z";
+  "M 45 17 C 50 15 55 17 57 22 C 58 25 59 28 58 30 " +
+  "C 57 32 55 32 53 31 C 51 30 50 28 49 27 C 47 26 45 23 44 20 Z";
 
-/** The pale band down the nose. Without it the face reads flat. */
-const MUZZLE =
-  "M 41 31 C 46 32 49 35 48 40 C 47 43 44 45 41 44 " +
-  "C 39 42 38 38 38 35 C 38 33 39 31 41 31 Z";
+const EAR = "M 46 17 C 45.5 14 46 11.5 47.5 10.5 C 49 12.5 49.5 15 49.5 16.5 Z";
 
-/**
- * Mane, in the brand orange rather than the brand yellow.
- *
- * Not a decorative choice. A yellow mane in front of a yellow wing is one
- * yellow shape, and the drawing loses its depth entirely. Orange is the
- * airline's accent colour, it is already used sparingly everywhere else in this
- * mock, and it separates the two at 32px where nothing else would.
- */
+/** Mane, the brand orange, so it separates from the yellow wing at 32px. */
 const MANE =
-  "M 30 13 C 22 15 15 20 11 27 C 8 32 6 39 6 45 " +
-  "C 12 39 15 32 19 27 C 23 21 28 17 32 15 Z";
+  "M 46 16 C 42 17 39 21 37 26 C 36 29 36 31 37 33 " +
+  "C 39 30 41 26 44 22 C 45 20 47 18 48 17 Z";
 
-/** A quiff falling forward over the forehead. The one asymmetry, for character. */
-const FORELOCK = "M 29 17 C 32 13 37 12 40 14 C 37 15 35 18 35 21 C 33 18 31 17 29 17 Z";
+/** Tail, flowing back and down from the rump. */
+const TAIL =
+  "M 18 35 C 13 32 8 33 5 38 C 7 36 10 36 12 38 " + "C 9 40 8 44 10 47 C 11 43 14 40 18 40 Z";
 
-/** Leaf-shaped and leaning back, which is how a horse holds a relaxed ear. */
-const EAR = "M 25 20 C 23 13 24.5 7.5 28 6 C 31.5 9.5 32 16 31 19 Z";
+/** Forelegs tucked under the chest; hind legs trailing. Flight, not standing. */
+const LEGS = [
+  // Near foreleg, then far foreleg a little behind it.
+  "M 39 41 C 41 44 44 46 46 49 L 43.5 51 C 41 48 38.5 46 36.5 43.5 Z",
+  "M 35 42 C 37 45 39 47 41 50 L 38.5 51.5 C 36.5 49 34.5 46.5 32.5 44.5 Z",
+  // Near hind leg, then far hind leg.
+  "M 22 42 C 19 45 15 48 12 51 L 14.5 53 C 17.5 50 21 47 24.5 44.5 Z",
+  "M 26 43 C 23 46 20 49 17 52 L 19.5 54 C 22.5 51 25.5 48 28.5 45.5 Z",
+];
+
+/** Hooves, one per leg, at the toe end of each path above. */
+const HOOVES = [
+  { cx: 45, cy: 50, rot: 40 },
+  { cx: 40, cy: 51, rot: 40 },
+  { cx: 13.2, cy: 52, rot: -45 },
+  { cx: 18.2, cy: 53, rot: -45 },
+];
+
+/** Where the feathers are rooted — the withers, so the beat pivots on the back. */
+const WING_PIVOT = { x: 32, y: 32 };
+
+/** Coverts: solid mass over the feather roots, so four lobes read as one wing. */
+const WING_ROOT = "M 38 36 C 30 37 23 34 20 29 C 25 25 33 26 38 30 Z";
 
 /**
- * The head sits right of centre and smaller than the disc, purely to leave the
- * wing somewhere to go. Scaling the group scales its stroke too, so the stroke
- * width is divided back out where it is set.
- */
-const HEAD_SCALE = 0.8;
-const HEAD_SHIFT = { x: 9, y: 5 };
-
-/** Where the feathers are rooted — under the neck, so the beat pivots unseen. */
-const WING_PIVOT = { x: 30, y: 33 };
-
-/**
- * Coverts: the solid mass over the feather roots, which is what makes four
- * separate lobes read as one wing rather than four petals.
- */
-const WING_ROOT = "M 34 39 C 25 40 16 36 11 30 C 18 25 28 26 34 31 Z";
-
-/**
- * Feathers, swept back in a narrow fan rather than radiating.
- *
- * The previous pass fanned them across seventy degrees from a single point,
- * which is a sunflower. A wing's primaries run roughly parallel and shorten
- * towards the body, so: forty degrees of spread, longest at the top.
+ * Feathers, swept up and back in a narrow fan, longest at the top. A wide
+ * radial fan from one point is a sunflower; this is a wing.
  */
 const FEATHERS: { angle: number; length: number; width: number }[] = [
-  { angle: -66, length: 14.5, width: 4.8 },
-  { angle: -81, length: 14, width: 4.8 },
-  { angle: -96, length: 12.3, width: 4.4 },
-  { angle: -111, length: 10, width: 3.9 },
+  { angle: -8, length: 14, width: 4.6 },
+  { angle: -30, length: 15, width: 5 },
+  { angle: -52, length: 14, width: 4.8 },
+  { angle: -74, length: 11.5, width: 4.2 },
 ];
 
 const NAVY = "#1f2a37";
@@ -106,18 +105,38 @@ export function PegasusAvatar({
   size = 44,
   state = "idle",
   disc = true,
+  badge = true,
   className = "",
 }: {
   size?: number;
   state?: AvatarState;
   /** The soft yellow circle behind it. Off when it sits on colour already. */
   disc?: boolean;
+  /** The sparkle that says "AI". Off only where a label beside it says so. */
+  badge?: boolean;
   className?: string;
 }) {
   const thinking = state === "thinking";
   // Thinner line as it grows, so the drawing does not turn into a woodcut at
-  // 104px or lose its outline entirely at 32px.
-  const stroke = Math.min(2.6, Math.max(1.5, 110 / size));
+  // 120px or lose its outline entirely at 32px.
+  const stroke = Math.min(2.4, Math.max(1.3, 100 / size));
+
+  const wing = (fill: string) => (
+    <>
+      {FEATHERS.map((feather) => (
+        <ellipse
+          key={feather.angle}
+          cx="0"
+          cy={-feather.length}
+          rx={feather.width}
+          ry={feather.length}
+          transform={`translate(${WING_PIVOT.x} ${WING_PIVOT.y}) rotate(${feather.angle})`}
+          fill={fill}
+        />
+      ))}
+      <path d={WING_ROOT} fill={fill === YELLOW ? YELLOW_DEEP : fill} />
+    </>
+  );
 
   return (
     <svg
@@ -125,71 +144,99 @@ export function PegasusAvatar({
       width={size}
       height={size}
       role="img"
-      aria-label={thinking ? "Your Pegasus assistant, thinking" : "Your Pegasus assistant"}
+      aria-label={
+        thinking ? "Your Pegasus AI companion, thinking" : "Your Pegasus AI companion"
+      }
       className={`${thinking ? "pg-bob" : ""} ${className}`}
     >
       {disc && <circle cx="32" cy="32" r="31" fill="#fff3d1" />}
 
-      {/* The wing, drawn first so the head covers where it joins on. */}
+      {/* The animal, pulled in a few percent so the top feather clears the disc
+          and the near hoof clears the badge. Scaled about the centre. */}
       <g
-        className={thinking ? "pg-flap-l" : ""}
-        style={{
-          transformBox: "view-box",
-          transformOrigin: `${WING_PIVOT.x}px ${WING_PIVOT.y}px`,
-        }}
+        transform="translate(2.5 2) scale(0.92)"
         stroke={NAVY}
-        strokeWidth={stroke}
+        strokeWidth={stroke / 0.92}
         strokeLinejoin="round"
+        strokeLinecap="round"
         fill="none"
       >
-        {FEATHERS.map((feather) => (
-          <ellipse
-            key={feather.angle}
-            cx="0"
-            cy={-feather.length}
-            rx={feather.width}
-            ry={feather.length}
-            transform={`translate(${WING_PIVOT.x} ${WING_PIVOT.y}) rotate(${feather.angle})`}
-            fill={YELLOW}
-          />
-        ))}
-        <path d={WING_ROOT} fill={YELLOW_DEEP} />
-      </g>
-
-      <g transform={`translate(${HEAD_SHIFT.x} ${HEAD_SHIFT.y}) scale(${HEAD_SCALE})`}>
-        <g
-          stroke={NAVY}
-          strokeWidth={stroke / HEAD_SCALE}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          fill="none"
-        >
-          {/* Mane and ear before the head, so their inner edges vanish under it. */}
-          <path d={MANE} fill={ORANGE} />
-          <path d={EAR} fill="#ffffff" />
-
-          <path d={HEAD} fill="#ffffff" />
-          <path d={MUZZLE} fill={CREAM} strokeWidth={(stroke / HEAD_SCALE) * 0.65} />
-          <path d={FORELOCK} fill={ORANGE} />
-
-          {/* Cheekbone. One stroke, and the head stops being an outline. */}
-          <path
-            d="M 32 38 C 34 34 35 31 34 28"
-            strokeWidth={(stroke / HEAD_SCALE) * 0.6}
-            fill="none"
-          />
+        {/* Far wing: behind everything, smaller, deeper yellow, and still. Only
+            the near wing beats, which is what the eye expects. */}
+        <g transform="translate(5 -3) scale(0.82)" opacity="0.9">
+          {wing(YELLOW_DEEP)}
         </g>
 
-        {/* These sit on the head fill, so they need no stroke of their own. */}
-        <path
-          d="M 26.5 19 C 25 13.5 26 9.5 28 8.5 C 30.5 11.5 30.5 16 30 18.5 Z"
-          fill={ORANGE}
-          opacity="0.45"
+        <path d={TAIL} fill={ORANGE} />
+
+        {/* Far legs first, then the body over their tops, then the near legs. */}
+        <path d={LEGS[1]} fill="#ffffff" />
+        <path d={LEGS[3]} fill="#ffffff" />
+        <ellipse
+          cx={BODY.cx}
+          cy={BODY.cy}
+          rx={BODY.rx}
+          ry={BODY.ry}
+          transform={`rotate(${BODY.tilt} ${BODY.cx} ${BODY.cy})`}
+          fill="#ffffff"
         />
-        <circle cx="36" cy="26" r="2.5" fill={NAVY} />
-        <circle cx="35.1" cy="25.1" r="0.95" fill="#ffffff" />
-        <ellipse cx="44.2" cy="37.6" rx="1.35" ry="1.05" fill={NAVY} opacity="0.7" />
+        <path d={LEGS[0]} fill="#ffffff" />
+        <path d={LEGS[2]} fill="#ffffff" />
+
+        <path d={NECK} fill="#ffffff" />
+        <path d={EAR} fill="#ffffff" />
+        <path d={HEAD} fill="#ffffff" />
+        <path d={MANE} fill={ORANGE} />
+
+        {/* The near wing, last, so its coverts sit on the back. Its root is on
+            the body, so the beat pivots somewhere that never tears open. */}
+        <g
+          className={thinking ? "pg-flap-l" : ""}
+          style={{
+            transformBox: "view-box",
+            transformOrigin: `${WING_PIVOT.x}px ${WING_PIVOT.y}px`,
+          }}
+        >
+          {wing(YELLOW)}
+        </g>
       </g>
+
+      {/* Details with no stroke of their own, under the same transform as the
+          animal so hooves stay on legs and the eye stays in the head. */}
+      <g transform="translate(2.5 2) scale(0.92)">
+        {HOOVES.map((hoof) => (
+          <ellipse
+            key={`${hoof.cx}-${hoof.cy}`}
+            cx={hoof.cx}
+            cy={hoof.cy}
+            rx="1.9"
+            ry="1.2"
+            transform={`rotate(${hoof.rot} ${hoof.cx} ${hoof.cy})`}
+            fill={NAVY}
+          />
+        ))}
+        <path
+          d="M 54 29 C 56 29.5 57.5 30 58 30.5"
+          stroke={CREAM}
+          strokeWidth="2"
+          fill="none"
+        />
+        <circle cx="52" cy="21.5" r="1.6" fill={NAVY} />
+        <circle cx="51.5" cy="21" r="0.55" fill="#ffffff" />
+        <circle cx="56.6" cy="28.4" r="0.7" fill={NAVY} opacity="0.7" />
+      </g>
+
+      {badge && (
+        /* The AI mark. A four-point sparkle on a navy disc, bottom right, the
+           place a status badge goes on any avatar people already know. */
+        <g>
+          <circle cx="53" cy="53" r="8" fill={NAVY} stroke="#fff3d1" strokeWidth="1.8" />
+          <path
+            d="M 53 47.5 C 53.6 51 54.5 52 58.5 53 C 54.5 54 53.6 55 53 58.5 C 52.4 55 51.5 54 47.5 53 C 51.5 52 52.4 51 53 47.5 Z"
+            fill={YELLOW}
+          />
+        </g>
+      )}
     </svg>
   );
 }

@@ -152,13 +152,18 @@ export function AssistantScreen() {
       </header>
 
       {phase === "idle" ? (
-        <div className="pt-8 pb-6 text-center">
-          <PegasusAvatar size={104} className="pg-float mx-auto block" />
-          <p className="mt-4 text-[32px] leading-tight font-bold tracking-tight text-pg-navy">
-            {greeting()}, Jack
+        <div className="pt-6 pb-6 text-center">
+          <PegasusAvatar size={120} className="pg-float mx-auto block" />
+          {/* The label does the work the badge starts: this is an agent, not
+              mascot art. The old sub-line repeated the input's placeholder. */}
+          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-bold tracking-wider text-pg-navy uppercase ring-1 ring-pg-line">
+            <span className="text-pg-yellow-dark" aria-hidden>
+              ✦
+            </span>
+            Your AI companion
           </p>
-          <p className="mt-2 text-[15px] leading-snug text-pg-ink">
-            Tell me where you want to go, or the whole trip at once.
+          <p className="mt-3 text-[32px] leading-tight font-bold tracking-tight text-pg-navy">
+            {greeting()}, Jack
           </p>
         </div>
       ) : (
@@ -179,14 +184,8 @@ export function AssistantScreen() {
 
       {phase === "idle" && chatBox}
 
-      {phase === "idle" && (
-        <p className="mt-6 text-center text-[11px] text-pg-ink">
-          <a href="/credits" className="underline">
-            Photography credits
-          </a>
-        </p>
-      )}
-
+      {/* Photography is credited on /credits, linked from the confirmation
+          screen rather than from under the greeting, where it was clutter. */}
       {phase === "idle" && (
         <div className="mt-7">
           <p className="px-1 text-[11px] font-bold tracking-wider text-pg-ink uppercase">
