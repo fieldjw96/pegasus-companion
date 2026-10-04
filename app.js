@@ -2,7 +2,7 @@ import { wordmark } from './lib/logo.js';
 import { icon, PLANE_PATH } from './lib/icons.js';
 import * as D from './lib/data.js';
 import { parse } from './lib/parse.js';
-import { resolve, optionsFor, buildTrip, priceTrip, buildSteps, bundleWhy, bundlePrice, flightOf, codeFor, TIME_LABEL } from './lib/agent.js';
+import { resolve, optionsFor, buildTrip, priceTrip, buildSteps, bundleWhy, bundlePrice, flightOf, codeFor, waitingOn, TIME_LABEL } from './lib/agent.js';
 import { todayISO, fmtDay, fmtDob, fmtDuration, addDays, MONTHS } from './lib/dates.js';
 
 const VERSION = '0.1.1';
@@ -273,11 +273,12 @@ function paintAsking() {
     where: unknown ? `Pegasus doesn't fly to ${unknown.name} yet. Closest fit:` : 'Where to?',
     when: mo ? `Which weekend in ${MONTHS[mo - 1]}?` : 'When?',
     time: 'What time of day?',
+    who: 'How many of you?',
   }[k];
   const opts = optionsFor(k, S.r, TODAY);
   el.className = 'asking show';
   el.innerHTML = `
-    <div class="ask-q">${icon(k === 'where' ? 'pin' : k === 'when' ? 'calendar' : 'clock')}<span>${esc(q)}</span></div>
+    <div class="ask-q">${icon({ where: 'pin', when: 'calendar', time: 'clock', who: 'people' }[k])}<span>${esc(q)}</span></div>
     <div class="opts">${opts
       .map((o, i) => `<button type="button" class="opt" style="--i:${i}" data-act="pick" data-slot="${k}" data-value="${esc(JSON.stringify(o.value))}">${esc(o.label)}</button>`)
       .join('')}</div>
@@ -733,31 +734,67 @@ function extrasCard(t, i) {
   </section>`;
 }
 
+const TYPE_TAG = { child: 'Child', infant: 'Baby · on lap' };
+const LINK_FILL = {
+  Mom: ['Leah', 'Rosenberg', '1966-03-09'], Dad: ['David', 'Rosenberg', '1963-11-21'],
+  Grandma: ['Ruth', 'Rosenberg', '1941-05-30'], Grandpa: ['Sam', 'Rosenberg', '1939-08-14'],
+  Sister: ['Tali', 'Rosenberg', '1999-02-17'], Brother: ['Eli', 'Rosenberg', '2001-07-26'],
+  Guest: ['Can', 'Aydın', '1995-12-01'],
+};
+
 function travelersCard(t, i) {
-  return `<section class="card" style="--i:${i}">
-    <h3>${icon('people')}Travelers<span class="count">${t.travelers.length}</span></h3>
+  const waiting = waitingOn(t).length;
+  return `<section class="card" id="c-pax" style="--i:${i}">
+    <h3>${icon('people')}Travelers<span class="count">${t.travelers.length}</span>${waiting && !locked(t) ? `<span class="h-note warn">${waiting} to fill in</span>` : ''}</h3>
     <ul class="pax">${t.travelers
       .map((p, k) => {
-        const missing = !p.dob && !locked(t);
+        if (S.filling === p.id && !locked(t)) return fillRow(t, p, k);
+        const needsName = p.placeholder && !locked(t);
+        const needsDob = !p.dob && !locked(t) && !needsName;
+        const required = needsName || (needsDob && p.type !== 'adult');
+        const name = p.guest ? 'Friend' : p.placeholder ? p.first : `${p.first} ${p.last}`;
         const sub = p.dob
           ? `${icon('calendar')}${fmtDob(p.dob)}`
           : locked(t)
             ? 'On file'
             : p.asked
               ? `${icon('send')}Asked in the group link`
-              : p.guest
-                ? 'Joins from the group link'
-                : 'Birthday missing';
-        return `<li class="${missing ? 'missing' : ''}">
+              : needsName
+                ? p.type === 'adult' ? 'Name needed' : 'Name and birthday needed'
+                : p.type !== 'adult' ? 'Birthday needed' : 'Birthday missing (optional)';
+        const action = (needsName || needsDob) && !p.asked
+          ? p.type === 'adult'
+            ? `<button class="mini" data-act="ask" data-id="${p.id}">${icon('send')}Ask</button>`
+            : `<button class="mini" data-act="fill" data-id="${p.id}">${icon('plus')}Add</button>`
+          : '';
+        return `<li class="${required ? 'missing' : needsDob ? 'soft' : ''}">
           ${avatar(p, k)}
-          <span class="pax-main"><b>${esc(p.guest ? 'Friend' : `${p.first} ${p.last}`)}${p.id === 'me' ? ' <em>you</em>' : ''}</b><span>${sub}</span></span>
+          <span class="pax-main"><b>${esc(name)}${p.id === 'me' ? ' <em>you</em>' : ''}${TYPE_TAG[p.type] ? ` <i class="ptype">${TYPE_TAG[p.type]}</i>` : ''}</b><span>${sub}</span></span>
           ${p.dob ? src(p.src) : ''}
-          ${missing && !p.asked ? `<button class="mini" data-act="ask" data-id="${p.id}">${icon('send')}Ask</button>` : ''}
+          ${action}
           ${p.confirmed ? `<span class="ok" title="Confirmed">${icon('check')}</span>` : ''}
         </li>`;
       })
       .join('')}</ul>
   </section>`;
+}
+
+function fillRow(t, p, k) {
+  return `<li class="filling">${avatar(p, k)}
+    <form class="fill" data-id="${p.id}">
+      <input name="first" placeholder="First name" aria-label="First name" value="${esc(p.placeholder ? '' : p.first)}" required>
+      <input name="last" placeholder="Last name" aria-label="Last name" value="${esc(p.placeholder ? D.ME.last : p.last)}" required>
+      <input name="dob" type="date" max="${t.out}" aria-label="Date of birth" value="${p.dob || ''}" ${p.type === 'adult' ? '' : 'required'}>
+      <button type="submit" class="mini">${icon('check')}Save</button>
+    </form></li>`;
+}
+
+// Age on the day of travel decides the passenger type; say so if it changes.
+function typeFromDob(dob, on) {
+  const [y, m, d] = dob.split('-').map(Number);
+  const [ty, tm, td] = on.split('-').map(Number);
+  const age = ty - y - (tm < m || (tm === m && td < d) ? 1 : 0);
+  return { age, type: age < 2 ? 'infant' : age < 12 ? 'child' : 'adult' };
 }
 
 function shareCard(t, i) {
@@ -789,7 +826,9 @@ function confirmBar(t, price) {
     ${
       locked(t)
         ? `<div class="booked-pill">${icon('check')}${t.status === 'flown' ? 'Flown' : 'Booked'}</div>`
-        : `<button class="btn primary book" data-act="book">${icon('check')}Book it</button>`
+        : waitingOn(t).length
+          ? `<button class="btn book wait" data-act="to-pax" aria-disabled="true">${icon('people')}Waiting on ${waitingOn(t).length}</button>`
+          : `<button class="btn primary book" data-act="book">${icon('check')}Book it</button>`
     }
   </div></div>`;
 }
@@ -1001,16 +1040,32 @@ const actions = {
     p.asked = true;
     t.sent = true;
     commit(t);
-    toast(`${icon('send')} Link sent to ${esc(p.guest ? 'your friend' : p.first)}`);
+    toast(`${icon('send')} Link sent to ${esc(p.placeholder ? (p.guest ? 'your friend' : p.first) : p.first)}`);
+    // Demo: they answer from their own phone a moment later.
     setTimeout(() => {
       const live = S.trips[t.id];
       const q = live && live.travelers.find((x) => x.id === p.id);
-      if (!q || q.dob) return;
-      Object.assign(q, { dob: '1996-08-03', src: 'link', confirmed: true, first: q.guest ? 'Can' : q.first, last: q.guest ? 'Aydın' : q.last, guest: false });
+      if (!q || (!q.placeholder && q.dob)) return;
+      if (q.placeholder) {
+        const [first, last, dob] = LINK_FILL[q.guest ? 'Guest' : q.first] || LINK_FILL.Guest;
+        Object.assign(q, { first, last, dob, guest: false, placeholder: false });
+      } else q.dob = '1996-08-03';
+      Object.assign(q, { src: 'link', confirmed: true });
       if (current() === live) commit(live);
       else save();
       toast(`${icon('check')} ${esc(q.first)} filled in their details`);
     }, 2600);
+  },
+  fill: (el) => {
+    S.filling = el.dataset.id;
+    renderTrip(current().id);
+    const f = document.querySelector('form.fill input[name="first"]');
+    if (f) f.focus();
+  },
+  'to-pax': () => {
+    const el = $('#c-pax');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast(`${icon('people')} Fill in the highlighted travelers first`);
   },
   send: () => {
     const t = current();
@@ -1038,6 +1093,7 @@ const actions = {
   'to-share': () => $('#c-share').scrollIntoView({ behavior: 'smooth', block: 'center' }),
   book: () => {
     const t = current();
+    if (waitingOn(t).length) return actions['to-pax']();
     t.status = 'booked';
     t.pnr = codeFor(`${t.id}pnr`);
     if (t.group) t.sent = true;
@@ -1061,6 +1117,27 @@ document.addEventListener('click', (e) => {
   if (!el || el.disabled) return;
   const fn = actions[el.dataset.act];
   if (fn) fn(el, e);
+});
+
+document.addEventListener('submit', (e) => {
+  const f = e.target.closest('form.fill');
+  if (!f) return;
+  e.preventDefault();
+  const t = current();
+  const p = t.travelers.find((x) => x.id === f.dataset.id);
+  const v = Object.fromEntries(new FormData(f));
+  if (!v.first.trim() || !v.last.trim()) return bump(f);
+  Object.assign(p, { first: v.first.trim(), last: v.last.trim(), placeholder: false, guest: false, src: 'said', confirmed: true });
+  if (v.dob) {
+    const { age, type } = typeFromDob(v.dob, t.out);
+    p.dob = v.dob;
+    if (type !== p.type) {
+      toast(`${icon('people')} ${esc(p.first)} is ${age} on the day you fly, so booked as ${type === 'infant' ? 'a baby on lap' : `${type === 'child' ? 'a child' : 'an adult'}`}`);
+      p.type = type;
+    }
+  }
+  S.filling = null;
+  commit(t);
 });
 
 document.addEventListener('change', (e) => {
