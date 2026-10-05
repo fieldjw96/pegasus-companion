@@ -1,12 +1,96 @@
-# Where to · a Pegasus booking companion (idea prototype)
+# Where to · talk to Pegasus, and the booking fills itself (idea prototype)
 
-Say where you're going in one sentence. Get the whole booking back, already filled in. All you do is confirm.
+Say where you're going. The trip fills in while you talk, and you change any of it by talking. Nothing paid happens without your tap.
 
-> "I'm going to Barcelona with five of my friends. I don't need any bags, I just want the cheapest option. No insurance. Don't make me go through any of the steps."
+> "Antalya with my wife and our 6 month old, 10 to 14 Nov, morning flights, one bag."
+>
+> "Make it five nights and add my mom."
 
-That sentence becomes: 6 travelers (your WhatsApp group "The Boys"), dates taken from that group's chat, the cheapest flights of the day, the Light bundle (no bags), seats left free at check-in, no insurance, five of six birthdays filled in, a group link to send, and a €510 total (€85 each). No questions asked.
+The first sentence becomes a whole Antalya trip: both flights, you, Dana (from your past Pegasus trips) and the baby on a lap, Saver with a 15 kg bag, €154. The second one comes back as a receipt, not a reply: **Back Sun 15 Nov · Mom added · €78 more · Undo**.
 
 This branch is a standalone idea. It shares no history or code with `main`.
+
+## The one screen
+
+- **Top:** the flying Pegasus logo, "Where to next?", one box and a mic.
+- **Your trip, filling in:** five rows wait under the box (where, when, what time, who, bags) and fill while you talk or type. Where, when and what time of day are the only must-haves. Once those three are in, the rows become the real booking: flight out, flight home, travelers, bundle, seats, extras, price.
+- **What you said:** after you say it, your sentence comes back above the trip. A word it couldn't use is orange, and Book waits until you tap it (let it go) or say it another way. Nothing is dropped silently.
+- **Say a change:** the bar at the bottom has a mic for changes, the total and Book. "Make it five nights", "add my mom", "evening flight back", "a day earlier", "switch to Saver Plus", "without Dana", "seats together", "one way". Each change lands as a receipt with Undo, and the rows it touched flash once.
+- **Or tap:** any row opens for a one-tap change (flight times, bundle, seats, extras, travelers). Taps and changes are kept apart: saying "add my mom" keeps the flight you tapped, and "evening flight back" replaces only that flight.
+- **Something missing:** that row asks in place with taps ("When?" with the next three weekends, "How many of you?", "A seat or a lap?"), or you just say it.
+
+On a phone it is one column with the bar under your thumb. The grid icon (top right) goes to the classic booking form, which is just another way of saying the first sentence.
+
+## The rule: talk changes the trip, it never opens a conversation
+
+There are no reply bubbles and no message thread. The companion's only answers are the filled rows, one receipt per change, one-tap questions for what's missing, Pegasus rules it applied, and at most two blue "worth knowing" lines.
+
+## What it decides, and what it never does
+
+It decides the cheapest flight in the time of day you said, the cheapest bundle that covers what you said, seats free at check-in and no paid extras. Every row shows where its value came from: you said it, you picked it, your past trips, your Pegasus profile, a Pegasus rule, or a best guess.
+
+It never adds anything paid that you didn't ask for. The blue lines can move the price either way, one tap each, two at most:
+
+- "Lands 05:10 the next morning. The 08:15 lands 13:35 for €2 more each." (six to Barcelona, 13 to 16 Nov, cheapest)
+- "Seats are given at check-in, so the 6 of you may sit apart. Together is €7 each per flight."
+- "Light is one 3 kg bag under the seat for 3 nights. Saver adds an 8 kg cabin bag and a 20 kg checked bag for €24 more each per flight."
+- "The 07:05 is €15 less each." (only when it saves €5 or more and doesn't land in the small hours)
+
+Pegasus rules it applies, and says out loud on the trip:
+
+| Rule | What you see |
+|---|---|
+| Light is international only | "Saver, since Light isn't sold on domestic flights" (also when you ask for Light by name) |
+| Saver checked bag: 15 kg domestic, 20 kg international | The bundle row and its perks |
+| Under 2 flies on a lap, €20 per flight; 2 to 12 is a child | "Baby · on lap" on the traveler, the infant line in the price |
+| One lap baby per adult | It asks: give a baby a seat, or another adult is coming |
+| A baby who turns 2 before the flight home needs a seat on it | Priced per flight, with a note on the traveler |
+| A same-day return leaves 3 h or more after landing | "Same day: back 20:30, 3 h+ after landing 08:10" (Ankara for an interview, back the same day) |
+
+Fare families: Light (under-seat bag 40×30×15 cm, 3 kg; international only), Saver (plus cabin bag 55×40×23 cm, 8 kg, and a checked bag), Saver Plus (plus a standard seat, sandwich, Fly & Watch), Comfort Flex (plus extra legroom, one free change up to 2 h before departure, full refund less the service fee). Destinations are real Pegasus routes from Istanbul Sabiha Gökçen (SAW), with local arrival times and European summer time.
+
+## Demo script (about 3 minutes)
+
+1. Tap the mic and say: "Antalya with my wife and our 6 month old, 10 to 14 Nov, morning flights, one bag." The rows fill while you talk. The bar reads **Waiting on 1**: the baby needs a name and birthday.
+2. Say: "Make it five nights and add my mom." Receipt: Back Sun 15 Nov · Mom added · €78 more. Tap Undo, then say it again.
+3. Tap the travelers row. Mom: **Ask** sends the group link, and 2.6 s later she has typed in her own details. The baby: **Add**, a name and a birthday. The bar now reads **Book it**.
+4. Tap **Sit together** on the blue line under seats, then **Book it**.
+5. New trip (top right): "Barcelona with the boys, cheapest, no bags." The friends come from your past trips; the dates were never said, so the When row asks. One tap on a weekend, and a blue line points out that six people seated at check-in may sit apart (together is €7 each per flight), or that the cheapest flight home lands in the small hours.
+6. New trip: "Annemle babamla yılbaşında İzmir'e, akşam uçuşu." Mom, Dad and the evening flight are understood; "yılbaşında" stays orange and the date is asked. English only in this demo; Turkish words it doesn't know stay orange instead of being guessed.
+
+Where the browser has no speech recognition, the mic plays the demo sentence (and, in the bar, the demo change) and labels it "demo voice".
+
+## What it uses
+
+| Source | What for | Switch |
+|---|---|---|
+| What you say | Everything on the trip that says "You said" | Typing works the same |
+| Your Pegasus profile | Your name, birthday, saved card | It's your account |
+| Your past Pegasus trips | Who you flew with (and their saved birthdays), your usual bags and trip length | Tap your initial, top left. Off means off: "the boys" becomes "How many of you?" |
+
+No chats, email, calendar or phone contacts are read. In production, speech becomes text on the phone and the audio isn't kept; the sentence lives with the cart and is deleted at checkout or when the cart expires. KVKK and GDPR: one purpose (fill this booking), kept for the life of the cart, deletable by the passenger. In this prototype the mic uses the browser's speech recognition, which may send audio to the browser maker (Google or Apple) to transcribe it; typing sends nothing.
+
+## Where an LLM fits, and what it costs
+
+The rules parser in this prototype runs on the phone, answers instantly and is tested, including a 26-sentence scorecard where a silent error fails the run. It stays the default. An LLM with structured JSON output sits behind the same `parse()` contract and is called only when the rules leave something unplaced (an orange word, an uncountable "with my family", a Turkish sentence), so most sentences cost nothing.
+
+Estimate per LLM call, assuming about 650 input tokens (instructions, schema, sentence) and 200 output tokens of JSON, at Anthropic API list prices (cached 2026-09-25):
+
+| Model | Price per million tokens (in / out) | Per call | Per million calls |
+|---|---|---|---|
+| Claude Haiku 4.5 (`claude-haiku-4-5`) | $1 / $5 | about $0.0017 | about $1,700 |
+| Claude Opus 5.5 (`claude-opus-5-5`, low effort; thinking tokens bill as output) | $4 / $20 | about $0.007 to $0.012 | about $7,000 to $12,000 |
+
+Latency is measured in the pilot, not promised here: the rows fill from the rules parser at once, and an LLM answer only refines what was orange.
+
+## Measuring it: one A/B, one euro line, one kill metric
+
+- **Test:** 10% of booking sessions on SAW to AYT and SAW to BER get the talk screen; the rest get today's flow.
+- **Primary KPI:** completion from first input to payment.
+- **The euro line (per booking, labelled):** ancillaries added from blue lines, minus the ones it talked people out of (the cheaper flight, Light instead of Saver). It can go either way; that is the point.
+- **Diagnostics:** share of bookings started by talking; changes said per booking; orange words per sentence; how often a change is undone; time from first word to Book.
+- **Guardrails:** name-correction requests, bags bought at the airport, complaints about pre-filled items.
+- **Kill metric:** if completion doesn't beat control at the planned sample size, or any guardrail gets worse, switch talking off.
 
 ## Run it
 
@@ -16,81 +100,50 @@ No build step and no dependencies. From this folder:
 python3 -m http.server 8090
 ```
 
-Then open http://localhost:8090. Chrome or Safari for real voice input.
+Then open http://localhost:8090, or http://localhost:8090/phone.html for the phone frame. Chrome or Safari for real voice input.
 
-Tests (Node 20 or newer):
+| Parameter | What it does |
+|---|---|
+| `?say=...` | Types that sentence in and runs it (always starts a new trip) |
+| `&then=...` | Then says that change |
+| `?today=2026-10-03` | Pins "today" so relative dates come out the same every time |
+| `?name=Jack` | Changes the greeting |
+
+## Tests
 
 ```bash
 npm test
 ```
 
-Handy URL parameters for demos:
+36 tests (Node 20 or newer): the engine, the 26-sentence no-silent-errors scorecard, the people and switch rules, and 12 for talking to change the trip (receipts, undo, taps that survive changes, details that stay with the right person, weekdays near the trip, Light refused on domestic flights, orange words holding Book, the blue lines).
 
-| Parameter | What it does |
-|---|---|
-| `?say=...` | Plays that sentence into the box on load, then runs it |
-| `?today=2026-10-03` | Pins "today" so relative dates come out the same every time |
-| `?name=Jack` | Changes the greeting |
+```bash
+node test/ui.run.mjs
+```
 
-## The two screens
-
-**1. Where to next?** The Pegasus wordmark floats and dances while a plane circles it. Below it, a big text box with a mic (the mic pulses, and while you talk the letters bounce and a waveform runs). On a wide screen there are two columns underneath:
-
-- **Previous**: earlier conversations ("Boys' trip", "Grandma's funeral", "Client week"...). Five show, `···` unlocks the rest. A thread that stalled for missing context reopens right where it stopped and asks for the missing piece.
-- **Suggested**: trips spotted in connected apps (a wedding invite in email, "come home for New Year?" in the family WhatsApp, a work offsite, a public holiday on the calendar, a birthday in contacts). Five show, `···` generates more. The dots on the right open the connection switches.
-
-On a phone the two columns become one list: Previous first, Suggested underneath. The icon in the top right corner goes to the classic booking form.
-
-**2. Your trip, pre-filled.** One scroll, top to bottom: route, what it understood, flights, bundle, seats, extras, travelers, group link, payment, and a sticky total with **Book it**. Every decision carries a small badge for where it came from (you said it, WhatsApp, email, contacts, past trips, your Pegasus profile, a link) and a one-line reason. Flights, bundle, seats and extras each change with one tap, and the total updates.
-
-## How much context is enough?
-
-Three things: **where**, **when**, and **what time of day**. Three pills under the box fill in as you talk, and the ring around the go button fills a third at a time. The companion fills a pill from, in order:
-
-1. what you said,
-2. a chip you tapped,
-3. connected context (for example, the dates "The Boys" proposed in their chat, or "cheapest" meaning any time of day).
-
-If a pill is still empty when you hit go, it asks for that one thing with tappable answers, never a chat reply. If you name somewhere Pegasus doesn't fly (Barbados), it says so and offers the closest fit.
-
-Everything after the three pills it decides on its own:
-
-- **Bundle**: the cheapest bundle plus extras that covers what you asked for (bags, flexibility, seats, meals). "Plans might change" picks Comfort Flex; no bags on a domestic flight picks Saver because Light is international only.
-- **Flights**: the cheapest flight in the time of day you asked for, with a nudge when a different time is cheaper.
-- **Travelers**: you from your Pegasus profile; friends from the group, contacts and past trips, with birthdays. Missing details (Josh's birthday) are asked through the group link instead of blocking you.
-
-## Pegasus rules it follows
-
-| Bundle | Includes |
-|---|---|
-| Light | Under-seat bag 40×30×15 cm, 3 kg. International flights only |
-| Saver | Light + cabin bag 55×40×23 cm, 8 kg + checked bag 15 kg domestic / 20 kg international |
-| Saver Plus | Saver + free standard seat (not extra legroom) + sandwich + Fly & Watch |
-| Comfort Flex | Saver Plus + extra-legroom seats + one free change up to 2 h before departure + full refund (service fee excluded) |
-
-Destinations are real Pegasus routes from Istanbul Sabiha Gökçen (SAW). Arrival times use each city's time zone, including European summer time.
+26 checks in headless Chrome that drive the real page at phone width: typing fills the rows, a spoken change and its receipt, undo, an orange word holding Book, a blue line, filling in the baby, booking, a missing date answered by a tap and by talking, the past-trips switch, the demo voice, a reload, the classic form, no sideways scroll, no page errors.
 
 ## What is real and what is mocked
 
 | Real | Mocked |
 |---|---|
-| Voice input (Web Speech API). Where the browser has none, the mic plays a demo sentence and labels it "demo voice" | Flights and prices (stable per route and date) |
-| The sentence parser, the three-slot logic, the bundle optimizer, pricing, time-zone math | People, chats, emails, calendar, payment card |
-| Switching a connection off really stops it being used (switch WhatsApp off and the companion has to ask for dates) | The group link and friends confirming |
-
-Understanding the sentence is done with deterministic rules in `lib/parse.js`, so the demo behaves the same on stage every time. In production an LLM with structured output would sit behind the same `parse()` contract and return the same shape.
+| Voice input (Web Speech API) | Flights and prices (stable per route and date) |
+| The parser, talking to change it, receipts and undo, the bundle choice, pricing, Pegasus rules, time zones | The persona, their past trips and the people in them (`lib/persona.js`, invented, never exported) |
+| The past-trips switch really stops that data being used | The group link and the people answering it; payment |
 
 ## Files
 
 | Path | What it is |
 |---|---|
-| `index.html`, `styles.css`, `app.js` | The two screens, the classic form, voice, overlays |
-| `lib/parse.js` | Sentence to context: destination, dates, time of day, party, bags, budget, insurance, seats |
-| `lib/agent.js` | The three must-haves, one-tap questions, bundle choice, trip assembly, pricing, the "working on it" steps |
-| `lib/flights.js` | Mock schedule with correct local times |
-| `lib/data.js` | Network, fare families, extras, people, groups, threads, suggestions |
-| `lib/logo.js`, `lib/icons.js` | The Pegasus wordmark split into letters so they can move, and the icon set |
-| `test/engine.test.mjs` | 13 tests: the demo sentence, Barbados, the WhatsApp switch, dates, time zones, fare rules, every thread and suggestion, no em dashes |
+| `index.html`, `styles.css`, `app.js` | The one screen, the bar, voice, the classic form, the booked overlay |
+| `phone.html` | The same page in a phone frame |
+| `lib/parse.js` | One sentence to trip context: where, when, time of day, who (typed travelers), bags, budget, and the words it couldn't place |
+| `lib/talk.js` | Talking to change it: every sentence and tap is an event; replaying them builds the trip, the receipts, the orange words and the blue lines |
+| `lib/agent.js` | The three must-haves, one-tap questions, bundle choice, Pegasus rules, trip assembly and pricing |
+| `lib/flights.js`, `lib/dates.js` | Mock schedule with correct local times; calendar helpers |
+| `lib/data.js`, `lib/persona.js` | Routes, fare families, extras and sources; the invented passenger |
+| `scripts/export-classic.mjs` | Bundles the parser (without the persona) as one classic script for other prototypes |
+| `test/` | Unit tests, the scorecard, the talk tests and the headless UI test |
 
 ## Brand
 

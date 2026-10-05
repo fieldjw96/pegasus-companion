@@ -68,8 +68,8 @@ function r2party(text) {
   return run(`${text}, 10 to 14 Nov, morning`).party;
 }
 
-test('switches off really means off: no group roster, no contacts, no habits', () => {
-  const off = { whatsapp: false, gmail: false, calendar: false, contacts: false, work: false, trip: false, link: false };
+test('the past-trips switch off really means off: no friends from old bookings, no habits', () => {
+  const off = { trip: false };
   const r = run("I'm going to Barcelona with five of my friends 13 to 16 Nov, no bags, cheapest", { connections: off });
   const t = buildTrip(r);
   assert.equal(t.travelers.length, 6);

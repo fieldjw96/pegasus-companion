@@ -1,11 +1,12 @@
 {
   "name": "where-to",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Pegasus companion prototype: say where you're going, confirm a fully pre-filled booking.",
+  "description": "Pegasus companion prototype: say where you're going and the booking fills itself in; change any of it by talking.",
   "scripts": {
     "start": "python3 -m http.server 8090",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "test:ui": "node test/ui.run.mjs"
   }
 }

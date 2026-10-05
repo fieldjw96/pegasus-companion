@@ -1,0 +1,142 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Where to: UI test</title>
+<!-- Drives the real page in a 390 px frame, the way a passenger would. Run with: node test/ui.run.mjs -->
+<iframe id="f" style="width: 390px; height: 844px; border: 0"></iframe>
+<pre id="out"></pre>
+<script type="module">
+  const out = document.getElementById('out');
+  const lines = [];
+  const check = (ok, name, extra = '') => lines.push(`${ok ? 'PASS' : 'FAIL'} ${name}${!ok && extra ? ` [${extra}]` : ''}`);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const f = document.getElementById('f');
+  let w, d;
+  const errors = [];
+  async function load(url) {
+    f.src = url;
+    await new Promise((r) => (f.onload = r));
+    w = f.contentWindow;
+    d = w.document;
+    w.addEventListener('error', (e) => errors.push(e.message));
+    w.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+    await sleep(400);
+  }
+  const $ = (s) => d.querySelector(s);
+  const $$ = (s) => [...d.querySelectorAll(s)];
+  const text = (s) => ($(s) ? $(s).textContent.replace(/\s+/g, ' ').trim() : '');
+  const row = (k) => text(`.row[data-row="${k}"] .row-txt`);
+  const bar = () => text('#bookbar');
+  const type = async (sel, value) => {
+    const el = $(sel);
+    el.value = value;
+    el.dispatchEvent(new w.Event('input', { bubbles: true }));
+    await sleep(60);
+  };
+  const submit = async (sel) => {
+    $(sel).requestSubmit();
+    await sleep(200);
+  };
+  const click = async (el) => {
+    (typeof el === 'string' ? $(el) : el).click();
+    await sleep(200);
+  };
+  const button = (label) => $$('button').find((b) => b.textContent.trim() === label);
+  const DEMO = 'Antalya with my wife and our 6 month old, 10 to 14 Nov, morning flights, one bag';
+
+  async function main() {
+    sessionStorage.clear();
+    await load('../index.html?today=2026-10-03');
+    check($$('.row.ghost').length === 5 && $('#q') && $('#dock').hidden, 'one screen: the box, five empty rows, no bar yet');
+
+    await type('#q', DEMO);
+    check($('#frame').classList.contains('full') && /Antalya/.test(row('where')) && /Tue 10 Nov 07:05 to 08:25/.test(row('out')), 'the trip fills in while you type', row('out'));
+    check($('#ask').dataset.fill === '3' && $('#dock').hidden, 'all three must-haves filled, still nothing booked');
+
+    await submit('#ask');
+    check(/Antalya with my wife/.test(text('#said')) && !$('#dock').hidden && /Waiting on 1/.test(bar()), 'the sentence comes back, the bar waits for the baby', bar());
+
+    await type('#chg', 'Make it five nights and add my mom');
+    await submit('#say');
+    check(/Back Sun 15 Nov · Mom added · €\d+ more/.test(text('#strip')) && /Sun 15 Nov/.test(row('back')) && $$('.said li').length === 2, 'a spoken change comes back as a receipt', text('#strip'));
+    check($('.row[data-row="back"]').classList.contains('flash') && /Waiting on 2/.test(bar()), 'the changed row flashes; Mom joins the wait', bar());
+
+    await click('#strip .undo');
+    check(!text('#strip') && /Sat 14 Nov/.test(row('back')) && !/Mom/.test(row('who')) && $$('.said li').length === 1, 'undo puts it back');
+
+    await type('#chg', 'make it purple');
+    await submit('#say');
+    check(text('.ow') === 'purple' && /Check 1 word/.test(bar()) && /Nothing changed/.test(text('#strip')), 'a word it cannot use is orange and holds the bar', bar());
+    await click('.ow');
+    check($('.ow.done') && /Waiting on 1/.test(bar()), 'tapping the orange word lets it go');
+
+    const together = button('Sit together');
+    const before = text('.row[data-row="price"] b');
+    if (together) await click(together);
+    check(together && /Seats together/.test(row('seats')) && text('.row[data-row="price"] b') !== before, 'a heads-up line is one tap, and the price moves', row('seats'));
+
+    await click('.row[data-row="who"] .row-main');
+    await click('[data-act="fill"][data-id="baby"]');
+    const form = $('form.fill');
+    form.first.value = 'Noa';
+    form.dob.value = '2026-05-01';
+    await submit('form.fill');
+    check($$('.row-main[aria-expanded]').every((b) => /^(true|false)$/.test(b.getAttribute('aria-expanded'))) && $$('.row.open > .row-body').length === 1, 'an open row stays one row with one body');
+    check(/Noa/.test(row('who')) && /Book it/.test(bar()), 'the baby gets a name and birthday, then Book is open', `${row('who')} | ${bar()}`);
+
+    await click('[data-act="book"]');
+    check(/PNR/.test(text('.booked-card')) && $('#say').hidden && $('#frame').classList.contains('locked') && /Booked/.test(bar()), 'booking locks the trip');
+    await click('[data-act="close-ov"]');
+
+    await click('#newTrip');
+    check($('#q') && $$('.row.ghost').length === 5 && $('#dock').hidden, 'new trip starts clean');
+
+    await type('#q', 'Barcelona with the boys, cheapest, no bags');
+    await submit('#ask');
+    check($('.row.need[data-row="when"] .opt'), 'a missing date is asked in its own row, with taps');
+    await click('.row[data-row="when"] .opt');
+    const apart = $$('.tip span').map((s) => s.textContent).find((x) => /may sit apart/.test(x));
+    check($('#frame').classList.contains('full') && /Book it/.test(bar()) && apart, 'one tap finishes it; six people seated apart is pointed out', `${$('#frame').className} | ${bar()} | ${row('back')} | ${$$('.tip span').map((x) => x.textContent).join(' / ')} | ${text('#said')}`);
+
+    await click('.me');
+    await click('.priv input[data-c="trip"]');
+    check($('.row.need[data-row="who"]'), 'past trips switched off: it asks how many of you');
+    await click('.priv input[data-c="trip"]');
+    await click('.talk');
+    check($('#frame').classList.contains('full') && !$('.priv'), 'switched back on: the friends return');
+
+    await click('#newTrip');
+    await type('#q', 'Berlin with Dana, carry-on only');
+    await submit('#ask');
+    await type('#chg', '20 to 22 Nov, evening');
+    await submit('#say');
+    check($('#frame').classList.contains('full') && /Leave Fri 20 Nov/.test(text('#strip')), 'a missing piece can be answered by talking', text('#strip'));
+
+    await click('#newTrip');
+    w.SpeechRecognition = undefined;
+    w.webkitSpeechRecognition = undefined;
+    await click('.mic[data-for="first"]');
+    check(d.body.classList.contains('demo-voice'), 'no speech recognition: the mic plays a labelled demo voice');
+    await sleep(4000);
+    check(/Antalya with my wife/.test(text('#said')), 'the demo sentence is said and run');
+    await click('.mic[data-for="change"]');
+    await sleep(2500);
+    check(/Mom added/.test(text('#strip')), 'the demo change is said and run', text('#strip'));
+
+    check(d.documentElement.scrollWidth <= 390, 'no sideways scroll at phone width', String(d.documentElement.scrollWidth));
+
+    await load('../index.html?today=2026-10-03');
+    check(/Mom added/.test(text('#said')) && /Sun 15 Nov/.test(row('back')), 'a reload keeps the trip (events in session storage)');
+
+    await click('[data-act="classic"]');
+    await sleep(200);
+    $('#classic').requestSubmit();
+    await sleep(600);
+    check(/people, any time/.test(text('#said')) && $('#frame').classList.contains('full'), 'the classic form is just another way to say it');
+
+    check(errors.length === 0, 'no errors on the page', errors.join(' | '));
+  }
+  main().then(
+    () => (out.textContent = `${lines.join('\n')}\nDONE ${lines.filter((l) => l.startsWith('PASS')).length}/${lines.length}`),
+    (e) => (out.textContent = `${lines.join('\n')}\nFAIL crashed: ${e && e.message}`),
+  );
+</script>

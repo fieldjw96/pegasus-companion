@@ -53,7 +53,8 @@ const ROWS = [
   ['Trabzon with my wife and 2 babies 10 to 14 Nov, morning', (r) => party(r).join() === '2,0,2' && !asks(r, 'lap')],
   ['Berlin with Dana and her mom 20 to 22 Nov, evening', (r) => party(r).join() === '3,0,0'],
   ['Antalya 10 to 14 Nov, she turns 2 soon', (r) => orange(r, 'turns') || asks(r, 'who')],
-  ["I'm going to Barcelona with five of my friends. I don't need any bags, I just want the cheapest option.", (r) => r.complete && party(r).join() === '6,0,0'],
+  // no dates said and none taken from a group chat: it asks
+  ["I'm going to Barcelona with five of my friends. I don't need any bags, I just want the cheapest option.", (r) => party(r).join() === '6,0,0' && asks(r, 'when')],
 ];
 
 test(`scorecard: ${ROWS.length} sentences, no silent errors`, () => {

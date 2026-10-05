@@ -1,11 +1,12 @@
 import { wordmark } from './lib/logo.js';
 import { icon, PLANE_PATH } from './lib/icons.js';
 import * as D from './lib/data.js';
-import { parse } from './lib/parse.js';
-import { resolve, optionsFor, buildTrip, priceTrip, buildSteps, bundleWhy, bundlePrice, flightOf, codeFor, waitingOn, TIME_LABEL } from './lib/agent.js';
-import { todayISO, fmtDay, fmtDob, fmtDuration, addDays, MONTHS } from './lib/dates.js';
+import { parse, normalize } from './lib/parse.js';
+import { resolve, optionsFor, priceTrip, bundleWhy, bundlePrice, flightOf, codeFor, waitingOn, partyLabel, TIME_LABEL } from './lib/agent.js';
+import { replay, gate, headsUp, typeFromDob } from './lib/talk.js';
+import { todayISO, fmtDay, fmtDob, fmtDuration, daysBetween, addDays, MONTHS } from './lib/dates.js';
 
-const VERSION = '0.1.1';
+const VERSION = '0.2.0';
 const params = new URLSearchParams(location.search);
 const TODAY = params.get('today') || todayISO();
 const NAME = params.get('name') || D.ME.first;
@@ -15,8 +16,10 @@ const app = $('#app');
 const overlay = $('#overlay');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const euro = (n) => `€${Math.round(n).toLocaleString('en-US')}`;
+const minutes = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
 
-// ---- state --------------------------------------------------------------
+// ---- state ----------------------------------------------------------------------
+// The trip is never stored, only what you said and tapped (lib/talk.js replays it).
 
 const store = {
   get(key, fallback) {
@@ -37,42 +40,61 @@ const store = {
 };
 
 const S = {
-  text: '',
-  attachments: [],
-  picks: {},
-  asking: null,
+  events: store.get('wt.events', []),
+  status: store.get('wt.status', 'draft'),
+  pnr: store.get('wt.pnr', null),
+  connections: store.get('wt.connections', { trip: true }),
+  draft: '', // the first sentence, while you type or say it
+  open: null, // the row that is open
+  filling: null, // the traveler whose details are being typed
   pickingDates: false,
-  r: null,
-  origin: null,
-  resume: null,
-  attachOpen: false,
-  connOpen: false,
-  threadsAll: false,
-  threadsSeen: 5,
-  suggShown: 5,
-  suggSeen: 5,
-  generating: false,
-  listening: false,
-  connections: store.get('wt.connections', Object.fromEntries(D.CONNECTIONS.map((c) => [c, true]))),
-  trips: store.get('wt.trips', {}),
+  strip: null, // the change whose receipt shows above the bar
+  privacy: false,
+  listening: null, // 'first' | 'change'
 };
+// A scripted demo (?say=) always starts from an empty trip.
+if (params.get('say')) Object.assign(S, { events: [], status: 'draft', pnr: null });
+
+let V = null; // what the events add up to: { r, trip, said, orange }
+let TIPS = [];
+const started = () => S.events.length > 0;
+const locked = () => S.status === 'booked';
 const save = () => {
-  store.set('wt.trips', S.trips);
+  store.set('wt.events', S.events);
+  store.set('wt.status', S.status);
+  store.set('wt.pnr', S.pnr);
   store.set('wt.connections', S.connections);
 };
-const fullText = () => [S.text, ...S.attachments.map((a) => a.text)].join(' ').trim();
-const resolveNow = () => resolve(parse(fullText(), TODAY), { picks: S.picks, connections: S.connections });
+function recompute() {
+  if (started()) V = replay(S.events, TODAY, S.connections);
+  else V = S.draft.trim() ? replay([{ id: 'draft', k: 'say', text: S.draft }], TODAY, S.connections) : null;
+}
+let seq = 0;
+const newId = () => `e${Date.now().toString(36)}${(seq++).toString(36)}`;
+function push(e) {
+  S.events.push({ id: newId(), ...e });
+  save();
+  recompute();
+}
 
-// ---- small pieces ---------------------------------------------------------
+// ---- small pieces ---------------------------------------------------------------
 
 function src(key, withLabel = false) {
   const s = D.SOURCES[key === 'agent' ? 'pegasus' : key] || D.SOURCES.guess;
   return `<span class="src" style="--c:${s.color}" title="${esc(s.label)}">${icon(s.icon)}${withLabel ? `<em>${esc(s.label)}</em>` : ''}</span>`;
 }
-const why = (text, from) => `<div class="why">${src(from)}<span>${esc(text)}</span></div>`;
 const initials = (p) => (p.guest ? '+' : `${p.first[0]}${p.last[0] || ''}`);
 const hue = (i) => [212, 28, 150, 268, 340, 190, 45, 100][i % 8];
 const avatar = (p, i, extra = '') => `<span class="av ${extra}" style="--h:${hue(i)}" title="${esc(`${p.first} ${p.last}`)}">${esc(initials(p))}</span>`;
+const listNames = (xs) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+// Only touch the DOM when the markup really changed, so nothing re-animates on a repaint.
+function setHTML(el, html) {
+  if (el && el.lastHTML !== html) {
+    el.innerHTML = html;
+    el.lastHTML = html;
+  }
+}
 
 let toastTimer;
 function toast(html) {
@@ -90,7 +112,7 @@ function bump(el) {
   el.classList.add('bump');
 }
 
-// ---- the flying logo --------------------------------------------------------
+// ---- the flying logo ---------------------------------------------------------------
 
 const ORBIT = 'M160 110C78 110 8 92 8 60S78 10 160 10s152 18 152 50-70 50-152 50Z';
 function flyer() {
@@ -107,76 +129,139 @@ function flyer() {
   </div>`;
 }
 
-// ---- home -------------------------------------------------------------------
+// ---- the one screen ----------------------------------------------------------------
 
 const EXAMPLES = [
+  'Antalya with my wife and our baby, 10 to 14 Nov, morning',
   'Barcelona with the boys, cheapest, no bags',
   'Home to Izmir Friday morning, back Sunday',
-  'Antalya with Dana for the wedding',
   'Amsterdam next weekend, evening flights',
 ];
+const CHANGES = ['make it 5 nights', 'add my mom', 'evening flight back', 'seats together', 'a day earlier', 'switch to Saver Plus'];
 
-function renderHome() {
+function renderTalk() {
   document.title = 'Pegasus · Where to';
-  app.className = 'page-home';
-  S.attachOpen = false;
+  app.className = 'page-talk';
   app.innerHTML = `
     <div class="sky" aria-hidden="true"><i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i></div>
     <header class="topbar">
-      <span class="me" title="${esc(NAME)}">${esc(NAME[0])}</span>
-      <button class="icon-btn" data-act="classic" aria-label="Classic booking" title="Classic booking">${icon('grid')}</button>
+      <button class="me" data-act="privacy" aria-label="What it uses" title="What it uses">${esc(NAME[0])}</button>
+      <div class="top-right">
+        <button class="icon-btn" data-act="newtrip" id="newTrip" aria-label="New trip" title="New trip">${icon('refresh')}</button>
+        <button class="icon-btn" data-act="classic" aria-label="Classic booking" title="Classic booking">${icon('grid')}</button>
+      </div>
+      <div id="privacy"></div>
     </header>
-    <main class="home">
-      <section class="hero">
-        ${flyer()}
-        <h1>Where to next, <span>${esc(NAME)}</span>?</h1>
-      </section>
+    <main class="talk">
+      <section class="hero">${flyer()}<h1>Where to next, <span>${esc(NAME)}</span>?</h1></section>
+      <div id="top"></div>
+      <section class="frame" id="frame"></section>
+      <footer class="foot">Where to · v${VERSION} · prototype with mock data</footer>
+    </main>
+    <div class="dock" id="dock" hidden>
+      <div class="dock-inner">
+        <div id="strip"></div>
+        <form class="say" id="say" autocomplete="off">
+          <button type="button" class="mic" data-act="mic" data-for="change" aria-label="Say a change" title="Say a change">${icon('mic')}<span class="ring"></span><span class="ring r2"></span></button>
+          <input id="chg" aria-label="Change anything" placeholder="Change anything: “${esc(CHANGES[0])}”" enterkeyhint="send" />
+          <button type="submit" class="go" aria-label="Change it" title="Change it">${icon('arrowUp')}</button>
+        </form>
+        <div id="bookbar"></div>
+      </div>
+    </div>`;
+  $('#say').addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitChange();
+  });
+  rotate($('#chg'), CHANGES.map((c) => `Change anything: “${c}”`));
+  recompute();
+  paintAll();
+}
+
+function paintAll() {
+  app.classList.toggle('started', started());
+  $('#newTrip').hidden = !started();
+  paintPrivacy();
+  paintTop();
+  paintFrame();
+  paintDock();
+}
+
+// ---- top: the sentence box, then what you said ------------------------------------
+
+function paintTop() {
+  const el = $('#top');
+  if (!started()) {
+    if ($('#q')) return paintMeter();
+    el.innerHTML = `
       <form class="ask" id="ask" autocomplete="off">
-        <button type="button" class="ask-plus" data-act="attach" aria-label="Add context" title="Add context">${icon('plus')}</button>
         <div class="ask-main">
-          <div class="att" id="att"></div>
           <textarea id="q" rows="1" aria-label="Where to?" placeholder="${esc(EXAMPLES[0])}"></textarea>
           <div class="wave" aria-hidden="true">${Array.from({ length: 32 }, (_, i) => `<i style="--d:${(0.42 + ((i * 37) % 11) / 22).toFixed(2)}s"></i>`).join('')}</div>
         </div>
-        <button type="button" class="mic" data-act="mic" aria-label="Speak" title="Speak">${icon('mic')}<span class="ring"></span><span class="ring r2"></span></button>
+        <button type="button" class="mic" data-act="mic" data-for="first" aria-label="Speak" title="Speak">${icon('mic')}<span class="ring"></span><span class="ring r2"></span></button>
         <button type="submit" class="go" aria-label="Go"><svg class="meter" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20.5" pathLength="3"/></svg>${icon('arrowUp')}</button>
-        <div class="menu" id="attachMenu" hidden></div>
       </form>
-      <div class="slots" id="slots"></div>
-      <div class="asking" id="asking"></div>
-      <section class="context">
-        <div class="col" id="prev"></div>
-        <div class="col" id="sugg"></div>
-      </section>
-      <footer class="foot">Where to · v${VERSION} · prototype with mock data</footer>
-    </main>`;
-  wireComposer();
-  paintAttachments();
-  live();
-  paintPrev();
-  paintSugg();
+      <p class="lead">Where, when and what time of day is enough. It fills in the rest, and you change anything by talking.</p>`;
+    wireComposer();
+    return paintMeter();
+  }
+  const s = V.said;
+  setHTML(el, `<section class="said" id="said" aria-label="What you said">
+    <ol>${s
+      .map(
+        (x) => `<li class="${x.first ? 'first' : 'chg'}${x.id === S.strip ? ' fresh' : ''}">
+        <p class="words">${icon('mic')}<q>${readback(x)}</q></p>
+        ${x.receipt ? `<p class="rc"><span>${x.receipt.map(esc).join(' · ')}</span>${locked() ? '' : `<button class="undo" data-act="undo" data-id="${x.id}">Undo</button>`}</p>` : ''}
+      </li>`,
+      )
+      .join('')}</ol>
+    ${V.orange.length && !locked() ? `<p class="ow-note">${icon('spark')}<span>Orange words weren't used. Tap one to let it go, or say it another way.</span></p>` : ''}
+  </section>`);
+}
+
+// Your words come back as you said them; the ones it couldn't use are orange buttons.
+function readback(s) {
+  const queue = s.unplaced.map((u) => ({ ...u }));
+  let out = '';
+  let at = 0;
+  for (const m of s.text.matchAll(/[\p{L}\d][\p{L}\d'’\-]*/gu)) {
+    out += esc(s.text.slice(at, m.index));
+    at = m.index + m[0].length;
+    const n = normalize(m[0]);
+    const k = queue.findIndex((u) => u.word === n);
+    if (k < 0) {
+      out += esc(m[0]);
+      continue;
+    }
+    const u = queue.splice(k, 1)[0];
+    out += u.cleared || locked()
+      ? `<span class="ow done" title="Let go">${esc(m[0])}</span>`
+      : `<button class="ow" data-act="clear" data-say="${s.id}" data-word="${esc(u.word)}" title="Not used. Tap to let it go">${esc(m[0])}</button>`;
+  }
+  return out + esc(s.text.slice(at));
 }
 
 function wireComposer() {
   const ta = $('#q');
-  ta.value = S.text;
+  ta.value = S.draft;
   autosize(ta);
   ta.addEventListener('input', () => {
-    S.text = ta.value;
+    S.draft = ta.value;
     autosize(ta);
     live();
   });
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      submit();
+      commitFirst();
     }
   });
   $('#ask').addEventListener('submit', (e) => {
     e.preventDefault();
-    submit();
+    commitFirst();
   });
-  rotatePlaceholder(ta);
+  rotate(ta, EXAMPLES);
 }
 
 function autosize(ta) {
@@ -184,23 +269,26 @@ function autosize(ta) {
   ta.style.height = `${Math.min(ta.scrollHeight, 180)}px`;
 }
 
-let phTimer;
-function rotatePlaceholder(ta) {
+const rotations = new WeakMap();
+function rotate(el, list) {
+  clearInterval(rotations.get(el));
   let i = 0;
-  clearInterval(phTimer);
-  phTimer = setInterval(() => {
-    if (!document.body.contains(ta)) return clearInterval(phTimer);
-    i = (i + 1) % EXAMPLES.length;
-    ta.classList.add('ph-out');
-    setTimeout(() => {
-      ta.placeholder = EXAMPLES[i];
-      ta.classList.remove('ph-out');
-    }, 220);
-  }, 3600);
+  rotations.set(
+    el,
+    setInterval(() => {
+      if (!document.body.contains(el)) return clearInterval(rotations.get(el));
+      i = (i + 1) % list.length;
+      el.classList.add('ph-out');
+      setTimeout(() => {
+        el.placeholder = list[i];
+        el.classList.remove('ph-out');
+      }, 220);
+    }, 3600),
+  );
 }
 
-function setText(txt) {
-  S.text = txt;
+function setDraft(txt) {
+  S.draft = txt;
   const ta = $('#q');
   if (ta) {
     ta.value = txt;
@@ -209,235 +297,426 @@ function setText(txt) {
   live();
 }
 
-// Re-read the sentence on every keystroke so the three slots fill as you talk.
+// Re-read the sentence on every keystroke (or every word heard) so the trip fills as you talk.
 function live() {
-  const text = fullText();
-  if (!text) {
-    S.r = null;
-    S.asking = null;
-    S.picks = {};
-    S.pickingDates = false;
-  } else {
-    S.r = resolveNow();
-    if (S.asking && S.r.slots[S.asking]) S.asking = S.r.missing[0] || null;
-  }
-  paintSlots();
-  paintAsking();
+  recompute();
+  paintFrame();
+  paintMeter();
 }
 
-function previewChips(p) {
-  const out = [];
-  if (p.party.count > 1 || p.party.explicit) out.push(['people', p.party.count === 1 ? 'Just you' : `${p.party.count} people`, p.party.src]);
-  if (p.bags) out.push([p.bags.kind === 'none' ? 'backpack' : p.bags.kind === 'cabin' ? 'cabin' : 'suitcase', { none: 'No bags', cabin: 'Cabin bag', checked: `${p.bags.count || 1} bag` }[p.bags.kind], 'said']);
-  if (p.budget.cheapest) out.push(['tag', 'Cheapest', 'said']);
-  if (p.budget.flex) out.push(['refresh', 'Flexible', 'said']);
-  if (p.insurance === false) out.push(['shield', 'No insurance', 'said']);
-  if (p.seats === 'together') out.push(['seat', 'Together', 'said']);
-  if (p.autopilot) out.push(['spark', 'No steps', 'said']);
-  return out;
-}
-
-function paintSlots() {
-  const el = $('#slots');
-  if (!el) return;
-  const r = S.r;
-  const pill = (k, ic, empty) => {
-    const s = r && r.slots[k];
-    const unknown = k === 'where' && !s && r && r.p.unknown;
-    const cls = ['slot', s ? 'on' : '', S.asking === k ? 'pending' : '', unknown ? 'warn' : ''].join(' ');
-    const label = s ? s.label : unknown ? `${unknown.name}?` : empty;
-    return `<button type="button" class="${cls}" data-act="slot" data-slot="${k}">${icon(ic)}<span>${esc(label)}</span>${s ? src(s.src) : ''}</button>`;
-  };
-  const filled = r ? 3 - r.missing.length : 0;
-  el.innerHTML =
-    `<div class="slot-row">${pill('where', 'pin', 'Where')}${pill('when', 'calendar', 'When')}${pill('time', 'clock', 'What time')}</div>` +
-    (r ? `<div class="chip-row">${previewChips(r.p).map(([ic, label, from]) => `<span class="pchip">${icon(ic)}${esc(label)}${src(from)}</span>`).join('')}</div>` : '');
+function paintMeter() {
   const ask = $('#ask');
+  if (!ask) return;
+  const filled = V && V.r ? ['where', 'when', 'time'].filter((k) => V.r.slots[k]).length : 0;
   ask.style.setProperty('--fill', filled);
   ask.dataset.fill = filled;
   ask.classList.toggle('ready', filled === 3);
 }
 
-function paintAsking() {
-  const el = $('#asking');
+function commitFirst() {
+  const text = S.draft.trim();
+  if (!text) {
+    bump($('#ask'));
+    return $('#q') && $('#q').focus();
+  }
+  Object.assign(S, { events: [{ id: newId(), k: 'say', text }], draft: '', status: 'draft', pnr: null, strip: null, open: null, filling: null, pickingDates: false });
+  save();
+  recompute();
+  if (V.r && V.r.missing.length) S.open = V.r.missing[0];
+  paintAll();
+}
+
+function submitChange() {
+  const input = $('#chg');
+  const text = input.value.trim();
+  if (!text || locked()) return bump($('#say'));
+  input.value = '';
+  push({ k: 'say', text });
+  showStrip(S.events[S.events.length - 1].id);
+  if (V.r && V.r.missing.length) S.open = V.r.missing[0];
+  paintAll();
+}
+
+// The receipt sits above the bar for a few seconds; the list of what you said keeps it.
+let stripTimer;
+function showStrip(id) {
+  S.strip = id;
+  clearTimeout(stripTimer);
+  stripTimer = setTimeout(() => {
+    if (S.strip !== id) return;
+    S.strip = null;
+    if (started()) paintDock();
+  }, 7000);
+}
+
+// ---- the trip, filling in --------------------------------------------------------
+
+let lastSigs = null;
+function paintFrame() {
+  const el = $('#frame');
   if (!el) return;
-  if (!S.asking || !S.r) {
-    el.className = 'asking';
+  const t = V && V.trip;
+  el.className = `frame${t ? ' full' : ''}${locked() ? ' locked' : ''}`;
+  const head = t
+    ? `<h2>${t.emoji} ${esc(t.title)}</h2><span>${locked() ? `Booked · PNR ${esc(S.pnr)}` : 'Say a change, or tap a row'}</span>`
+    : `<h2>Your trip</h2><span>${started() ? 'A tap or a sentence finishes it' : 'Fills in as you talk'}</span>`;
+  el.innerHTML = `<div class="frame-head">${head}</div>${(!V || !V.r ? ghostRows() : t ? fullRows(V) : partialRows(V.r)).join('')}`;
+  // a row whose value just changed flashes once
+  const sigs = new Map([...el.querySelectorAll('.row')].map((r) => [r.dataset.row, r.dataset.sig]));
+  if (lastSigs) for (const r of el.querySelectorAll('.row')) if (lastSigs.has(r.dataset.row) && lastSigs.get(r.dataset.row) !== r.dataset.sig) r.classList.add('flash');
+  lastSigs = sigs;
+}
+
+function row(key, o) {
+  const isOpen = !locked() && !!(o.force || (S.open === key && o.body));
+  const tappable = !locked() && !!o.body && !o.force;
+  return `<div class="row ${o.state || 'on'}${isOpen ? ' open' : ''}" data-row="${key}" data-sig="${esc(o.main + (o.sub || ''))}">
+    <button class="row-main" data-act="row" data-row="${key}" ${tappable ? `aria-expanded="${isOpen}"` : 'disabled'}>
+      <span class="row-ic">${icon(o.ic)}</span>
+      <span class="row-txt"><b>${o.main}</b>${o.sub ? `<span>${o.sub}</span>` : ''}</span>
+      ${o.from ? src(o.from) : ''}
+      ${tappable ? `<span class="row-more">${icon('chevron', isOpen ? 'up' : '')}</span>` : ''}
+    </button>
+    ${isOpen ? `<div class="row-body">${o.body}</div>` : ''}
+    ${o.tip || ''}
+  </div>`;
+}
+
+const rule = (text) => `<p class="rule">${src('pegasus')}<span>${esc(text)}</span></p>`;
+function tipHTML(tip) {
+  const i = TIPS.indexOf(tip);
+  return `<div class="tip">${icon('spark')}<span>${esc(tip.text)}</span>${locked() ? '' : `<button class="tip-act" data-act="tip" data-i="${i}">${esc(tip.label)}</button>`}</div>`;
+}
+
+function ghostRows() {
+  return [
+    row('where', { ic: 'pin', main: 'Where to?', sub: 'Needed', state: 'ghost' }),
+    row('when', { ic: 'calendar', main: 'When?', sub: 'Needed', state: 'ghost' }),
+    row('time', { ic: 'clock', main: 'What time of day?', sub: 'Needed', state: 'ghost' }),
+    row('who', { ic: 'people', main: 'Just you', sub: 'Unless you say who', state: 'ghost' }),
+    row('bags', { ic: 'cabin', main: 'Bags', sub: 'From what you say, or your past trips', state: 'ghost' }),
+  ];
+}
+
+const SLOT_Q = { where: 'Where to?', when: 'When?', time: 'What time of day?', who: 'How many of you?', lap: 'A seat or a lap?' };
+function askBody(k, r) {
+  const mo = r.p.dates.monthOnly;
+  const q =
+    k === 'where' && r.p.unknown
+      ? `Pegasus doesn't fly to ${r.p.unknown.name} yet. Closest fit:`
+      : k === 'when' && mo
+        ? `Which weekend in ${MONTHS[mo - 1]}?`
+        : k === 'lap'
+          ? `${r.party.infants} babies, ${r.party.adults} adult${r.party.adults > 1 ? 's' : ''}: one baby per adult can sit on a lap (Pegasus rule).`
+          : null;
+  const opts = optionsFor(k, r, TODAY);
+  return `${q ? `<p class="ask-q">${esc(q)}</p>` : ''}
+    <div class="opts">${opts.map((o, i) => `<button type="button" class="opt" style="--i:${i}" data-act="pick" data-slot="${k}" data-value="${esc(JSON.stringify(o.value))}">${esc(o.label)}</button>`).join('')}</div>
+    ${k === 'when' && S.pickingDates ? `<div class="datepick"><input type="date" id="dOut" min="${TODAY}" aria-label="Departure"><span>${icon('back', 'flip')}</span><input type="date" id="dBack" min="${TODAY}" aria-label="Return"><button type="button" class="opt" data-act="dates-done" aria-label="Use these dates">${icon('check')}</button></div>` : ''}
+    <p class="or-say">${icon('mic')}Or just say it</p>`;
+}
+
+function backNote(wh) {
+  if (!wh.back || !['trip', 'guess'].includes(wh.backSrc)) return '';
+  return wh.backSrc === 'trip' ? `Back after your usual ${daysBetween(wh.out, wh.back)} nights` : 'Return is a guess: say another';
+}
+
+function partialRows(r) {
+  const ask = started();
+  const rows = [];
+  const w = r.slots.where;
+  rows.push(
+    w
+      ? row('where', { ic: 'pin', main: esc(w.label), sub: esc(`From ${D.HOME.city} ${D.HOME.code}`), from: w.src, body: askBody('where', r) })
+      : row('where', { ic: 'pin', main: r.p.unknown ? `${esc(r.p.unknown.name)}?` : 'Where to?', sub: r.p.unknown ? "Pegasus doesn't fly there yet" : 'Needed', state: r.p.unknown ? 'warn' : ask ? 'need' : 'ghost', body: ask ? askBody('where', r) : '', force: ask }),
+  );
+  const wh = r.slots.when;
+  rows.push(
+    wh
+      ? row('when', { ic: 'calendar', main: esc(wh.label), sub: esc(backNote(wh)), from: wh.backSrc === 'trip' || wh.backSrc === 'guess' ? wh.backSrc : wh.src })
+      : row('when', { ic: 'calendar', main: 'When?', sub: 'Needed', state: ask ? 'need' : 'ghost', body: ask ? askBody('when', r) : '', force: ask }),
+  );
+  const tm = r.slots.time;
+  rows.push(
+    tm
+      ? row('time', { ic: 'clock', main: esc(tm.label), sub: tm.note ? esc(tm.note) : '', from: tm.src })
+      : row('time', { ic: 'clock', main: 'What time of day?', sub: 'Needed', state: ask ? 'need' : 'ghost', body: ask ? askBody('time', r) : '', force: ask }),
+  );
+  const party = r.party;
+  if (r.missing.includes('who')) rows.push(row('who', { ic: 'people', main: 'How many of you?', sub: 'It won’t guess a head count', state: ask ? 'need' : 'ghost', body: ask ? askBody('who', r) : '', force: ask }));
+  else if (r.missing.includes('lap')) rows.push(row('who', { ic: 'people', main: esc(partyLabel(party)), sub: 'One baby per adult on a lap', state: ask ? 'need' : 'ghost', body: ask ? askBody('lap', r) : '', force: ask }));
+  else {
+    const who = [D.ME.first, ...party.members.map((id) => D.PEOPLE[id].first), ...party.extras.map((e) => e.label), ...(party.guests ? [`${party.guests} more`] : [])];
+    rows.push(row('who', { ic: 'people', main: esc(partyLabel(party)), sub: esc(listNames(who)), from: party.src }));
+  }
+  const bags = r.p.bags;
+  rows.push(
+    bags
+      ? row('bags', { ic: bags.kind === 'none' ? 'backpack' : bags.kind === 'cabin' ? 'cabin' : 'suitcase', main: { none: 'No bags', cabin: 'Cabin bag', checked: `${bags.count || 1} checked bag${bags.count > 1 ? 's' : ''} each` }[bags.kind], from: 'said' })
+      : S.connections.trip !== false
+        ? row('bags', { ic: 'cabin', main: 'Cabin bag', sub: 'Like your past trips', from: 'trip' })
+        : row('bags', { ic: 'backpack', main: 'No bags yet', sub: 'Say if you’re bringing one', from: 'guess' }),
+  );
+  return rows;
+}
+
+function fullRows(v) {
+  const t = v.trip;
+  const r = v.r;
+  TIPS = headsUp(t);
+  const tipsFor = (key) => TIPS.filter((x) => x.row === key).map(tipHTML).join('');
+  const dest = D.byCode(t.dest);
+  return [
+    row('where', { ic: 'pin', main: esc(dest.city), sub: esc(`${D.HOME.city} ${D.HOME.code} to ${dest.city} ${dest.code}${dest.intl ? '' : ' · domestic'}`), from: r.slots.where.src, body: askBody('where', r) }),
+    legRow(t, r, 'out', tipsFor('out')),
+    legRow(t, r, 'back', tipsFor('back')),
+    whoRow(t, r),
+    bundleRow(t, tipsFor('bundle')),
+    seatsRow(t, tipsFor('seats')),
+    extrasRow(t),
+    priceRow(t),
+  ];
+}
+
+function legRow(t, r, dir, tip) {
+  const leg = t.flights[dir];
+  if (!leg) return row('back', { ic: 'landing', main: 'One way', sub: esc('Say “back on Sunday” to add a return'), from: r.slots.when.src });
+  const f = flightOf(t, dir);
+  const slot = t.time[dir];
+  const when = r.slots.when;
+  const reason = leg.byYou ? 'Your pick' : leg.bySaid ? 'As you said' : slot === 'any' ? 'Cheapest of the day' : `Cheapest ${TIME_LABEL[slot].toLowerCase()} flight`;
+  const guessedBack = dir === 'back' && ['trip', 'guess'].includes(when.backSrc);
+  const from = leg.byYou ? 'you' : leg.bySaid ? 'said' : guessedBack ? when.backSrc : t.time.src === 'you' || when.src === 'you' ? 'you' : t.time.src === 'guess' && !t.cheapest ? 'guess' : 'said';
+  const nights = dir === 'back' ? daysBetween(t.out, t.back) : null;
+  const extra = dir === 'back' ? (nights ? ` · ${nights} night${nights > 1 ? 's' : ''}${guessedBack ? (when.backSrc === 'trip' ? ', your usual' : ', a guess') : ''}` : ' · same day') : '';
+  const sameday = dir === 'back' && t.heard.find((h) => h.k === 'sameday');
+  return row(dir, {
+    ic: dir === 'out' ? 'takeoff' : 'landing',
+    main: `${fmtDay(f.date)} <span class="hm">${f.dep} to ${f.arr}${f.nextDay ? '<sup>+1</sup>' : ''}</span>`,
+    sub: esc(`${f.no} · ${fmtDuration(f.mins)} · ${reason}${extra}`),
+    from,
+    body: timesHTML(t, dir),
+    tip: (sameday ? rule(sameday.label) : '') + tip,
+  });
+}
+
+function timesHTML(t, dir) {
+  const leg = t.flights[dir];
+  const f = flightOf(t, dir);
+  const low = Math.min(...leg.list.map((x) => x.fare));
+  return `<div class="times" role="radiogroup" aria-label="${dir === 'out' ? 'Flight out' : 'Flight home'}">${leg.list
+    .map((x) => {
+      const shut = leg.minDep != null && minutes(x.dep) < leg.minDep;
+      return `<button class="time${x.no === f.no ? ' on' : ''}" data-act="flight" data-dir="${dir}" data-no="${x.no}" role="radio" aria-checked="${x.no === f.no}"${shut ? ' disabled title="Too soon after you land"' : ''}><b>${x.dep}</b><span>${euro(x.fare)}</span>${x.fare === low ? '<i class="low" title="Lowest fare"></i>' : ''}</button>`;
+    })
+    .join('')}</div>`;
+}
+
+const TYPE_TAG = { child: 'Child', infant: 'Baby · on lap' };
+function whoRow(t, r) {
+  const waiting = waitingOn(t).length;
+  const n = { count: t.travelers.length, adults: 0, children: 0, infants: 0 };
+  for (const x of t.travelers) n[x.type === 'infant' ? 'infants' : x.type === 'child' ? 'children' : 'adults'] += 1;
+  const names = t.travelers.map((x) => (x.guest ? 'a guest' : x.first));
+  const rules = t.heard.filter((h) => h.k === 'two' || h.k === 'lapseat').map((h) => rule(h.label)).join('');
+  const lap = n.infants ? rule(`Under 2 flies on a lap: €${D.EXTRAS.infant} per flight, no seat`) : '';
+  return row('who', {
+    ic: 'people',
+    main: `<span class="avatars">${t.travelers.map((p, k) => avatar(p, k, p.confirmed ? 'done' : '')).join('')}</span>${esc(partyLabel(n))}`,
+    sub: `${esc(listNames(names))}${waiting && !locked() ? ` · <em class="warn">${waiting} to fill in</em>` : ''}`,
+    from: r.party.src,
+    state: waiting && !locked() ? 'on todo' : 'on',
+    body: paxHTML(t),
+    tip: rules + lap,
+  });
+}
+
+const LINK_FILL = {
+  Mom: ['Leah', 'Rosenberg', '1966-03-09'], Dad: ['David', 'Rosenberg', '1963-11-21'],
+  Grandma: ['Ruth', 'Rosenberg', '1941-05-30'], Grandpa: ['Sam', 'Rosenberg', '1939-08-14'],
+  Sister: ['Tali', 'Rosenberg', '1999-02-17'], Brother: ['Eli', 'Rosenberg', '2001-07-26'],
+  Guest: ['Can', 'Aydın', '1995-12-01'],
+};
+
+function paxHTML(t) {
+  const list = t.travelers
+    .map((p, k) => {
+      if (S.filling === p.id) return fillRow(t, p, k);
+      const needsName = p.placeholder;
+      const needsDob = !p.dob && !needsName;
+      const required = needsName || (needsDob && p.type !== 'adult');
+      const name = p.guest ? 'Guest' : p.placeholder ? p.first : `${p.first} ${p.last}`;
+      const sub = p.dob
+        ? `${icon('calendar')}${fmtDob(p.dob)}`
+        : p.asked
+          ? `${icon('send')}Asked through the group link`
+          : needsName
+            ? p.type === 'adult' ? 'Name needed' : 'Name and birthday needed'
+            : p.type !== 'adult' ? 'Birthday needed' : 'Birthday not saved (optional)';
+      const action = (needsName || needsDob) && !p.asked
+        ? p.type === 'adult'
+          ? `<button class="mini" data-act="ask" data-id="${p.id}">${icon('send')}Ask</button>`
+          : `<button class="mini" data-act="fill" data-id="${p.id}">${icon('plus')}Add</button>`
+        : '';
+      return `<li class="${required ? 'missing' : needsDob ? 'soft' : ''}">
+        ${avatar(p, k)}
+        <span class="pax-main"><b>${esc(name)}${p.id === 'me' ? ' <em>you</em>' : ''}${TYPE_TAG[p.type] ? ` <i class="ptype">${TYPE_TAG[p.type]}</i>` : ''}</b><span>${sub}</span></span>
+        ${p.dob ? src(p.src) : ''}
+        ${action}
+        ${p.confirmed ? `<span class="ok" title="Confirmed">${icon('check')}</span>` : ''}
+      </li>`;
+    })
+    .join('');
+  return `<ul class="pax">${list}</ul>
+    <div class="linkbox"><span>flypgs.com/t/${esc(t.code)}</span><button class="icon-btn small" data-act="copy" aria-label="Copy the group link" title="Copy the group link">${icon('copy')}</button></div>
+    <p class="fine">Everyone on the trip can open this link and type their own details.</p>`;
+}
+
+function fillRow(t, p, k) {
+  return `<li class="filling">${avatar(p, k)}
+    <form class="fill" data-id="${p.id}">
+      <input name="first" placeholder="First name" aria-label="First name" value="${esc(p.placeholder ? '' : p.first)}" required>
+      <input name="last" placeholder="Last name" aria-label="Last name" value="${esc(p.placeholder ? D.ME.last : p.last)}" required>
+      <input name="dob" type="date" max="${t.out}" aria-label="Date of birth" value="${p.dob || ''}" ${p.type === 'adult' ? '' : 'required'}>
+      <button type="submit" class="mini">${icon('check')}Save</button>
+    </form></li>`;
+}
+
+function bundleRow(t, tip) {
+  const b = D.bundleById(t.bundle);
+  const w = bundleWhy(t);
+  const kg = D.BAGS.checkedKg[t.intl ? 'intl' : 'dom'];
+  const perks = [
+    ['backpack', 'Under seat', '3 kg', b.under, D.BAGS.under],
+    ['cabin', 'Cabin bag', '8 kg', b.cabin, D.BAGS.cabin],
+    ['suitcase', 'Checked', `${kg} kg`, b.checked, `${kg} kg ${t.intl ? 'international' : 'domestic'}`],
+    ['seat', 'Seat', 'Standard', b.seat, 'Free seat selection'],
+    ['legroom', 'Legroom', 'Extra', b.legroom, 'Extra-legroom seats'],
+    ['meal', 'Sandwich', '', b.meal, 'Sandwich on board'],
+    ['tv', 'Fly & Watch', '', b.watch, 'In-flight entertainment'],
+    ['refresh', 'Free change', '1×', b.change, 'One free change up to 2 h before departure'],
+    ['refund', 'Refund', 'Full', b.refund, 'Full refund on cancellation, service fee excluded'],
+  ];
+  const base = Math.min(...D.bundlesFor(t.intl).map((o) => bundlePrice(t, o.id)));
+  const body = `<div class="bundles">${D.bundlesFor(t.intl)
+    .map((o) => {
+      const extra = bundlePrice(t, o.id) - base;
+      return `<button class="bundle${o.id === t.bundle ? ' on' : ''}" data-act="bundle" data-id="${o.id}" aria-pressed="${o.id === t.bundle}"><b>${o.name}</b><span>${extra ? `+${euro(extra)} each` : 'Lowest'}</span></button>`;
+    })
+    .join('')}</div>
+    <div class="perks">${perks.map(([ic, label, sub, on, title]) => `<div class="perk${on ? ' on' : ''}" title="${esc(title)}">${icon(ic)}<b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</div>`).join('')}</div>`;
+  return row('bundle', { ic: 'suitcase', main: esc(b.name), sub: esc(w.text), from: w.src, body, tip });
+}
+
+const SEAT_LABEL = { free: 'Seats at check-in', together: 'Seats together', window: 'Window seat', aisle: 'Aisle seat', legroom: 'Extra legroom' };
+function seatsRow(t, tip) {
+  const b = D.bundleById(t.bundle);
+  const seated = t.travelers.filter((x) => x.type !== 'infant').length;
+  const fee = (k) => (k === 'free' ? 'Free' : k === 'legroom' ? (b.legroom ? 'Included' : `+${euro(D.EXTRAS.legroom)}`) : b.seat ? 'Included' : `+${euro(D.EXTRAS.seat)}`);
+  const options = seated > 1 ? [['free', 'At check-in'], ['together', 'Together']] : [['free', 'At check-in'], ['window', 'Window'], ['aisle', 'Aisle'], ['legroom', 'Legroom']];
+  const sub = t.seat === 'free' ? (t.cheapest ? 'Free, since you said cheapest' : 'Free, given at check-in') : fee(t.seat) === 'Included' ? 'In your bundle' : `${fee(t.seat)} each per flight`;
+  const from = t.seatSrc === 'you' ? 'you' : t.seatSrc === 'said' || t.cheapest ? 'said' : 'pegasus';
+  const body = `<div class="seg">${options.map(([k, l]) => `<button class="${t.seat === k ? 'on' : ''}" data-act="seat" data-v="${k}" aria-pressed="${t.seat === k}"><b>${l}</b><span>${fee(k)}</span></button>`).join('')}</div>`;
+  return row('seats', { ic: 'seat', main: SEAT_LABEL[t.seat], sub: esc(sub), from, body, tip });
+}
+
+function extrasRow(t) {
+  const b = D.bundleById(t.bundle);
+  const items = [
+    ['insurance', 'shield', 'Insurance', `${euro(D.EXTRAS.insurance)}`],
+    ['meal', 'meal', 'Meal', b.meal ? 'Included' : `${euro(D.EXTRAS.meal)}`],
+    ['lounge', 'lounge', 'SAW lounge', `${euro(D.EXTRAS.lounge)}`],
+    ['car', 'car', 'Car', `${euro(D.EXTRAS.car)}/day`],
+  ];
+  const on = items.filter(([k]) => t.extras[k] || (k === 'meal' && b.meal)).map(([, , label]) => label);
+  const said = Object.entries(t.extrasSrc).some(([, v]) => v === 'said');
+  const declined = t.extrasSrc.insurance === 'said' && !t.extras.insurance;
+  const body = `<div class="extras">${items
+    .map(([k, ic, label, price]) => {
+      const lit = t.extras[k] || (k === 'meal' && b.meal);
+      return `<button class="extra${lit ? ' on' : ''}" data-act="extra" data-k="${k}" aria-pressed="${!!lit}"${k === 'meal' && b.meal ? ' disabled' : ''}>${icon(ic)}<b>${label}</b><span>${price}</span>${t.extrasSrc[k] === 'said' ? src('said') : ''}</button>`;
+    })
+    .join('')}</div>`;
+  return row('extras', { ic: 'plus', main: on.length ? esc(listNames(on)) : 'No extras', sub: declined ? 'No insurance, as you said' : 'Nothing paid unless you ask', from: said ? 'said' : null, body });
+}
+
+function priceRow(t) {
+  const price = priceTrip(t);
+  const body = `<div class="lines">${price.lines.map((l) => `<div><span>${esc(l.label)}</span><b>${euro(l.amount)}</b></div>`).join('')}
+      <div class="total"><span>Total</span><b>${euro(price.total)}</b></div></div>
+    <div class="payrow">${icon('card')}<span>Visa •••• 4242</span>${src('profile')}</div>
+    <div class="payrow">${icon('mail')}<span>Receipt to y••••@gmail.com</span>${src('profile')}</div>`;
+  return row('price', { ic: 'card', main: euro(price.total), sub: esc(price.seated > 1 ? `${euro(price.each)} each · Visa •••• 4242` : 'Visa •••• 4242'), from: 'profile', body });
+}
+
+// ---- the bar at the bottom: say a change, see the receipt, book ---------------------
+
+const NEEDS = { where: 'a place', when: 'dates', time: 'a time', who: 'a head count', lap: 'an answer' };
+function paintDock() {
+  const dock = $('#dock');
+  dock.hidden = !started();
+  if (!started()) return;
+  $('#say').hidden = locked();
+  const s = S.strip && !locked() && V.said.find((x) => x.id === S.strip);
+  setHTML(
+    $('#strip'),
+    s ? `<div class="strip">${icon('check')}<span><q>${esc(s.text)}</q> ${esc(s.receipt.join(' · '))}</span><button class="undo" data-act="undo" data-id="${s.id}">Undo</button></div>` : '',
+  );
+  const g = gate(V);
+  const price = V.trip && priceTrip(V.trip);
+  const sum = price
+    ? `<div class="sum"><b>${euro(price.total)}</b><span>${price.seated > 1 ? `${euro(price.each)} each` : 'total'}</span></div>`
+    : `<div class="sum"><b>Almost</b><span>${g.k === 'missing' ? `needs ${g.slots.map((k) => NEEDS[k]).join(' and ')}` : ''}</span></div>`;
+  const btn = locked()
+    ? `<div class="booked-pill">${icon('check')}Booked · ${esc(S.pnr)}</div>`
+    : g.k === 'missing'
+      ? `<button class="btn book wait" data-act="to-row" data-row="${g.slots[0]}">Needs ${NEEDS[g.slots[0]]}</button>`
+      : g.k === 'orange'
+        ? `<button class="btn book wait" data-act="to-said">${icon('spark')}Check ${g.n} word${g.n > 1 ? 's' : ''}</button>`
+        : g.k === 'names'
+          ? `<button class="btn book wait" data-act="to-who">${icon('people')}Waiting on ${g.n}</button>`
+          : `<button class="btn primary book" data-act="book">${icon('check')}Book it</button>`;
+  setHTML($('#bookbar'), `<div class="bar">${sum}${btn}</div>`);
+}
+
+// ---- what it uses ------------------------------------------------------------------
+
+function paintPrivacy() {
+  const el = $('#privacy');
+  if (!S.privacy) {
     el.innerHTML = '';
     return;
   }
-  const k = S.asking;
-  const unknown = k === 'where' && S.r.p.unknown;
-  const mo = S.r.p.dates.monthOnly;
-  const q = {
-    where: unknown ? `Pegasus doesn't fly to ${unknown.name} yet. Closest fit:` : 'Where to?',
-    when: mo ? `Which weekend in ${MONTHS[mo - 1]}?` : 'When?',
-    time: 'What time of day?',
-    who: 'How many of you?',
-  }[k];
-  const opts = optionsFor(k, S.r, TODAY);
-  el.className = 'asking show';
-  el.innerHTML = `
-    <div class="ask-q">${icon({ where: 'pin', when: 'calendar', time: 'clock', who: 'people' }[k])}<span>${esc(q)}</span></div>
-    <div class="opts">${opts
-      .map((o, i) => `<button type="button" class="opt" style="--i:${i}" data-act="pick" data-slot="${k}" data-value="${esc(JSON.stringify(o.value))}">${esc(o.label)}</button>`)
-      .join('')}</div>
-    ${S.pickingDates ? `<div class="datepick"><input type="date" id="dOut" min="${TODAY}" aria-label="Departure"><span>${icon('back', 'flip')}</span><input type="date" id="dBack" min="${TODAY}" aria-label="Return"><button type="button" class="opt" data-act="dates-done">${icon('check')}</button></div>` : ''}`;
+  el.innerHTML = `<div class="priv" role="dialog" aria-label="What it uses">
+    <h3>${icon('lock')}What it uses</h3>
+    <ul>
+      <li>${src('said')}<span><b>What you say.</b> Speech becomes text on your phone; the audio isn't kept.</span></li>
+      <li>${src('profile')}<span><b>Your Pegasus profile.</b> Your name, birthday and saved card.</span></li>
+      <li>${src('trip')}<span><b>Your past Pegasus trips.</b> Who you flew with, your usual bags and trip length.</span>
+        <label class="switch-wrap"><input type="checkbox" data-c="trip" ${S.connections.trip !== false ? 'checked' : ''} aria-label="Use my past Pegasus trips"><i class="switch"></i></label></li>
+    </ul>
+    <p>No chats, email, calendar or contacts. What you said is deleted at checkout.</p>
+  </div>`;
 }
 
-function paintAttachments() {
-  const el = $('#att');
-  if (!el) return;
-  el.innerHTML = S.attachments
-    .map((a, i) => `<span class="att-chip">${src(a.src)}${esc(a.label)}<button type="button" data-act="detach" data-i="${i}" aria-label="Remove">${icon('x')}</button></span>`)
-    .join('');
-}
-
-function paintMenu() {
-  const m = $('#attachMenu');
-  if (!m) return;
-  m.hidden = !S.attachOpen;
-  m.innerHTML = `
-    <button type="button" data-act="attach-link">${src('link')}<span>Paste a link</span></button>
-    <button type="button" data-act="attach-person" data-id="boys">${src('whatsapp')}<span>The Boys</span></button>
-    <button type="button" data-act="attach-person" data-id="dana">${src('contacts')}<span>Dana</span></button>`;
-}
-
-function threadItems() {
-  const mine = Object.values(S.trips)
-    .filter((t) => t.origin !== 'thread')
-    .sort((a, b) => b.created - a.created)
-    .map((t) => ({ id: t.id, emoji: t.emoji, title: t.title, city: D.byCode(t.dest).city, status: t.status, note: t.status === 'booked' ? 'Booked' : 'Draft', ago: 'Just now' }));
-  const threads = D.THREADS.map((th) => {
-    const t = S.trips[`th-${th.id}`];
-    return t && t.status !== th.status ? { ...th, status: t.status, note: t.status === 'booked' ? 'Booked' : th.note } : th;
-  });
-  return [...mine, ...threads];
-}
-
-function paintPrev() {
-  const el = $('#prev');
-  if (!el) return;
-  const items = threadItems();
-  const shown = S.threadsAll ? items : items.slice(0, 5);
-  el.innerHTML = `
-    <div class="col-head"><h2>Previous</h2><span class="count">${items.length}</span></div>
-    <ul class="list">${shown
-      .map(
-        (t, i) => `<li class="${i >= S.threadsSeen ? 'new' : ''}" style="--i:${i - S.threadsSeen}"><button class="row" data-act="thread" data-id="${t.id}">
-          <span class="emoji">${t.emoji}</span>
-          <span class="row-main"><b>${esc(t.title)}</b><span>${esc(t.city)} · <i class="st ${t.status}"></i>${esc(t.note)}</span></span>
-          <span class="ago">${esc(t.ago)}</span></button></li>`,
-      )
-      .join('')}</ul>
-    ${items.length > 5 ? `<button class="more" data-act="more-threads" aria-label="${S.threadsAll ? 'Show fewer' : 'More threads'}" title="${S.threadsAll ? 'Show fewer' : 'More threads'}">${S.threadsAll ? icon('chevron', 'up') : icon('dots')}</button>` : ''}`;
-  S.threadsSeen = shown.length;
-}
-
-function paintSugg() {
-  const el = $('#sugg');
-  if (!el) return;
-  const pool = D.SUGGESTIONS.filter((s) => S.connections[s.src] !== false);
-  const shown = pool.slice(0, S.suggShown);
-  const on = D.CONNECTIONS.filter((c) => S.connections[c]);
-  el.innerHTML = `
-    <div class="col-head"><h2>Suggested</h2>
-      <button class="conn-btn" data-act="connections" aria-label="Connected apps" title="Connected apps" aria-expanded="${S.connOpen}">${on
-        .map((c) => `<i style="--c:${D.SOURCES[c].color}"></i>`)
-        .join('')}${icon('settings')}</button></div>
-    ${S.connOpen ? connPanel() : ''}
-    <ul class="list">${shown
-      .map(
-        (s, i) => `<li class="${i >= S.suggSeen ? 'new' : ''}" style="--i:${i - S.suggSeen}"><button class="row sugg" data-act="suggest" data-id="${s.id}">
-          ${src(s.src)}
-          <span class="row-main"><b>${esc(s.title)}</b><span>${esc(s.sub)}</span></span>
-          <span class="arrow">${icon('arrowUp')}</span></button></li>`,
-      )
-      .join('')}${S.generating ? '<li class="skeleton"></li><li class="skeleton"></li><li class="skeleton"></li>' : ''}</ul>
-    ${
-      pool.length > S.suggShown && !S.generating
-        ? `<button class="more" data-act="more-sugg" aria-label="More ideas" title="More ideas">${icon('dots')}</button>`
-        : !S.generating
-          ? `<p class="list-end">${pool.length ? 'That is everything from your apps' : 'Switch on an app to get ideas'}</p>`
-          : ''
-    }`;
-  S.suggSeen = shown.length;
-}
-
-function connPanel() {
-  return `<div class="conn-panel">${D.CONNECTIONS.map(
-    (c) => `<label class="conn">${src(c)}<span>${esc(D.SOURCES[c].label)}</span><input type="checkbox" data-c="${c}" ${S.connections[c] ? 'checked' : ''}><i class="switch"></i></label>`,
-  ).join('')}<p class="conn-note">${icon('lock')}Used only to plan trips. Off means off.</p></div>`;
-}
-
-// ---- asking and going ---------------------------------------------------------
-
-function submit() {
-  if (!fullText()) {
-    bump($('#ask'));
-    $('#q').focus();
-    return;
-  }
-  S.r = resolveNow();
-  if (!S.r.complete) {
-    S.asking = S.r.missing[0];
-    paintSlots();
-    paintAsking();
-    return;
-  }
-  launch(S.r);
-}
-
-function launch(r) {
-  const opts = S.resume ? { id: S.resume.id, title: S.resume.title, emoji: S.resume.emoji, origin: 'thread' } : { origin: S.origin || 'text' };
-  const trip = buildTrip(r, opts);
-  S.trips[trip.id] = trip;
-  save();
-  Object.assign(S, { text: '', attachments: [], picks: {}, asking: null, pickingDates: false, r: null, origin: null, resume: null });
-  showBuilding(trip, () => {
-    location.hash = `#/trip/${trip.id}`;
-  });
-}
-
-function afterPick() {
-  S.r = resolveNow();
-  if (S.r.complete) return launch(S.r);
-  S.asking = S.r.missing[0];
-  paintSlots();
-  paintAsking();
-}
-
-let typeTimer;
-function typeInto(text, done) {
-  clearInterval(typeTimer);
-  let i = 0;
-  typeTimer = setInterval(() => {
-    i = Math.min(text.length, i + 3);
-    setText(text.slice(0, i));
-    if (i >= text.length) {
-      clearInterval(typeTimer);
-      setTimeout(done, 380);
-    }
-  }, 16);
-}
-
-// ---- voice ------------------------------------------------------------------
+// ---- voice -------------------------------------------------------------------------
 
 let rec = null;
 let demoTimer = null;
-function setListening(on, demo = false) {
-  S.listening = on;
-  document.body.classList.toggle('listening', on);
-  document.body.classList.toggle('demo-voice', on && demo);
-  const mic = $('.mic');
-  if (mic) mic.setAttribute('aria-pressed', String(on));
+function setListening(target, demo = false) {
+  S.listening = target;
+  document.body.classList.toggle('listening', target === 'first');
+  document.body.classList.toggle('demo-voice', !!target && demo);
+  document.querySelectorAll('.mic').forEach((m) => m.setAttribute('aria-pressed', String(!!target && m.dataset.for === target)));
 }
+const put = (target, txt) => (target === 'first' ? setDraft(txt) : ($('#chg').value = txt));
+const finish = (target) => (target === 'first' ? commitFirst() : submitChange());
 
-function startMic() {
+function startMic(target) {
   if (S.listening) return stopMic();
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  setText('');
-  if (!SR) return demoVoice();
+  put(target, '');
+  if (!SR) return demoVoice(target);
   let heard = false;
   let failed = false;
   try {
@@ -447,38 +726,38 @@ function startMic() {
     rec.continuous = false;
     rec.onresult = (e) => {
       heard = true;
-      setText(Array.from(e.results).map((x) => x[0].transcript).join(' '));
+      put(target, Array.from(e.results).map((x) => x[0].transcript).join(' '));
     };
     rec.onerror = () => {
       failed = !heard;
     };
     rec.onend = () => {
       rec = null;
-      if (failed) return demoVoice();
-      setListening(false);
-      if (fullText()) submit();
+      if (failed) return demoVoice(target);
+      setListening(null);
+      finish(target);
     };
     rec.start();
-    setListening(true);
+    setListening(target);
   } catch {
-    demoVoice();
+    demoVoice(target);
   }
 }
 
 // No speech recognition here (or it was refused): play the demo sentence instead, labelled as such.
-function demoVoice() {
-  setListening(true, true);
-  const words = D.DEMO_UTTERANCE.split(' ');
+function demoVoice(target) {
+  setListening(target, true);
+  const words = (target === 'first' ? D.DEMO_UTTERANCE : D.DEMO_CHANGE).split(' ');
   let i = 0;
   clearInterval(demoTimer);
   demoTimer = setInterval(() => {
-    setText(words.slice(0, ++i).join(' '));
+    put(target, words.slice(0, ++i).join(' '));
     if (i >= words.length) {
       clearInterval(demoTimer);
       demoTimer = null;
       setTimeout(() => {
-        setListening(false);
-        submit();
+        setListening(null);
+        finish(target);
       }, 450);
     }
   }, 115);
@@ -496,38 +775,27 @@ function stopMic() {
     clearInterval(demoTimer);
     demoTimer = null;
   }
-  setListening(false);
+  setListening(null);
 }
 
-// ---- overlays -----------------------------------------------------------------
+let typeTimer;
+function typeInto(text, target, done) {
+  clearInterval(typeTimer);
+  let i = 0;
+  typeTimer = setInterval(() => {
+    i = Math.min(text.length, i + 3);
+    put(target, text.slice(0, i));
+    if (i >= text.length) {
+      clearInterval(typeTimer);
+      setTimeout(done, 380);
+    }
+  }, 16);
+}
 
-let ovTimer;
+// ---- overlays ----------------------------------------------------------------------
+
 function closeOverlay() {
-  clearTimeout(ovTimer);
   overlay.innerHTML = '';
-}
-
-const TAKEOFF = 'M-30 150C80 150 110 70 200 78S330 22 440 28';
-function showBuilding(trip, done) {
-  const steps = buildSteps(trip);
-  const per = matchMedia('(prefers-reduced-motion: reduce)').matches ? 90 : 430;
-  const total = steps.length * per + 650;
-  overlay.innerHTML = `<div class="ov building" data-act="skip" title="Tap to skip">
-    <div class="ov-inner">
-      <svg class="takeoff" viewBox="0 0 400 170" aria-hidden="true">
-        <defs><linearGradient id="tkGrad" x1="0" x2="1"><stop offset="0" stop-color="#FFBF00" stop-opacity="0"/><stop offset=".55" stop-color="#FF5E00"/><stop offset="1" stop-color="#E31F26"/></linearGradient></defs>
-        <path d="${TAKEOFF}" fill="none" stroke="url(#tkGrad)" stroke-width="3.5" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"><animate attributeName="stroke-dashoffset" from="100" to="0" dur="${total}ms" fill="freeze"/></path>
-        <g><path d="${PLANE_PATH}" fill="#E31F26" transform="scale(2)"/><animateMotion dur="${total}ms" fill="freeze" rotate="auto" path="${TAKEOFF}"/></g>
-      </svg>
-      <p class="ov-title">${trip.emoji} ${esc(trip.title)} · ${esc(D.byCode(trip.dest).city)}</p>
-      <ul class="steps">${steps.map((s, i) => `<li style="--d:${i * per}ms">${src(s.src)}<span>${esc(s.text)}</span>${icon('check', 'tick')}</li>`).join('')}</ul>
-    </div></div>`;
-  const finish = () => {
-    closeOverlay();
-    done();
-  };
-  ovTimer = setTimeout(finish, total);
-  actions.skip = finish;
 }
 
 function showBooked(t) {
@@ -539,306 +807,18 @@ function showBooked(t) {
     ).join('')}</div>
     <div class="booked-card">
       <svg class="loop" viewBox="0 0 220 110" aria-hidden="true">
-        <path id="loopPath" d="M10 90C60 90 80 20 120 20s40 50 10 50-20-50 30-50 60 20 60 20" fill="none" stroke="url(#lpGrad)" stroke-width="3" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"><animate attributeName="stroke-dashoffset" from="100" to="0" dur="1.6s" fill="freeze"/></path>
+        <path d="M10 90C60 90 80 20 120 20s40 50 10 50-20-50 30-50 60 20 60 20" fill="none" stroke="url(#lpGrad)" stroke-width="3" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"><animate attributeName="stroke-dashoffset" from="100" to="0" dur="1.6s" fill="freeze"/></path>
         <defs><linearGradient id="lpGrad" x1="0" x2="1"><stop offset="0" stop-color="#FFBF00"/><stop offset="1" stop-color="#E31F26"/></linearGradient></defs>
         <g><path d="${PLANE_PATH}" fill="#E31F26" transform="scale(1.6)"/><animateMotion dur="1.6s" fill="freeze" rotate="auto" path="M10 90C60 90 80 20 120 20s40 50 10 50-20-50 30-50 60 20 60 20"/></g>
       </svg>
       <h2>You're going to ${esc(D.byCode(t.dest).city)}!</h2>
-      <div class="pnr"><span>PNR</span><b>${esc(t.pnr)}</b></div>
-      ${t.group ? `<p class="sent">${src('whatsapp')} Trip link sent to ${esc(D.GROUPS.boys.name)}</p>` : ''}
+      <div class="pnr"><span>PNR</span><b>${esc(S.pnr)}</b></div>
+      ${t.travelers.length > 1 ? `<p class="sent">${src('link')} Everyone on the trip gets it through the group link</p>` : ''}
       <button class="btn primary" data-act="close-ov">Done</button>
     </div></div>`;
 }
 
-// ---- trip page ------------------------------------------------------------------
-
-const seenTrips = new Set();
-const current = () => S.trips[decodeURIComponent(location.hash.replace(/^#\/trip\//, ''))];
-const locked = (t) => t.status === 'booked' || t.status === 'flown';
-
-function renderTrip(id) {
-  const t = S.trips[id];
-  if (!t) {
-    location.hash = '#/';
-    return;
-  }
-  const dest = D.byCode(t.dest);
-  const price = priceTrip(t);
-  const first = !seenTrips.has(id);
-  seenTrips.add(id);
-  document.title = `${t.title} · ${dest.city}`;
-  app.className = `page-trip${first ? ' enter' : ''}${locked(t) ? ' locked' : ''}`;
-  let i = 0;
-  const n = () => i++;
-  app.innerHTML = `
-    <header class="tripbar">
-      <button class="icon-btn" data-act="home" aria-label="Back" title="Back">${icon('back')}</button>
-      <div class="tripbar-title"><span>${t.emoji}</span>${esc(t.title)}</div>
-      <button class="icon-btn" data-act="to-share" aria-label="Share" title="Share">${icon('share')}</button>
-    </header>
-    <main class="trip">
-      ${routeHero(t, dest, n())}
-      ${heardRow(t, n())}
-      ${flightsCard(t, n())}
-      ${bundleCard(t, n())}
-      ${seatsCard(t, n())}
-      ${extrasCard(t, n())}
-      ${travelersCard(t, n())}
-      ${shareCard(t, n())}
-      ${payCard(t, price, n())}
-    </main>
-    ${confirmBar(t, price)}`;
-}
-
-function routeHero(t, dest, i) {
-  const arc = 'M10 58Q110 -12 210 58';
-  const status = locked(t)
-    ? `<div class="banner">${icon('check')}${t.status === 'flown' ? 'Flown' : 'Booked'} · PNR ${esc(t.pnr)}${t.bundle === 'comfortflex' && t.status === 'booked' ? ' · 1 free change left' : ''}</div>`
-    : '';
-  return `<section class="card route" style="--i:${i}">
-    ${status}
-    <div class="route-row">
-      <div class="ap"><b>${D.HOME.code}</b><span>${D.HOME.city}</span></div>
-      <svg class="arc" viewBox="0 0 220 64" aria-hidden="true">
-        <path d="${arc}" fill="none" class="arc-line"/>
-        <g><path d="${PLANE_PATH}" fill="#FFBF00" transform="scale(1.1)"/><animateMotion dur="3.4s" repeatCount="indefinite" rotate="auto" path="${arc}"/></g>
-      </svg>
-      <div class="ap end"><b>${dest.code}</b><span>${esc(dest.city)}</span></div>
-    </div>
-    <div class="route-meta">
-      <span>${icon('calendar')}${fmtDay(t.out)}${t.back ? ` <i class="to">→</i> ${fmtDay(t.back)}` : ' · one way'}</span>
-      <span class="avatars">${t.travelers.map((p, k) => avatar(p, k)).join('')}</span>
-    </div>
-  </section>`;
-}
-
-function heardRow(t, i) {
-  const used = [...new Set([...t.heard.map((h) => h.src), ...t.travelers.map((p) => p.src), bundleWhy(t).src])].filter((s) => !['guess', 'you', 'agent', 'pegasus'].includes(s));
-  return `<section class="heard" style="--i:${i}">
-    <div class="heard-chips">${t.heard.map((h) => `<span class="chip">${icon(h.icon)}${esc(h.label)}${src(h.src)}</span>`).join('')}</div>
-    <div class="built"><span>Built from</span>${used.map((s) => src(s, true)).join('')}</div>
-  </section>`;
-}
-
-function flightsCard(t, i) {
-  return `<section class="card" style="--i:${i}">
-    <h3>${icon('plane')}Flights<span class="h-note">Direct · Pegasus</span></h3>
-    ${legHTML(t, 'out')}${legHTML(t, 'back')}
-  </section>`;
-}
-
-function legHTML(t, dir) {
-  const leg = t.flights[dir];
-  if (!leg) return '';
-  const f = flightOf(t, dir);
-  const low = Math.min(...leg.list.map((x) => x.fare));
-  const reason = leg.byYou ? 'Your pick' : leg.slot === 'any' ? 'Cheapest of the day' : `Cheapest ${TIME_LABEL[leg.slot].toLowerCase()} flight`;
-  const from = leg.byYou ? 'you' : t.time.src === 'guess' && t.cheapest ? 'said' : t.time.src;
-  const cheaper = !leg.byYou && f.fare > low ? leg.list.find((x) => x.fare === low) : null;
-  return `<div class="leg">
-    <div class="leg-head">${icon(dir === 'out' ? 'takeoff' : 'landing')}<b>${fmtDay(f.date)}</b><span class="fno">${f.no}</span></div>
-    <div class="leg-line">
-      <div class="t"><b>${f.dep}</b><span>${f.from}</span></div>
-      <div class="mid"><span>${fmtDuration(f.mins)}</span><i>${icon('plane')}</i></div>
-      <div class="t end"><b>${f.arr}${f.nextDay ? '<sup>+1</sup>' : ''}</b><span>${f.to}</span></div>
-    </div>
-    <div class="times" role="radiogroup" aria-label="Departure time">${leg.list
-      .map(
-        (x) => `<button class="time${x.no === f.no ? ' on' : ''}" data-act="flight" data-dir="${dir}" data-no="${x.no}" role="radio" aria-checked="${x.no === f.no}"><b>${x.dep}</b><span>${euro(x.fare)}</span>${x.fare === low ? '<i class="low" title="Lowest fare"></i>' : ''}</button>`,
-      )
-      .join('')}</div>
-    ${why(reason, from)}
-    ${cheaper ? `<button class="hint" data-act="flight" data-dir="${dir}" data-no="${cheaper.no}">${icon('spark')}${cheaper.dep} is ${euro(f.fare - cheaper.fare)} less per person</button>` : ''}
-  </div>`;
-}
-
-function bundleCard(t, i) {
-  const b = D.bundleById(t.bundle);
-  const kg = D.BAGS.checkedKg[t.intl ? 'intl' : 'dom'];
-  const perks = [
-    ['backpack', 'Under seat', '3 kg', b.under, D.BAGS.under],
-    ['cabin', 'Cabin bag', '8 kg', b.cabin, D.BAGS.cabin],
-    ['suitcase', 'Checked', `${kg} kg`, b.checked, `${kg} kg ${t.intl ? 'international' : 'domestic'}`],
-    ['seat', 'Seat', 'Standard', b.seat, 'Free seat selection'],
-    ['legroom', 'Legroom', 'Extra', b.legroom, 'Extra-legroom seats'],
-    ['meal', 'Sandwich', '', b.meal, 'Sandwich on board'],
-    ['tv', 'Fly & Watch', '', b.watch, 'In-flight entertainment'],
-    ['refresh', 'Free change', '1×', b.change, 'One free change up to 2 h before departure'],
-    ['refund', 'Refund', 'Full', b.refund, 'Full refund on cancellation, service fee excluded'],
-  ];
-  const w = bundleWhy(t);
-  const base = Math.min(...D.bundlesFor(t.intl).map((o) => bundlePrice(t, o.id)));
-  return `<section class="card" style="--i:${i}">
-    <h3>${icon('suitcase')}Bundle<span class="h-note">per person</span></h3>
-    <div class="bundles">${D.bundlesFor(t.intl)
-      .map((o) => {
-        const extra = bundlePrice(t, o.id) - base;
-        return `<button class="bundle${o.id === t.bundle ? ' on' : ''}" data-act="bundle" data-id="${o.id}" aria-pressed="${o.id === t.bundle}"><b>${o.name}</b><span>${extra ? `+${euro(extra)}` : 'Lowest'}</span></button>`;
-      })
-      .join('')}</div>
-    <div class="perks">${perks.map(([ic, label, sub, on, title]) => `<div class="perk${on ? ' on' : ''}" title="${esc(title)}">${icon(ic)}<b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</div>`).join('')}</div>
-    ${why(w.text, w.src)}
-  </section>`;
-}
-
-function seatMap(t) {
-  const n = t.travelers.length;
-  const cols = ['A', 'B', 'C', '', 'D', 'E', 'F'];
-  const rows = [11, 12, 13, 14];
-  const mine = new Set();
-  const unknown = new Set();
-  if (t.seat === 'together') ['12A', '12B', '12C', '12D', '12E', '12F', '13A', '13B', '13C'].slice(0, n).forEach((s) => mine.add(s));
-  else if (t.seat === 'window') mine.add('12A');
-  else if (t.seat === 'aisle') mine.add('12C');
-  else if (t.seat === 'legroom') mine.add('11C');
-  else ['11E', '12B', '13F', '14C', '12D', '14A', '13B', '11A', '14F'].slice(0, n).forEach((s) => unknown.add(s));
-  return `<div class="seatmap${t.seat === 'legroom' ? ' exit' : ''}" aria-hidden="true">${rows
-    .map((r) => cols.map((c) => (c ? `<i class="s${mine.has(r + c) ? ' me' : ''}${unknown.has(r + c) ? ' q' : ''}"></i>` : `<b>${r}</b>`)).join(''))
-    .join('')}</div>`;
-}
-
-function seatsCard(t, i) {
-  const b = D.bundleById(t.bundle);
-  const n = t.travelers.length;
-  const fee = (k) => (k === 'free' ? 'Free' : k === 'legroom' ? (b.legroom ? 'Included' : `+${euro(D.EXTRAS.legroom)}`) : b.seat ? 'Included' : `+${euro(D.EXTRAS.seat)}`);
-  const options = n > 1 ? [['free', 'At check-in'], ['together', 'Together']] : [['free', 'At check-in'], ['window', 'Window'], ['aisle', 'Aisle'], ['legroom', 'Legroom']];
-  const label = { window: 'Window', aisle: 'Aisle', legroom: 'Legroom', together: 'Together' }[t.seat];
-  const reason = t.seatSrc === 'you' ? 'Your pick' : t.seat === 'free' ? (t.cheapest ? 'Cheapest: seats assigned free at check-in' : 'Assigned free at check-in') : `${label}, as you asked`;
-  const from = t.seatSrc === 'you' ? 'you' : t.seatSrc === 'said' || t.cheapest ? 'said' : 'pegasus';
-  return `<section class="card" style="--i:${i}">
-    <h3>${icon('seat')}Seats<span class="h-note">per person, per flight</span></h3>
-    ${seatMap(t)}
-    <div class="seg">${options.map(([k, l]) => `<button class="${t.seat === k ? 'on' : ''}" data-act="seat" data-v="${k}" aria-pressed="${t.seat === k}"><b>${l}</b><span>${fee(k)}</span></button>`).join('')}</div>
-    ${why(reason, from)}
-  </section>`;
-}
-
-function extrasCard(t, i) {
-  const b = D.bundleById(t.bundle);
-  const items = [
-    ['insurance', 'shield', 'Insurance', `${euro(D.EXTRAS.insurance)}`],
-    ['meal', 'meal', 'Meal', b.meal ? 'Included' : `${euro(D.EXTRAS.meal)}`],
-    ['lounge', 'lounge', 'SAW lounge', `${euro(D.EXTRAS.lounge)}`],
-    ['car', 'car', 'Car', `${euro(D.EXTRAS.car)}/day`],
-  ];
-  const declined = t.extrasSrc.insurance === 'said' && !t.extras.insurance;
-  return `<section class="card" style="--i:${i}">
-    <h3>${icon('plus')}Extras<span class="h-note">per person</span></h3>
-    <div class="extras">${items
-      .map(([k, ic, label, price]) => {
-        const on = t.extras[k] || (k === 'meal' && b.meal);
-        return `<button class="extra${on ? ' on' : ''}" data-act="extra" data-k="${k}" aria-pressed="${on}"${k === 'meal' && b.meal ? ' disabled' : ''}>${icon(ic)}<b>${label}</b><span>${price}</span>${t.extrasSrc[k] === 'said' ? src('said') : ''}</button>`;
-      })
-      .join('')}</div>
-    ${declined ? why('No insurance, as you said', 'said') : ''}
-  </section>`;
-}
-
-const TYPE_TAG = { child: 'Child', infant: 'Baby · on lap' };
-const LINK_FILL = {
-  Mom: ['Leah', 'Rosenberg', '1966-03-09'], Dad: ['David', 'Rosenberg', '1963-11-21'],
-  Grandma: ['Ruth', 'Rosenberg', '1941-05-30'], Grandpa: ['Sam', 'Rosenberg', '1939-08-14'],
-  Sister: ['Tali', 'Rosenberg', '1999-02-17'], Brother: ['Eli', 'Rosenberg', '2001-07-26'],
-  Guest: ['Can', 'Aydın', '1995-12-01'],
-};
-
-function travelersCard(t, i) {
-  const waiting = waitingOn(t).length;
-  return `<section class="card" id="c-pax" style="--i:${i}">
-    <h3>${icon('people')}Travelers<span class="count">${t.travelers.length}</span>${waiting && !locked(t) ? `<span class="h-note warn">${waiting} to fill in</span>` : ''}</h3>
-    <ul class="pax">${t.travelers
-      .map((p, k) => {
-        if (S.filling === p.id && !locked(t)) return fillRow(t, p, k);
-        const needsName = p.placeholder && !locked(t);
-        const needsDob = !p.dob && !locked(t) && !needsName;
-        const required = needsName || (needsDob && p.type !== 'adult');
-        const name = p.guest ? 'Friend' : p.placeholder ? p.first : `${p.first} ${p.last}`;
-        const sub = p.dob
-          ? `${icon('calendar')}${fmtDob(p.dob)}`
-          : locked(t)
-            ? 'On file'
-            : p.asked
-              ? `${icon('send')}Asked in the group link`
-              : needsName
-                ? p.type === 'adult' ? 'Name needed' : 'Name and birthday needed'
-                : p.type !== 'adult' ? 'Birthday needed' : 'Birthday missing (optional)';
-        const action = (needsName || needsDob) && !p.asked
-          ? p.type === 'adult'
-            ? `<button class="mini" data-act="ask" data-id="${p.id}">${icon('send')}Ask</button>`
-            : `<button class="mini" data-act="fill" data-id="${p.id}">${icon('plus')}Add</button>`
-          : '';
-        return `<li class="${required ? 'missing' : needsDob ? 'soft' : ''}">
-          ${avatar(p, k)}
-          <span class="pax-main"><b>${esc(name)}${p.id === 'me' ? ' <em>you</em>' : ''}${TYPE_TAG[p.type] ? ` <i class="ptype">${TYPE_TAG[p.type]}</i>` : ''}</b><span>${sub}</span></span>
-          ${p.dob ? src(p.src) : ''}
-          ${action}
-          ${p.confirmed ? `<span class="ok" title="Confirmed">${icon('check')}</span>` : ''}
-        </li>`;
-      })
-      .join('')}</ul>
-  </section>`;
-}
-
-function fillRow(t, p, k) {
-  return `<li class="filling">${avatar(p, k)}
-    <form class="fill" data-id="${p.id}">
-      <input name="first" placeholder="First name" aria-label="First name" value="${esc(p.placeholder ? '' : p.first)}" required>
-      <input name="last" placeholder="Last name" aria-label="Last name" value="${esc(p.placeholder ? D.ME.last : p.last)}" required>
-      <input name="dob" type="date" max="${t.out}" aria-label="Date of birth" value="${p.dob || ''}" ${p.type === 'adult' ? '' : 'required'}>
-      <button type="submit" class="mini">${icon('check')}Save</button>
-    </form></li>`;
-}
-
-// Age on the day of travel decides the passenger type; say so if it changes.
-function typeFromDob(dob, on) {
-  const [y, m, d] = dob.split('-').map(Number);
-  const [ty, tm, td] = on.split('-').map(Number);
-  const age = ty - y - (tm < m || (tm === m && td < d) ? 1 : 0);
-  return { age, type: age < 2 ? 'infant' : age < 12 ? 'child' : 'adult' };
-}
-
-function shareCard(t, i) {
-  const done = t.travelers.filter((p) => p.confirmed).length;
-  const label = t.sent ? 'Sent' : t.group ? `Send to ${D.GROUPS.boys.name}` : 'Send';
-  return `<section class="card share" id="c-share" style="--i:${i}">
-    <h3>${icon('link')}Group link<span class="h-note">everyone checks their own details</span></h3>
-    <div class="linkbox"><span>flypgs.com/t/${esc(t.code)}</span><button class="icon-btn small" data-act="copy" aria-label="Copy link" title="Copy link">${icon('copy')}</button></div>
-    <div class="share-row">
-      <button class="btn wa${t.sent ? ' sent' : ''}" data-act="send">${icon(t.sent ? 'check' : 'chat')}${esc(label)}</button>
-      <div class="confirmed"><span class="avatars">${t.travelers.map((p, k) => avatar(p, k, p.confirmed ? 'done' : 'wait')).join('')}</span><b>${done}/${t.travelers.length}</b></div>
-    </div>
-  </section>`;
-}
-
-function payCard(t, price, i) {
-  return `<section class="card" style="--i:${i}">
-    <h3>${icon('card')}Pay</h3>
-    <div class="payrow">${icon('card')}<span>Visa •••• 4242</span>${src('profile')}</div>
-    <div class="payrow">${icon('mail')}<span>Receipt to y••••@gmail.com</span>${src('profile')}</div>
-    <div class="lines">${price.lines.map((l) => `<div><span>${esc(l.label)}</span><b>${euro(l.amount)}</b></div>`).join('')}
-      <div class="total"><span>Total</span><b>${euro(price.total)}</b></div></div>
-  </section>`;
-}
-
-function confirmBar(t, price) {
-  return `<div class="confirm-bar"><div class="confirm-inner">
-    <div class="sum"><b>${euro(price.total)}</b><span>${price.n > 1 ? `${euro(price.each)} each` : 'total'}</span></div>
-    ${
-      locked(t)
-        ? `<div class="booked-pill">${icon('check')}${t.status === 'flown' ? 'Flown' : 'Booked'}</div>`
-        : waitingOn(t).length
-          ? `<button class="btn book wait" data-act="to-pax" aria-disabled="true">${icon('people')}Waiting on ${waitingOn(t).length}</button>`
-          : `<button class="btn primary book" data-act="book">${icon('check')}Book it</button>`
-    }
-  </div></div>`;
-}
-
-function commit(t) {
-  save();
-  renderTrip(t.id);
-}
-
-// ---- classic layout ------------------------------------------------------------
+// ---- classic layout ------------------------------------------------------------------
 
 function renderClassic() {
   document.title = 'Pegasus · Book a flight';
@@ -874,231 +854,152 @@ function renderClassic() {
     let back = f.get('back');
     if (!oneWay && (!back || back <= out)) back = addDays(out, 3);
     const city = D.byCode(f.get('to')).city;
+    // The form is just another way of saying it: it becomes the first sentence.
     const text = `${city} ${isoLabel(out)}${oneWay ? ' one way' : ` to ${isoLabel(back)}`}, ${f.get('pax')} people, any time`;
-    const r = resolve(parse(text, TODAY), { connections: S.connections });
-    S.origin = 'classic';
-    if (r.complete) launch(r);
+    if (!resolve(parse(text, TODAY), { connections: S.connections }).complete) return bump(e.target);
+    Object.assign(S, { events: [{ id: newId(), k: 'say', text }], status: 'draft', pnr: null, strip: null, open: null, draft: '' });
+    save();
+    location.hash = '#/';
   });
 }
 
-// ---- actions ---------------------------------------------------------------------
+// ---- actions ---------------------------------------------------------------------------
+
+function scrollTo(el) {
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function openRow(key) {
+  S.open = key;
+  paintFrame();
+  scrollTo($(`.row[data-row="${key}"]`));
+}
 
 const actions = {
   classic: () => (location.hash = '#/classic'),
   home: () => (location.hash = '#/'),
-  mic: () => startMic(),
-  attach: () => {
-    S.attachOpen = !S.attachOpen;
-    paintMenu();
+  privacy: () => {
+    S.privacy = !S.privacy;
+    paintPrivacy();
   },
-  'attach-link': () => {
-    const m = $('#attachMenu');
-    m.innerHTML = `<div class="link-in"><input id="linkIn" type="url" placeholder="https://" aria-label="Link"><button type="button" class="opt" data-act="attach-link-add">${icon('check')}</button></div>`;
-    const input = $('#linkIn');
-    input.focus();
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        actions['attach-link-add']();
-      }
-    });
+  newtrip: () => {
+    stopMic();
+    Object.assign(S, { events: [], status: 'draft', pnr: null, draft: '', open: null, strip: null, filling: null, pickingDates: false });
+    save();
+    lastSigs = null;
+    renderTalk();
+    window.scrollTo(0, 0);
   },
-  'attach-link-add': () => {
-    const v = ($('#linkIn').value || '').trim();
-    if (!/^https?:\/\/\S+\.\S+/.test(v)) return bump($('#linkIn'));
-    S.attachments.push({ src: 'link', label: v.replace(/^https?:\/\/(www\.)?/, '').slice(0, 28), text: v });
-    S.attachOpen = false;
-    paintMenu();
-    paintAttachments();
-    live();
-  },
-  'attach-person': (el) => {
-    const boys = el.dataset.id === 'boys';
-    S.attachments.push(boys ? { src: 'whatsapp', label: 'The Boys', text: 'with the boys' } : { src: 'contacts', label: 'Dana', text: 'with Dana' });
-    S.attachOpen = false;
-    paintMenu();
-    paintAttachments();
-    live();
-  },
-  detach: (el) => {
-    S.attachments.splice(+el.dataset.i, 1);
-    paintAttachments();
-    live();
-  },
-  slot: (el) => {
-    const k = el.dataset.slot;
-    const s = S.r && S.r.slots[k];
-    if (s && s.src === 'said') return $('#q').focus();
-    if (!S.r) S.r = resolveNow();
-    S.asking = k;
-    paintSlots();
-    paintAsking();
+  mic: (el) => startMic(el.dataset.for),
+  row: (el) => {
+    const k = el.dataset.row;
+    S.open = S.open === k ? null : k;
+    S.filling = null;
+    paintFrame();
   },
   pick: (el) => {
-    const v = JSON.parse(el.dataset.value);
-    if (v === 'pick') {
+    const value = JSON.parse(el.dataset.value);
+    if (value === 'pick') {
       S.pickingDates = true;
-      return paintAsking();
+      return paintFrame();
     }
     S.pickingDates = false;
-    S.picks[el.dataset.slot] = v;
-    afterPick();
+    push({ k: 'pick', slot: el.dataset.slot, value });
+    S.open = V.r && V.r.missing.length ? V.r.missing[0] : null;
+    paintAll();
   },
   'dates-done': () => {
     const out = $('#dOut').value;
     const back = $('#dBack').value;
     if (!out) return bump($('#dOut'));
-    S.picks.when = { out, back: back && back > out ? back : null };
     S.pickingDates = false;
-    afterPick();
-  },
-  thread: (el) => {
-    const id = el.dataset.id;
-    if (S.trips[id]) return (location.hash = `#/trip/${id}`);
-    const th = D.THREADS.find((x) => x.id === id);
-    const tid = `th-${id}`;
-    if (S.trips[tid]) return (location.hash = `#/trip/${tid}`);
-    const r = resolve(parse(th.intent, TODAY), { connections: S.connections });
-    if (!r.complete) {
-      // This conversation stopped because something was missing. Pick it up there.
-      Object.assign(S, { text: th.intent, attachments: [], picks: {}, origin: 'thread', resume: { id: tid, title: th.title, emoji: th.emoji } });
-      const ta = $('#q');
-      ta.value = S.text;
-      autosize(ta);
-      paintAttachments();
-      S.r = r;
-      S.asking = r.missing[0];
-      paintSlots();
-      paintAsking();
-      $('#ask').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    const trip = buildTrip(r, { id: tid, title: th.title, emoji: th.emoji, origin: 'thread', status: th.status === 'idea' ? 'draft' : th.status });
-    if (locked(trip)) {
-      trip.pnr = codeFor(`${tid}pnr`);
-      trip.sent = true;
-      trip.travelers.forEach((p) => (p.confirmed = true));
-    }
-    S.trips[tid] = trip;
-    save();
-    location.hash = `#/trip/${tid}`;
-  },
-  suggest: (el) => {
-    const s = D.SUGGESTIONS.find((x) => x.id === el.dataset.id);
-    Object.assign(S, { origin: 'suggestion', picks: {}, asking: null, resume: null, attachments: [] });
-    paintAttachments();
-    $('#ask').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    typeInto(s.intent, submit);
-  },
-  'more-threads': () => {
-    S.threadsAll = !S.threadsAll;
-    if (!S.threadsAll) S.threadsSeen = 5;
-    paintPrev();
-  },
-  'more-sugg': () => {
-    S.generating = true;
-    paintSugg();
-    setTimeout(() => {
-      S.generating = false;
-      S.suggShown += 3;
-      paintSugg();
-    }, 900);
-  },
-  connections: () => {
-    S.connOpen = !S.connOpen;
-    paintSugg();
+    push({ k: 'pick', slot: 'when', value: { out, back: back && back > out ? back : null } });
+    S.open = V.r && V.r.missing.length ? V.r.missing[0] : null;
+    paintAll();
   },
   flight: (el) => {
-    const t = current();
-    if (locked(t)) return;
-    Object.assign(t.flights[el.dataset.dir], { pick: el.dataset.no, byYou: true });
-    commit(t);
+    push({ k: 'flight', dir: el.dataset.dir, no: el.dataset.no });
+    paintAll();
   },
   bundle: (el) => {
-    const t = current();
-    if (locked(t) || t.bundle === el.dataset.id) return;
-    Object.assign(t, { bundle: el.dataset.id, bundleSrc: 'you' });
-    commit(t);
+    if (V.trip.bundle === el.dataset.id) return;
+    push({ k: 'bundle', bundle: el.dataset.id });
+    paintAll();
   },
   seat: (el) => {
-    const t = current();
-    if (locked(t)) return;
-    Object.assign(t, { seat: el.dataset.v, seatSrc: 'you' });
-    commit(t);
+    push({ k: 'seat', v: el.dataset.v });
+    paintAll();
   },
   extra: (el) => {
-    const t = current();
-    if (locked(t)) return;
-    const k = el.dataset.k;
-    t.extras[k] = !t.extras[k];
-    t.extrasSrc[k] = 'you';
-    commit(t);
+    push({ k: 'extra', key: el.dataset.k, on: !V.trip.extras[el.dataset.k] });
+    paintAll();
+  },
+  tip: (el) => {
+    const tip = TIPS[+el.dataset.i];
+    if (!tip) return;
+    push(tip.act);
+    paintAll();
+    toast(`${icon('check')} ${esc(tip.label)}`);
+  },
+  clear: (el) => {
+    push({ k: 'clear', say: el.dataset.say, word: el.dataset.word });
+    paintAll();
+  },
+  undo: (el) => {
+    const id = el.dataset.id;
+    S.events = S.events.filter((e) => e.id !== id && !(e.k === 'clear' && e.say === id));
+    S.strip = null;
+    save();
+    recompute();
+    paintAll();
+    toast(`${icon('refresh')} Undone`);
   },
   ask: (el) => {
-    const t = current();
-    const p = t.travelers.find((x) => x.id === el.dataset.id);
-    p.asked = true;
-    t.sent = true;
-    commit(t);
-    toast(`${icon('send')} Link sent to ${esc(p.placeholder ? (p.guest ? 'your friend' : p.first) : p.first)}`);
+    const id = el.dataset.id;
+    const x = V.trip.travelers.find((p) => p.id === id);
+    push({ k: 'person', pid: id, data: { asked: true } });
+    paintAll();
+    toast(`${icon('send')} Group link sent to ${esc(x.guest ? 'your guest' : x.first)}`);
     // Demo: they answer from their own phone a moment later.
+    const trip = V.trip.id;
     setTimeout(() => {
-      const live = S.trips[t.id];
-      const q = live && live.travelers.find((x) => x.id === p.id);
+      if (!V || !V.trip || V.trip.id !== trip || locked()) return;
+      const q = V.trip.travelers.find((p) => p.id === id);
       if (!q || (!q.placeholder && q.dob)) return;
-      if (q.placeholder) {
-        const [first, last, dob] = LINK_FILL[q.guest ? 'Guest' : q.first] || LINK_FILL.Guest;
-        Object.assign(q, { first, last, dob, guest: false, placeholder: false });
-      } else q.dob = '1996-08-03';
-      Object.assign(q, { src: 'link', confirmed: true });
-      if (current() === live) commit(live);
-      else save();
-      toast(`${icon('check')} ${esc(q.first)} filled in their details`);
+      const [first, last, dob] = q.placeholder ? LINK_FILL[q.guest ? 'Guest' : q.first] || LINK_FILL.Guest : [q.first, q.last, '1996-08-03'];
+      push({ k: 'person', pid: id, data: { first, last, dob, src: 'link', confirmed: true } });
+      paintAll();
+      toast(`${icon('check')} ${esc(first)} typed in their own details`);
     }, 2600);
   },
   fill: (el) => {
     S.filling = el.dataset.id;
-    renderTrip(current().id);
-    const f = document.querySelector('form.fill input[name="first"]');
+    S.open = 'who';
+    paintFrame();
+    const f = $('form.fill input[name="first"]');
     if (f) f.focus();
   },
-  'to-pax': () => {
-    const el = $('#c-pax');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    toast(`${icon('people')} Fill in the highlighted travelers first`);
-  },
-  send: () => {
-    const t = current();
-    if (!t.sent) {
-      t.sent = true;
-      commit(t);
-      toast(`${icon('chat')} Sent${t.group ? ` to ${esc(D.GROUPS.boys.name)}` : ''}`);
-    }
-    // Friends with complete details confirm from the link, one by one.
-    const waiting = t.travelers.filter((p) => !p.confirmed && p.dob);
-    waiting.forEach((p, k) =>
-      setTimeout(() => {
-        p.confirmed = true;
-        if (current() === t) commit(t);
-        else save();
-      }, 700 * (k + 1)),
-    );
-  },
   copy: () => {
-    const t = current();
-    const url = `https://flypgs.com/t/${t.code}`;
+    const url = `https://flypgs.com/t/${V.trip.code}`;
     if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
     toast(`${icon('copy')} Link copied`);
   },
-  'to-share': () => $('#c-share').scrollIntoView({ behavior: 'smooth', block: 'center' }),
+  'to-row': (el) => openRow(el.dataset.row),
+  'to-said': () => {
+    scrollTo($('#said'));
+    document.querySelectorAll('.ow:not(.done)').forEach(bump);
+  },
+  'to-who': () => {
+    openRow('who');
+    toast(`${icon('people')} Fill in the travelers marked in orange`);
+  },
   book: () => {
-    const t = current();
-    if (waitingOn(t).length) return actions['to-pax']();
-    t.status = 'booked';
-    t.pnr = codeFor(`${t.id}pnr`);
-    if (t.group) t.sent = true;
-    commit(t);
-    showBooked(t);
+    if (gate(V).k !== 'ready') return;
+    S.status = 'booked';
+    S.pnr = codeFor(`${V.trip.id}pnr`);
+    S.strip = null;
+    save();
+    paintAll();
+    showBooked(V.trip);
   },
   'close-ov': () => closeOverlay(),
   tt: (el) => {
@@ -1110,9 +1011,9 @@ const actions = {
 
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
-  if (S.attachOpen && !e.target.closest('#attachMenu') && !e.target.closest('.ask-plus')) {
-    S.attachOpen = false;
-    paintMenu();
+  if (S.privacy && !e.target.closest('.priv') && !e.target.closest('.me')) {
+    S.privacy = false;
+    paintPrivacy();
   }
   if (!el || el.disabled) return;
   const fn = actions[el.dataset.act];
@@ -1123,21 +1024,18 @@ document.addEventListener('submit', (e) => {
   const f = e.target.closest('form.fill');
   if (!f) return;
   e.preventDefault();
-  const t = current();
-  const p = t.travelers.find((x) => x.id === f.dataset.id);
   const v = Object.fromEntries(new FormData(f));
   if (!v.first.trim() || !v.last.trim()) return bump(f);
-  Object.assign(p, { first: v.first.trim(), last: v.last.trim(), placeholder: false, guest: false, src: 'said', confirmed: true });
+  const before = V.trip.travelers.find((p) => p.id === f.dataset.id);
+  const data = { first: v.first.trim(), last: v.last.trim(), src: 'you', confirmed: true };
   if (v.dob) {
-    const { age, type } = typeFromDob(v.dob, t.out);
-    p.dob = v.dob;
-    if (type !== p.type) {
-      toast(`${icon('people')} ${esc(p.first)} is ${age} on the day you fly, so booked as ${type === 'infant' ? 'a baby on lap' : `${type === 'child' ? 'a child' : 'an adult'}`}`);
-      p.type = type;
-    }
+    data.dob = v.dob;
+    const { age, type } = typeFromDob(v.dob, V.trip.out);
+    if (type !== before.type) toast(`${icon('people')} ${esc(data.first)} is ${age} on the day you fly, so booked as ${type === 'infant' ? 'a baby on a lap' : type === 'child' ? 'a child' : 'an adult'}`);
   }
   S.filling = null;
-  commit(t);
+  push({ k: 'person', pid: f.dataset.id, data });
+  paintAll();
 });
 
 document.addEventListener('change', (e) => {
@@ -1145,25 +1043,33 @@ document.addEventListener('change', (e) => {
   if (!c) return;
   S.connections[c] = e.target.checked;
   save();
-  paintSugg();
-  live();
+  recompute();
+  paintAll();
 });
 
-// ---- routing ------------------------------------------------------------------------
+// ---- routing ---------------------------------------------------------------------------
 
 function route() {
   closeOverlay();
   clearInterval(typeTimer);
   stopMic();
-  const h = location.hash.replace(/^#/, '') || '/';
   window.scrollTo(0, 0);
-  if (h.startsWith('/trip/')) renderTrip(decodeURIComponent(h.slice(6)));
-  else if (h === '/classic') renderClassic();
-  else renderHome();
+  if (location.hash === '#/classic') renderClassic();
+  else renderTalk();
 }
 addEventListener('hashchange', route);
 route();
 
-// ?say=... plays a sentence into the composer on load, for demos and screenshots.
+// ?say=... types a sentence in and runs it; &then=... says a change after it. For demos and screenshots.
 const say = params.get('say');
-if (say && !location.hash.startsWith('#/trip/')) setTimeout(() => typeInto(say, submit), 700);
+const then = params.get('then');
+if (say && location.hash !== '#/classic') {
+  setTimeout(
+    () =>
+      typeInto(say, 'first', () => {
+        commitFirst();
+        if (then) setTimeout(() => typeInto(then, 'change', submitChange), 900);
+      }),
+    700,
+  );
+}
