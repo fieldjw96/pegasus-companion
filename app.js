@@ -3,10 +3,10 @@ import { icon, PLANE_PATH } from './lib/icons.js';
 import * as D from './lib/data.js';
 import { parse, normalize } from './lib/parse.js';
 import { resolve, optionsFor, priceTrip, bundleWhy, bundlePrice, flightOf, codeFor, waitingOn, partyLabel, TIME_LABEL } from './lib/agent.js';
-import { replay, gate, headsUp, typeFromDob } from './lib/talk.js';
+import { replay, gate, headsUp, typeFromDob, additions } from './lib/talk.js';
 import { todayISO, fmtDay, fmtDob, fmtDuration, daysBetween, addDays, MONTHS } from './lib/dates.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const params = new URLSearchParams(location.search);
 const TODAY = params.get('today') || todayISO();
 const NAME = params.get('name') || D.ME.first;
@@ -80,7 +80,7 @@ function push(e) {
 // ---- small pieces ---------------------------------------------------------------
 
 function src(key, withLabel = false) {
-  const s = D.SOURCES[key === 'agent' ? 'pegasus' : key] || D.SOURCES.guess;
+  const s = D.SOURCES[key === 'agent' ? 'rule' : key] || D.SOURCES.guess;
   return `<span class="src" style="--c:${s.color}" title="${esc(s.label)}">${icon(s.icon)}${withLabel ? `<em>${esc(s.label)}</em>` : ''}</span>`;
 }
 const initials = (p) => (p.guest ? '+' : `${p.first[0]}${p.last[0] || ''}`);
@@ -206,38 +206,43 @@ function paintTop() {
     wireComposer();
     return paintMeter();
   }
-  const s = V.said;
+  // The first sentence once; each change after it is one short chip with Undo. The receipt
+  // shows once, above the bar, so this never grows into a message thread.
+  const [first, ...changes] = V.said;
+  // the blue additions describe what the first sentence did, before any change
+  const second = S.events.findIndex((e, i) => i > 0 && e.k === 'say');
+  const adds = locked() ? [] : additions(first.text, second < 0 ? V : replay(S.events.slice(0, second), TODAY, S.connections));
+  const chip = (x) => `<li class="chg-chip${x.id === S.strip ? ' fresh' : ''}${x.unplaced.some((u) => !u.cleared) ? ' has-ow' : ''}" title="${esc(x.receipt.join(' · '))}">
+      ${icon('mic')}<span class="chip-txt">${readback(x)}</span>${locked() ? '' : `<button class="chip-x" data-act="undo" data-id="${x.id}" aria-label="Undo “${esc(x.text)}”" title="Undo">${icon('x')}</button>`}</li>`;
   setHTML(el, `<section class="said" id="said" aria-label="What you said">
-    <ol>${s
-      .map(
-        (x) => `<li class="${x.first ? 'first' : 'chg'}${x.id === S.strip ? ' fresh' : ''}">
-        <p class="words">${icon('mic')}<q>${readback(x)}</q></p>
-        ${x.receipt ? `<p class="rc"><span>${x.receipt.map(esc).join(' · ')}</span>${locked() ? '' : `<button class="undo" data-act="undo" data-id="${x.id}">Undo</button>`}</p>` : ''}
-      </li>`,
-      )
-      .join('')}</ol>
+    <p class="words">${icon('mic')}<q>${readback(first, adds)}</q></p>
+    ${adds.length ? '<p class="add-note">In blue: what it worked out from your words.</p>' : ''}
+    ${changes.length ? `<ul class="chg-list" aria-label="Changes you said">${changes.map(chip).join('')}</ul>` : ''}
     ${V.orange.length && !locked() ? `<p class="ow-note">${icon('spark')}<span>Orange words weren't used. Tap one to let it go, or say it another way.</span></p>` : ''}
   </section>`);
 }
 
-// Your words come back as you said them; the ones it couldn't use are orange buttons.
-function readback(s) {
+// Your words come back as you said them: the ones it couldn't use are orange buttons, and
+// what it added (on the first sentence) follows the word it belongs to, in blue.
+function readback(s, adds = []) {
   const queue = s.unplaced.map((u) => ({ ...u }));
   let out = '';
   let at = 0;
+  let i = 0;
   for (const m of s.text.matchAll(/[\p{L}\d][\p{L}\d'’\-]*/gu)) {
     out += esc(s.text.slice(at, m.index));
     at = m.index + m[0].length;
     const n = normalize(m[0]);
     const k = queue.findIndex((u) => u.word === n);
-    if (k < 0) {
-      out += esc(m[0]);
-      continue;
+    if (k < 0) out += esc(m[0]);
+    else {
+      const u = queue.splice(k, 1)[0];
+      out += u.cleared || locked()
+        ? `<span class="ow done" title="Let go">${esc(m[0])}</span>`
+        : `<button class="ow" data-act="clear" data-say="${s.id}" data-word="${esc(u.word)}" title="Not used. Tap to let it go">${esc(m[0])}</button>`;
     }
-    const u = queue.splice(k, 1)[0];
-    out += u.cleared || locked()
-      ? `<span class="ow done" title="Let go">${esc(m[0])}</span>`
-      : `<button class="ow" data-act="clear" data-say="${s.id}" data-word="${esc(u.word)}" title="Not used. Tap to let it go">${esc(m[0])}</button>`;
+    for (const a of adds) if (a.at === i) out += `<span class="add" data-k="${a.k}">${esc(a.text)}</span>`;
+    i += 1;
   }
   return out + esc(s.text.slice(at));
 }
@@ -382,7 +387,8 @@ function row(key, o) {
   </div>`;
 }
 
-const rule = (text) => `<p class="rule">${src('pegasus')}<span>${esc(text)}</span></p>`;
+// Pegasus' published rules get the Pegasus badge; the companion's own defaults get theirs.
+const rule = (text, from = 'pegasus') => `<p class="rule">${src(from)}<span>${esc(text)}</span></p>`;
 function tipHTML(tip) {
   const i = TIPS.indexOf(tip);
   return `<div class="tip">${icon('spark')}<span>${esc(tip.text)}</span>${locked() ? '' : `<button class="tip-act" data-act="tip" data-i="${i}">${esc(tip.label)}</button>`}</div>`;
@@ -405,7 +411,7 @@ function askBody(k, r) {
     k === 'where' && r.p.unknown
       ? `Pegasus doesn't fly to ${r.p.unknown.name} yet. Closest fit:`
       : k === 'when' && mo
-        ? `Which weekend in ${MONTHS[mo - 1]}?`
+        ? `Which ${(r.p.dates.nights || 2) >= 5 ? 'week' : 'weekend'} in ${MONTHS[mo - 1]}?`
         : k === 'lap'
           ? `${r.party.infants} babies, ${r.party.adults} adult${r.party.adults > 1 ? 's' : ''}: one baby per adult can sit on a lap (Pegasus rule).`
           : null;
@@ -440,7 +446,7 @@ function partialRows(r) {
   rows.push(
     tm
       ? row('time', { ic: 'clock', main: esc(tm.label), sub: tm.note ? esc(tm.note) : '', from: tm.src })
-      : row('time', { ic: 'clock', main: 'What time of day?', sub: 'Needed', state: ask ? 'need' : 'ghost', body: ask ? askBody('time', r) : '', force: ask }),
+      : row('time', { ic: 'clock', main: 'What time of day?', sub: (r.p.notTime || []).length ? esc(`Not ${r.p.notTime.join(' or ')}, as you said`) : 'Needed', state: ask ? 'need' : 'ghost', body: ask ? askBody('time', r) : '', force: ask }),
   );
   const party = r.party;
   if (r.missing.includes('who')) rows.push(row('who', { ic: 'people', main: 'How many of you?', sub: 'It won’t guess a head count', state: ask ? 'need' : 'ghost', body: ask ? askBody('who', r) : '', force: ask }));
@@ -496,7 +502,7 @@ function legRow(t, r, dir, tip) {
     sub: esc(`${f.no} · ${fmtDuration(f.mins)} · ${reason}${extra}`),
     from,
     body: timesHTML(t, dir),
-    tip: (sameday ? rule(sameday.label) : '') + tip,
+    tip: (sameday ? rule(sameday.label, sameday.src) : '') + tip,
   });
 }
 
@@ -518,11 +524,11 @@ function whoRow(t, r) {
   const n = { count: t.travelers.length, adults: 0, children: 0, infants: 0 };
   for (const x of t.travelers) n[x.type === 'infant' ? 'infants' : x.type === 'child' ? 'children' : 'adults'] += 1;
   const names = t.travelers.map((x) => (x.guest ? 'a guest' : x.first));
-  const rules = t.heard.filter((h) => h.k === 'two' || h.k === 'lapseat').map((h) => rule(h.label)).join('');
-  const lap = n.infants ? rule(`Under 2 flies on a lap: €${D.EXTRAS.infant} per flight, no seat`) : '';
+  const rules = t.heard.filter((h) => h.k === 'two' || h.k === 'lapseat').map((h) => rule(h.label, h.src)).join('');
+  const lap = n.infants ? rule('Under 2 flies on a lap, one baby per adult') : '';
   return row('who', {
     ic: 'people',
-    main: `<span class="avatars">${t.travelers.map((p, k) => avatar(p, k, p.confirmed ? 'done' : '')).join('')}</span>${esc(partyLabel(n))}`,
+    main: `<span class="avatars">${t.travelers.map((p, k) => avatar(p, k)).join('')}</span>${esc(partyLabel(n))}`,
     sub: `${esc(listNames(names))}${waiting && !locked() ? ` · <em class="warn">${waiting} to fill in</em>` : ''}`,
     from: r.party.src,
     state: waiting && !locked() ? 'on todo' : 'on',
@@ -532,9 +538,9 @@ function whoRow(t, r) {
 }
 
 const LINK_FILL = {
-  Mom: ['Leah', 'Rosenberg', '1966-03-09'], Dad: ['David', 'Rosenberg', '1963-11-21'],
-  Grandma: ['Ruth', 'Rosenberg', '1941-05-30'], Grandpa: ['Sam', 'Rosenberg', '1939-08-14'],
-  Sister: ['Tali', 'Rosenberg', '1999-02-17'], Brother: ['Eli', 'Rosenberg', '2001-07-26'],
+  Mom: ['Ayşe', D.ME.last, '1966-03-09'], Dad: ['Mehmet', D.ME.last, '1963-11-21'],
+  Grandma: ['Fatma', D.ME.last, '1941-05-30'], Grandpa: ['Ahmet', D.ME.last, '1939-08-14'],
+  Sister: ['Zeynep', D.ME.last, '1999-02-17'], Brother: ['Emir', D.ME.last, '2001-07-26'],
   Guest: ['Can', 'Aydın', '1995-12-01'],
 };
 
@@ -615,7 +621,7 @@ function seatsRow(t, tip) {
   const fee = (k) => (k === 'free' ? 'Free' : k === 'legroom' ? (b.legroom ? 'Included' : `+${euro(D.EXTRAS.legroom)}`) : b.seat ? 'Included' : `+${euro(D.EXTRAS.seat)}`);
   const options = seated > 1 ? [['free', 'At check-in'], ['together', 'Together']] : [['free', 'At check-in'], ['window', 'Window'], ['aisle', 'Aisle'], ['legroom', 'Legroom']];
   const sub = t.seat === 'free' ? (t.cheapest ? 'Free, since you said cheapest' : 'Free, given at check-in') : fee(t.seat) === 'Included' ? 'In your bundle' : `${fee(t.seat)} each per flight`;
-  const from = t.seatSrc === 'you' ? 'you' : t.seatSrc === 'said' || t.cheapest ? 'said' : 'pegasus';
+  const from = t.seatSrc === 'you' ? 'you' : t.seatSrc === 'said' || t.cheapest ? 'said' : 'rule';
   const body = `<div class="seg">${options.map(([k, l]) => `<button class="${t.seat === k ? 'on' : ''}" data-act="seat" data-v="${k}" aria-pressed="${t.seat === k}"><b>${l}</b><span>${fee(k)}</span></button>`).join('')}</div>`;
   return row('seats', { ic: 'seat', main: SEAT_LABEL[t.seat], sub: esc(sub), from, body, tip });
 }
@@ -645,7 +651,7 @@ function priceRow(t) {
   const body = `<div class="lines">${price.lines.map((l) => `<div><span>${esc(l.label)}</span><b>${euro(l.amount)}</b></div>`).join('')}
       <div class="total"><span>Total</span><b>${euro(price.total)}</b></div></div>
     <div class="payrow">${icon('card')}<span>Visa •••• 4242</span>${src('profile')}</div>
-    <div class="payrow">${icon('mail')}<span>Receipt to y••••@gmail.com</span>${src('profile')}</div>`;
+    <div class="payrow">${icon('mail')}<span>Receipt to d••••@gmail.com</span>${src('profile')}</div>`;
   return row('price', { ic: 'card', main: euro(price.total), sub: esc(price.seated > 1 ? `${euro(price.each)} each · Visa •••• 4242` : 'Visa •••• 4242'), from: 'profile', body });
 }
 
@@ -690,7 +696,7 @@ function paintPrivacy() {
   el.innerHTML = `<div class="priv" role="dialog" aria-label="What it uses">
     <h3>${icon('lock')}What it uses</h3>
     <ul>
-      <li>${src('said')}<span><b>What you say.</b> Speech becomes text on your phone; the audio isn't kept.</span></li>
+      <li>${src('said')}<span><b>What you say.</b> In this prototype your browser's speech service turns it into text (Chrome sends the audio to Google, Safari to Apple). In the app it would stay on the phone wherever the phone can do it. Typing sends nothing.</span></li>
       <li>${src('profile')}<span><b>Your Pegasus profile.</b> Your name, birthday and saved card.</span></li>
       <li>${src('trip')}<span><b>Your past Pegasus trips.</b> Who you flew with, your usual bags and trip length.</span>
         <label class="switch-wrap"><input type="checkbox" data-c="trip" ${S.connections.trip !== false ? 'checked' : ''} aria-label="Use my past Pegasus trips"><i class="switch"></i></label></li>
@@ -719,6 +725,7 @@ function startMic(target) {
   if (!SR) return demoVoice(target);
   let heard = false;
   let failed = false;
+  let error = null;
   try {
     rec = new SR();
     rec.lang = 'en-US';
@@ -728,13 +735,16 @@ function startMic(target) {
       heard = true;
       put(target, Array.from(e.results).map((x) => x[0].transcript).join(' '));
     };
-    rec.onerror = () => {
+    rec.onerror = (e) => {
       failed = !heard;
+      error = e && e.error;
     };
     rec.onend = () => {
       rec = null;
-      if (failed) return demoVoice(target);
+      // no microphone or no permission: the labelled demo voice; anything else (silence, network): ask to type
+      if (failed && ['not-allowed', 'service-not-allowed', 'audio-capture'].includes(error)) return demoVoice(target);
       setListening(null);
+      if (failed) return error === 'aborted' ? null : missed(target);
       finish(target);
     };
     rec.start();
@@ -744,8 +754,21 @@ function startMic(target) {
   }
 }
 
+function missed(target) {
+  toast(`${icon('mic')} Didn't catch that. Type it, or try the mic again.`);
+  const input = target === 'first' ? $('#q') : $('#chg');
+  if (input) input.focus();
+}
+
 // No speech recognition here (or it was refused): play the demo sentence instead, labelled as such.
+// The demo change belongs to the demo trip only; it is never applied to anything else.
 function demoVoice(target) {
+  if (target === 'change' && (!V || !V.said.length || V.said[0].text !== D.DEMO_UTTERANCE)) {
+    setListening(null);
+    toast(`${icon('mic')} No voice in this browser. Type the change.`);
+    $('#chg').focus();
+    return;
+  }
   setListening(target, true);
   const words = (target === 'first' ? D.DEMO_UTTERANCE : D.DEMO_CHANGE).split(' ');
   let i = 0;

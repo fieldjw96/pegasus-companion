@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse } from '../lib/parse.js';
 import { resolve, buildTrip, priceTrip, waitingOn, optionsFor, partyLabel } from '../lib/agent.js';
-import { EXTRAS } from '../lib/data.js';
+import { EXTRAS, ME } from '../lib/data.js';
 
 const TODAY = '2026-10-03';
 const run = (text, ctx = {}) => resolve(parse(text, TODAY), ctx);
@@ -12,7 +12,7 @@ test('"with my mom and dad" is three adults, and booking waits for their names',
   const r = run('Izmir with my mom and dad 20 to 23 Dec evening');
   assert.equal(r.complete, true);
   const t = buildTrip(r);
-  assert.deepEqual(t.travelers.map((p) => [p.first, p.type, !!p.placeholder]), [['Yitzy', 'adult', false], ['Mom', 'adult', true], ['Dad', 'adult', true]]);
+  assert.deepEqual(t.travelers.map((p) => [p.first, p.type, !!p.placeholder]), [[ME.first, 'adult', false], ['Mom', 'adult', true], ['Dad', 'adult', true]]);
   assert.equal(t.title, 'Family trip');
   assert.equal(waitingOn(t).length, 2, 'no booking reference until both names are in');
   assert.equal(priceTrip(t).seated, 3);

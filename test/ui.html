@@ -25,6 +25,13 @@
   const $$ = (s) => [...d.querySelectorAll(s)];
   const text = (s) => ($(s) ? $(s).textContent.replace(/\s+/g, ' ').trim() : '');
   const row = (k) => text(`.row[data-row="${k}"] .row-txt`);
+  // the sentence as you said it, without the blue additions
+  const words = () => {
+    const c = $('#said') && $('#said').cloneNode(true);
+    if (!c) return '';
+    c.querySelectorAll('.add').forEach((x) => x.remove());
+    return c.textContent.replace(/\s+/g, ' ').trim();
+  };
   const bar = () => text('#bookbar');
   const type = async (sel, value) => {
     const el = $(sel);
@@ -41,6 +48,10 @@
     await sleep(200);
   };
   const button = (label) => $$('button').find((b) => b.textContent.trim() === label);
+  const until = async (ok, ms = 20000) => {
+    for (const end = Date.now() + ms; Date.now() < end && !ok(); ) await sleep(100);
+    return ok();
+  };
   const DEMO = 'Antalya with my wife and our 6 month old, 10 to 14 Nov, morning flights, one bag';
 
   async function main() {
@@ -53,15 +64,17 @@
     check($('#ask').dataset.fill === '3' && $('#dock').hidden, 'all three must-haves filled, still nothing booked');
 
     await submit('#ask');
-    check(/Antalya with my wife/.test(text('#said')) && !$('#dock').hidden && /Waiting on 1/.test(bar()), 'the sentence comes back, the bar waits for the baby', bar());
+    check(/Antalya with my wife/.test(words()) && !$('#dock').hidden && /Waiting on 1/.test(bar()), 'the sentence comes back, the bar waits for the baby', bar());
+    const lap = $('#said .add[data-k="lap"]');
+    check($$('#said .add').length === 6 && lap && /old$/.test(lap.previousSibling.textContent) && /on a lap/.test(lap.textContent), 'what it added is in blue, right after the words it belongs to', $$('#said .add').map((x) => x.textContent).join(' | '));
 
     await type('#chg', 'Make it five nights and add my mom');
     await submit('#say');
-    check(/Back Sun 15 Nov · Mom added · €\d+ more/.test(text('#strip')) && /Sun 15 Nov/.test(row('back')) && $$('.said li').length === 2, 'a spoken change comes back as a receipt', text('#strip'));
+    check(/Back Sun 15 Nov · Mom added · €\d+ more/.test(text('#strip')) && /Sun 15 Nov/.test(row('back')) && $$('.chg-chip').length === 1 && !/Mom added/.test(text('#said')), 'a spoken change comes back as a receipt, once', text('#strip'));
     check($('.row[data-row="back"]').classList.contains('flash') && /Waiting on 2/.test(bar()), 'the changed row flashes; Mom joins the wait', bar());
 
     await click('#strip .undo');
-    check(!text('#strip') && /Sat 14 Nov/.test(row('back')) && !/Mom/.test(row('who')) && $$('.said li').length === 1, 'undo puts it back');
+    check(!text('#strip') && /Sat 14 Nov/.test(row('back')) && !/Mom/.test(row('who')) && $$('.chg-chip').length === 0, 'undo puts it back');
 
     await type('#chg', 'make it purple');
     await submit('#say');
@@ -110,22 +123,51 @@
     await type('#chg', '20 to 22 Nov, evening');
     await submit('#say');
     check($('#frame').classList.contains('full') && /Leave Fri 20 Nov/.test(text('#strip')), 'a missing piece can be answered by talking', text('#strip'));
+    const berlin = text('#frame');
+    w.SpeechRecognition = undefined;
+    w.webkitSpeechRecognition = undefined;
+    await click('.mic[data-for="change"]');
+    await sleep(1500);
+    check(/No voice in this browser/.test(text('#toast')) && text('#frame') === berlin && $$('.chg-chip').length === 1, 'no voice here: the demo change is never applied to another trip');
+    w.webkitSpeechRecognition = class {
+      start() {
+        setTimeout(() => {
+          if (this.onerror) this.onerror({ error: 'no-speech' });
+          if (this.onend) this.onend();
+        }, 30);
+      }
+      stop() {}
+    };
+    await click('.mic[data-for="change"]');
+    await sleep(400);
+    check(/Didn't catch that/.test(text('#toast')) && text('#frame') === berlin && $$('.chg-chip').length === 1, 'a mic that hears nothing asks you to type, and changes nothing');
+
+    await click('#newTrip');
+    await type('#q', DEMO);
+    await submit('#ask');
+    for (const c of ['one more night', 'add my mom', 'evening flight back', 'seats together', 'add insurance']) {
+      await type('#chg', c);
+      await submit('#say');
+    }
+    w.scrollTo(0, 0);
+    await sleep(150);
+    const first = $('#frame .row').getBoundingClientRect();
+    const barTop = $('#dock .dock-inner').getBoundingClientRect().top;
+    check($$('.chg-chip').length === 5 && first.bottom <= barTop, 'five changes later, the trip still starts on the first screen', `${Math.round(first.bottom)} vs ${Math.round(barTop)}`);
 
     await click('#newTrip');
     w.SpeechRecognition = undefined;
     w.webkitSpeechRecognition = undefined;
     await click('.mic[data-for="first"]');
     check(d.body.classList.contains('demo-voice'), 'no speech recognition: the mic plays a labelled demo voice');
-    await sleep(4000);
-    check(/Antalya with my wife/.test(text('#said')), 'the demo sentence is said and run');
+    check(await until(() => /Antalya with my wife/.test(words())), 'the demo sentence is said and run');
     await click('.mic[data-for="change"]');
-    await sleep(2500);
-    check(/Mom added/.test(text('#strip')), 'the demo change is said and run', text('#strip'));
+    check(await until(() => /Mom added/.test(text('#strip'))), 'the demo change is said and run', text('#strip'));
 
     check(d.documentElement.scrollWidth <= 390, 'no sideways scroll at phone width', String(d.documentElement.scrollWidth));
 
     await load('../index.html?today=2026-10-03');
-    check(/Mom added/.test(text('#said')) && /Sun 15 Nov/.test(row('back')), 'a reload keeps the trip (events in session storage)');
+    check(/five nights/.test(text('#said')) && /Mom/.test(row('who')) && /Sun 15 Nov/.test(row('back')), 'a reload keeps the trip (events in session storage)');
 
     await click('[data-act="classic"]');
     await sleep(200);

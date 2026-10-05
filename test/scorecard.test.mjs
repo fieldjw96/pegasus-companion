@@ -1,11 +1,12 @@
 // Scorecard (judgment 2026-10-03-1840, MUST 1): one sentence per row. A row passes
 // if the trip is right, or if the companion visibly asks (a question) or shows the
 // word it could not place (orange). A silent error, a wrong trip with no flag, fails.
-// Still to add: real voice memos from classmates, transcribed as they were spoken.
+// Still to add: real voice memos from classmates, transcribed as they were spoken (judgment 1840).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse } from '../lib/parse.js';
-import { resolve, buildTrip, priceTrip, flightOf, SAME_DAY_BUFFER } from '../lib/agent.js';
+import { resolve, buildTrip, priceTrip, flightOf, optionsFor, SAME_DAY_BUFFER } from '../lib/agent.js';
+import { daysBetween } from '../lib/dates.js';
 
 const TODAY = '2026-10-03';
 const mins = (hhmm) => hhmm.split(':').map(Number).reduce((h, m) => h * 60 + m);
@@ -53,6 +54,31 @@ const ROWS = [
   ['Trabzon with my wife and 2 babies 10 to 14 Nov, morning', (r) => party(r).join() === '2,0,2' && !asks(r, 'lap')],
   ['Berlin with Dana and her mom 20 to 22 Nov, evening', (r) => party(r).join() === '3,0,0'],
   ['Antalya 10 to 14 Nov, she turns 2 soon', (r) => orange(r, 'turns') || asks(r, 'who')],
+  // judgment 2026-10-05-0155, MUST 3: the second pass, by class
+  ...[
+    ['Izmir tomorrow morning, back Sunday', '2026-10-04', '2026-10-11'],
+    ['Izmir today, home Sunday, evening', '2026-10-03', '2026-10-04'],
+    ['Ankara in 3 days, back on Friday, morning', '2026-10-06', '2026-10-09'],
+    ['Ankara next week, back Friday, morning', '2026-10-05', '2026-10-09'],
+    ['Izmir this weekend, back Monday, morning', '2026-10-09', '2026-10-12'],
+    ['From the 10th to the 14th of November, Izmir, evening', '2026-11-10', '2026-11-14'],
+    ['Izmir on the 10th, back on the 14th, morning', '2026-10-10', '2026-10-14'],
+  ].map(([text, out, back]) => [text, (r) => r.slots.when.out === out && r.slots.when.back === back && !r.p.unplaced.length && !r.p.purpose]),
+  ['Izmir 10 to 14 Nov, no morning flights', (r) => asks(r, 'time') && orange(r, 'morning')],
+  ['Izmir 10 to 14 Nov, not in the morning please', (r) => asks(r, 'time') && orange(r, 'morning')],
+  ['Izmir 10 to 14 Nov, cheapest, but not in the morning', (r) => asks(r, 'time') && !optionsFor('time', r, TODAY).some((o) => o.value === 'morning')],
+  ['Antalya 10 to 14 Nov, morning, 2 adults, 2 children and an infant', (r) => party(r).join() === '2,2,1'],
+  ['Antalya 10 to 14 Nov, morning, 3 adults and 1 child', (r) => party(r).join() === '3,1,0'],
+  ['Antalya 10 to 14 Nov, morning, with a kid', (r) => party(r).join() === '1,1,0'],
+  ['Bodrum with my toddler 10 to 13 Nov, morning', (r) => party(r).join() === '1,1,0'],
+  ['London with my teen 4 to 6 Dec, afternoon', (r) => party(r).join() === '2,0,0'],
+  ['Antalya with my five year old 10 to 14 Nov, morning', (r) => party(r).join() === '1,1,0'],
+  ['Izmir for a couple of days from Friday, morning', (r) => r.complete && party(r).join() === '1,0,0'],
+  ['Paris in November for a week, morning', (r) => asks(r, 'when') && optionsFor('when', r, TODAY).every((o) => o.value === 'pick' || daysBetween(o.value.out, o.value.back) === 7)],
+  ['Antalya with my mom, not with my dad, 10 to 14 Nov, morning', (r) => party(r).join() === '2,0,0' && orange(r, 'dad')],
+  ['From Istanbul to Rome 20 to 22 Nov, evening', (r) => r.complete && !r.p.unplaced.length],
+  ['Grandma passed. Get me home to Izmir on 8 Oct, morning', (r) => buildTrip(r).bundle === 'saver'],
+  ['Izmir 10 to 12 Nov, morning, I might cancel', (r) => buildTrip(r).bundle === 'saver' && !r.p.unplaced.length],
   // no dates said and none taken from a group chat: it asks
   ["I'm going to Barcelona with five of my friends. I don't need any bags, I just want the cheapest option.", (r) => party(r).join() === '6,0,0' && asks(r, 'when')],
 ];

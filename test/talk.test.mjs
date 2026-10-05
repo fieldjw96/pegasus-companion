@@ -2,9 +2,9 @@
 // change with a receipt; nothing changes silently, and every change can be undone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { replay, gate, headsUp } from '../lib/talk.js';
+import { replay, gate, headsUp, additions } from '../lib/talk.js';
 import { flightOf, priceTrip } from '../lib/agent.js';
-import { DEMO_UTTERANCE, DEMO_CHANGE } from '../lib/data.js';
+import { DEMO_UTTERANCE, DEMO_CHANGE, ME } from '../lib/data.js';
 
 const TODAY = '2026-10-03';
 let n = 0;
@@ -13,6 +13,7 @@ const view = (...events) => replay(events, TODAY);
 const last = (v) => v.said[v.said.length - 1];
 const names = (v) => v.trip.travelers.map((x) => x.first);
 const base = () => say(DEMO_UTTERANCE);
+const I = ME.first;
 
 test('the demo: one sentence fills the trip, the next one changes it, with a receipt', () => {
   const b = base();
@@ -20,7 +21,7 @@ test('the demo: one sentence fills the trip, the next one changes it, with a rec
   assert.deepEqual([before.trip.dest, before.trip.out, before.trip.back], ['AYT', '2026-11-10', '2026-11-14']);
   const v = view(b, say(DEMO_CHANGE));
   assert.equal(v.trip.back, '2026-11-15');
-  assert.deepEqual(names(v), ['Yitzy', 'Dana', 'Baby', 'Mom']);
+  assert.deepEqual(names(v), [I, 'Dana', 'Baby', 'Mom']);
   const r = last(v).receipt;
   assert.deepEqual(r.slice(0, 2), ['Back Sun 15 Nov', 'Mom added']);
   assert.equal(+r[2].match(/^€(\d+) more$/)[1], priceTrip(v.trip).total - priceTrip(before.trip).total, 'the receipt shows the real price change');
@@ -30,7 +31,7 @@ test('undo is dropping the event, and taps made after it survive', () => {
   const b = base();
   const tap = { id: 'tap', k: 'flight', dir: 'back', no: view(b).trip.flights.back.list[2].no };
   const undone = view(b, tap);
-  assert.deepEqual([undone.trip.back, names(undone).join()], ['2026-11-14', 'Yitzy,Dana,Baby']);
+  assert.deepEqual([undone.trip.back, names(undone).join()], ['2026-11-14', `${I},Dana,Baby`]);
   assert.equal(undone.trip.flights.back.pick, tap.no);
 });
 
@@ -51,8 +52,8 @@ test('details typed for one person stay with that person when others come and go
   const b = base();
   const add = say('add my mom');
   const mom = view(b, add).trip.travelers.find((x) => x.first === 'Mom');
-  const fill = { id: 'p1', k: 'person', pid: mom.id, data: { first: 'Leah', last: 'Rosenberg', dob: '1966-03-09', src: 'you', confirmed: true } };
-  assert.deepEqual(names(view(b, add, fill, say('drop the baby'))), ['Yitzy', 'Dana', 'Leah']);
+  const fill = { id: 'p1', k: 'person', pid: mom.id, data: { first: 'Ayşe', last: ME.last, dob: '1966-03-09', src: 'you', confirmed: true } };
+  assert.deepEqual(names(view(b, add, fill, say('drop the baby'))), [I, 'Dana', 'Ayşe']);
 });
 
 test('dates by talking: nights, one more, earlier, later, new dates, one way, same day', () => {
@@ -81,14 +82,33 @@ test('in a change, a weekday means the one nearest the trip, not the one nearest
 
 test("people by talking: add, drop, can't come, just me, head counts", () => {
   const b = base();
-  assert.deepEqual(names(view(b, say('drop the baby'))), ['Yitzy', 'Dana']);
-  assert.deepEqual(names(view(b, say('without my wife'))), ['Yitzy', 'Baby']);
-  assert.deepEqual(names(view(b, say('add my mom'), say("my mom can't come"))), ['Yitzy', 'Dana', 'Baby']);
-  assert.deepEqual(names(view(b, say('just me'))), ['Yitzy']);
+  assert.deepEqual(names(view(b, say('drop the baby'))), [I, 'Dana']);
+  assert.deepEqual(names(view(b, say('without my wife'))), [I, 'Baby']);
+  assert.deepEqual(names(view(b, say('add my mom'), say("my mom can't come"))), [I, 'Dana', 'Baby']);
+  assert.deepEqual(names(view(b, say('just me'))), [I]);
   const two = view(b, say('add two friends'));
   assert.deepEqual([two.trip.travelers.length, last(two).receipt[0]], [5, '2 more travelers added']);
   assert.equal(view(b, say('we are 5')).trip.travelers.length, 5);
   assert.equal(names(view(b, say('add my mom'), say('add my mom'))).filter((x) => x === 'Mom').length, 1, 'one mom');
+});
+
+test('second pass by class (judgment 0155): a friend is one person, a ruled-out day or time is never picked', () => {
+  const b = base();
+  const friend = view(b, say('add a friend'));
+  assert.deepEqual([friend.trip.travelers.length, last(friend).receipt[0]], [4, 'Friend added']);
+  const sunday = view(b, say('not Saturday, Sunday'));
+  assert.deepEqual([sunday.trip.out, sunday.trip.back], ['2026-11-08', '2026-11-12'], 'the Sunday of that week, same length');
+  const noMorning = view(b, say('no morning flights'));
+  assert.deepEqual([gate(noMorning).k, noMorning.r.missing.join()], ['missing', 'time'], 'it asks again instead of keeping the 07:05');
+  assert.equal(view(b, say('I might cancel')).trip.bundle, 'saver', '"cancel" never upgrades');
+});
+
+test('nothing paid unasked: a funeral gets a line offering Comfort Flex, with its terms and price', () => {
+  const v = view(say('Grandma passed. Get me home to Izmir on 8 Oct, morning'));
+  assert.equal(v.trip.bundle, 'saver');
+  const flex = headsUp(v.trip).find((x) => x.k === 'flex');
+  assert.match(flex.text, /one free change up to 2 h before departure and a full refund \(service fee excluded\), for €58 more each\.$/);
+  assert.deepEqual(flex.act, { k: 'bundle', bundle: 'comfortflex' });
 });
 
 test('bundle and extras by talking; Light on a domestic flight is refused with the reason', () => {
@@ -149,4 +169,18 @@ test('heads-up lines can lower or raise the price, one tap each, two at most', (
   const cheaper = headsUp(evening.trip).find((x) => x.k === 'cheaper');
   assert.match(cheaper.text, /^The 07:05 is €\d+ less each\.$/, 'down as well as up');
   assert.equal(headsUp(view(base(), say('make it five nights')).trip).some((x) => x.k === 'cheaper'), false, 'never a €1 saving that lands after midnight');
+});
+
+test('what it added comes back in blue after the words it belongs to', () => {
+  const v = view(base());
+  const adds = Object.fromEntries(additions(DEMO_UTTERANCE, v).map((a) => [a.k, a.text]));
+  assert.deepEqual(adds, {
+    where: 'from SAW, 1h 20m',
+    when: '4 nights',
+    time: '07:05, lands 08:25',
+    partner: 'Dana, from your past trips',
+    lap: 'on a lap, one per adult',
+    bags: 'Saver, 15 kg checked',
+  });
+  assert.deepEqual(additions('Paris', view(say('Paris'))), [], 'nothing to add before there is a trip');
 });

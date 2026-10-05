@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { parse } from '../lib/parse.js';
 import { resolve, optionsFor, buildTrip, priceTrip, bundleWhy, chooseBundle, waitingOn } from '../lib/agent.js';
 import { flightsFor, pickFlight } from '../lib/flights.js';
-import { BUNDLES, bundlesFor, BAGS, byCode, DEMO_UTTERANCE, EXTRAS } from '../lib/data.js';
+import { BUNDLES, bundlesFor, BAGS, byCode, DEMO_UTTERANCE, EXTRAS, ME } from '../lib/data.js';
 
 const TODAY = '2026-10-03'; // Saturday, build day
 const run = (text, ctx = {}) => resolve(parse(text, TODAY), ctx);
@@ -38,7 +38,7 @@ test('the spoken demo sentence becomes a complete trip without a single question
   assert.deepEqual([r.slots.when.out, r.slots.when.back, r.slots.when.src], ['2026-11-10', '2026-11-14', 'said']);
   assert.deepEqual([r.slots.time.out, r.slots.time.src], ['morning', 'said']);
   const t = buildTrip(r);
-  assert.deepEqual(t.travelers.map((x) => [x.first, x.type, x.src]), [['Yitzy', 'adult', 'profile'], ['Dana', 'adult', 'trip'], ['Baby', 'infant', 'said']]);
+  assert.deepEqual(t.travelers.map((x) => [x.first, x.type, x.src]), [[ME.first, 'adult', 'profile'], ['Dana', 'adult', 'trip'], ['Baby', 'infant', 'said']]);
   assert.equal(t.bundle, 'saver', 'one bag on a domestic flight');
   assert.equal(t.seat, 'free');
   assert.deepEqual(waitingOn(t).map((x) => x.first), ['Baby'], 'only the baby still needs a name and birthday');
@@ -140,7 +140,9 @@ test('the bundle is the cheapest one that covers what was asked', () => {
   assert.equal(chooseBundle(needs({ flex: true }), true), 'comfortflex');
   assert.equal(chooseBundle(needs({ seat: 'together' }), true), 'light', 'Light plus paid seats beats Saver Plus');
   const funeral = buildTrip(run(SENTENCES.grandma));
-  assert.equal(funeral.bundle, 'comfortflex');
+  assert.equal(funeral.bundle, 'saver', 'nothing paid unasked, a funeral included (a blue line offers Comfort Flex)');
+  assert.equal(buildTrip(run('Izmir 10 to 12 Nov, morning, refundable please')).bundle, 'comfortflex', 'asked for in words');
+  assert.equal(buildTrip(run('Izmir 10 to 12 Nov, morning, I might cancel')).bundle, 'saver', '"cancel" never upgrades');
 });
 
 test('local arrival times respect time zones and summer time', () => {
