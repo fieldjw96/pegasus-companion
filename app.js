@@ -4,9 +4,10 @@ import * as D from './lib/data.js';
 import { parse, normalize } from './lib/parse.js';
 import { resolve, optionsFor, priceTrip, bundleWhy, bundlePrice, flightOf, codeFor, waitingOn, partyLabel, TIME_LABEL } from './lib/agent.js';
 import { replay, gate, headsUp, typeFromDob, additions } from './lib/talk.js';
+import { seatPlan, seatSummary, seatMode, ROWS, COLS, LEGROOM, EXITS, rowOf } from './lib/seats.js';
 import { todayISO, fmtDay, fmtDob, fmtDuration, daysBetween, addDays, MONTHS } from './lib/dates.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 const params = new URLSearchParams(location.search);
 const TODAY = params.get('today') || todayISO();
 const NAME = params.get('name') || D.ME.first;
@@ -51,6 +52,7 @@ const S = {
   strip: null, // the change whose receipt shows above the bar
   privacy: false,
   listening: null, // 'first' | 'change'
+  seatLeg: 'out', // which flight the seat map shows
 };
 // A scripted demo (?say=) always starts from an empty trip.
 if (params.get('say')) Object.assign(S, { events: [], status: 'draft', pnr: null });
@@ -365,7 +367,9 @@ function paintFrame() {
   const head = t
     ? `<h2>${t.emoji} ${esc(t.title)}</h2><span>${locked() ? `Booked · PNR ${esc(S.pnr)}` : 'Say a change, or tap a row'}</span>`
     : `<h2>Your trip</h2><span>${started() ? 'A tap or a sentence finishes it' : 'Fills in as you talk'}</span>`;
+  grabSeats();
   el.innerHTML = `<div class="frame-head">${head}</div>${(!V || !V.r ? ghostRows() : t ? fullRows(V) : partialRows(V.r)).join('')}`;
+  moveSeats();
   // a row whose value just changed flashes once
   const sigs = new Map([...el.querySelectorAll('.row')].map((r) => [r.dataset.row, r.dataset.sig]));
   if (lastSigs) for (const r of el.querySelectorAll('.row')) if (lastSigs.has(r.dataset.row) && lastSigs.get(r.dataset.row) !== r.dataset.sig) r.classList.add('flash');
@@ -617,13 +621,122 @@ function bundleRow(t, tip) {
 const SEAT_LABEL = { free: 'Seats at check-in', together: 'Seats together', window: 'Window seat', aisle: 'Aisle seat', legroom: 'Extra legroom' };
 function seatsRow(t, tip) {
   const b = D.bundleById(t.bundle);
+  const mode = seatMode(t);
   const seated = t.travelers.filter((x) => x.type !== 'infant').length;
   const fee = (k) => (k === 'free' ? 'Free' : k === 'legroom' ? (b.legroom ? 'Included' : `+${euro(D.EXTRAS.legroom)}`) : b.seat ? 'Included' : `+${euro(D.EXTRAS.seat)}`);
-  const options = seated > 1 ? [['free', 'At check-in'], ['together', 'Together']] : [['free', 'At check-in'], ['window', 'Window'], ['aisle', 'Aisle'], ['legroom', 'Legroom']];
-  const sub = t.seat === 'free' ? (t.cheapest ? 'Free, since you said cheapest' : 'Free, given at check-in') : fee(t.seat) === 'Included' ? 'In your bundle' : `${fee(t.seat)} each per flight`;
-  const from = t.seatSrc === 'you' ? 'you' : t.seatSrc === 'said' || t.cheapest ? 'said' : 'rule';
-  const body = `<div class="seg">${options.map(([k, l]) => `<button class="${t.seat === k ? 'on' : ''}" data-act="seat" data-v="${k}" aria-pressed="${t.seat === k}"><b>${l}</b><span>${fee(k)}</span></button>`).join('')}</div>`;
-  return row('seats', { ic: 'seat', main: SEAT_LABEL[t.seat], sub: esc(sub), from, body, tip });
+  const all = seated > 1 ? [['free', 'At check-in'], ['together', 'Together']] : [['free', 'At check-in'], ['window', 'Window'], ['aisle', 'Aisle'], ['legroom', 'Legroom']];
+  // with free seat choice in the bundle, leaving seats to check-in is never the better deal
+  const options = b.seat ? all.filter(([k]) => k !== 'free') : all;
+  const byBundle = mode !== t.seat;
+  const sub = byBundle
+    ? `Seat choice is free in ${b.name}, so it picked ${mode === 'legroom' ? 'extra legroom' : mode === 'window' ? 'a window' : 'side by side'}`
+    : t.seat === 'free' ? (t.cheapest ? 'Free, since you said cheapest' : 'Free, given at check-in') : fee(t.seat) === 'Included' ? 'In your bundle' : `${fee(t.seat)} each per flight`;
+  const from = byBundle ? 'rule' : t.seatSrc === 'you' ? 'you' : t.seatSrc === 'said' || t.cheapest ? 'said' : 'rule';
+  const body = `<div class="seg">${options.map(([k, l]) => `<button class="${mode === k ? 'on' : ''}" data-act="seat" data-v="${k}" aria-pressed="${mode === k}"><b>${l}</b><span>${fee(k)}</span></button>`).join('')}</div>`;
+  return row('seats', { ic: 'seat', main: SEAT_LABEL[mode], sub: esc(sub), from, body, tip: seatMapHTML(t, mode) + tip });
+}
+
+// ---- the seat map: the whole plane, then a close-up of your rows ----------------
+
+const COL_TRACK = { A: 1, B: 2, C: 3, D: 5, E: 6, F: 7 }; // track 4 is the aisle
+function seatMapHTML(t, mode) {
+  const dir = S.seatLeg === 'back' && t.flights.back ? 'back' : 'out';
+  const f = flightOf(t, dir);
+  const plan = seatPlan(t, f, mode);
+  const who = new Map(t.travelers.map((x, i) => [x.id, { x, i }]));
+  const holder = Object.fromEntries(Object.entries(plan.laps).map(([a, baby]) => [a, who.get(baby).x]));
+  const mine = new Map(Object.entries(plan.seats).map(([id, seat]) => [seat, id]));
+  const kind = (r, c) => `${plan.busy.has(`${r}${c}`) ? ' busy' : ''}${LEGROOM.includes(r) ? ' leg' : ''}`;
+
+  // the whole cabin, nose on the left: one column per row
+  let cells = '';
+  for (let r = 1; r <= ROWS; r++) for (const c of COLS) if (!mine.has(`${r}${c}`)) cells += `<i class="st${kind(r, c)}" style="grid-area:${COL_TRACK[c]}/${r}"></i>`;
+  const marks = Object.entries(plan.seats)
+    .map(([id, seat]) => {
+      const { i } = who.get(id);
+      return `<b class="pm" data-pid="${id}" style="--h:${hue(i)};grid-area:${COL_TRACK[seat.slice(-1)]}/${rowOf(seat)}"></b>`;
+    })
+    .join('');
+  const exits = EXITS.map((r) => `<em class="exit" style="grid-column:${r}"></em>`).join('');
+
+  // the close-up: your rows and one either side
+  let close = '';
+  if (!plan.scattered) {
+    const lo = Math.max(1, plan.rows[0] - 1);
+    const hi = Math.min(ROWS, Math.max(plan.rows[plan.rows.length - 1] + 1, lo + 2));
+    const span = Array.from({ length: Math.min(hi - lo + 1, 5) }, (_, k) => lo + k);
+    const letters = COLS.map((c) => `<span class="cl" style="grid-area:1/${COL_TRACK[c] + 1}">${c}</span>`).join('');
+    const seatsHTML = letters + span
+      .map((r, k) => {
+        const line = k + 2;
+        const head = `<span class="rn${EXITS.includes(r) ? ' ex' : ''}" style="grid-area:${line}/1">${r}</span>`;
+        return head + COLS.map((c) => {
+          const id = mine.get(`${r}${c}`);
+          const area = `grid-area:${line}/${COL_TRACK[c] + 1}`;
+          if (!id) return `<i class="cs${kind(r, c)}" style="${area}"></i>`;
+          const { x, i } = who.get(id);
+          const baby = holder[id];
+          return `<span class="cs you" style="${area}"><b class="lp" data-pid="${id}" style="--h:${hue(i)}" title="${esc(`${x.guest ? 'Guest' : x.first}, ${r}${c}`)}">${esc(initials(x))}${baby ? `<i class="lap" title="${esc(baby.first)} on lap">${esc(baby.first[0])}</i>` : ''}</b></span>`;
+        }).join('');
+      })
+      .join('');
+    close = `<div class="closeup" style="--n:${span.length}">${seatsHTML}</div>`;
+  }
+
+  const legs = t.flights.back
+    ? `<div class="sm-legs" role="tablist">${['out', 'back'].map((d) => `<button role="tab" aria-selected="${d === dir}" class="${d === dir ? 'on' : ''}" data-act="seatleg" data-v="${d}">${icon(d === 'out' ? 'takeoff' : 'landing')}${esc(flightOf(t, d).no)}</button>`).join('')}</div>`
+    : `<div class="sm-legs"><span class="on">${icon('takeoff')}${esc(f.no)}</span></div>`;
+  const apart = plan.scattered && Object.keys(plan.seats).length > 1;
+  const summary = seatSummary(plan);
+  return `<div class="seatmap${apart ? ' apart' : ''}${plan.scattered ? ' loose' : ''}" data-mode="${plan.mode}">
+    <div class="sm-top">${legs}<span class="sm-cap">${esc(summary)}</span></div>
+    <div class="plane" role="img" aria-label="${esc(`Seat map for ${f.no}: ${summary}`)}">
+      <div class="nose"></div>
+      <div class="cabin">${exits}${cells}${marks}</div>
+      <div class="tail"></div>
+    </div>
+    ${close}
+    <div class="sm-key"><span><i class="k-leg"></i>Extra legroom</span><span><i class="k-ex"></i>Exit rows, adults only</span><span><i class="k-busy"></i>Taken</span></div>
+  </div>`;
+}
+
+// Seats glide to where they now are, and a party that just got seats drops in one by one.
+let seatRects = null;
+let seatSig = null;
+function grabSeats() {
+  seatRects = new Map([...document.querySelectorAll('.seatmap [data-pid]')].map((el) => [`${el.className.split(' ')[0]}:${el.dataset.pid}`, el.getBoundingClientRect()]));
+}
+function moveSeats() {
+  const before = seatRects;
+  seatRects = null;
+  const map = document.querySelector('.seatmap');
+  const sig = map ? map.querySelector('.plane').getAttribute('aria-label') + [...map.querySelectorAll('.pm')].map((el) => el.style.gridArea).join() : null;
+  const moved = !!(before && before.size && sig && sig !== seatSig);
+  seatSig = sig;
+  // a change that moved seats brings the map on screen, then the seats glide once it is there
+  let wait = 0;
+  if (moved) {
+    const box = map.getBoundingClientRect();
+    if (box.top < 60 || box.bottom > innerHeight - 170) {
+      map.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      wait = 380;
+    }
+  }
+  if (!before || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let k = 0;
+  for (const el of document.querySelectorAll('.seatmap [data-pid]')) {
+    const key = `${el.className.split(' ')[0]}:${el.dataset.pid}`;
+    const now = el.getBoundingClientRect();
+    const was = before.get(key);
+    if (was) {
+      const dx = was.left - now.left;
+      const dy = was.top - now.top;
+      if (Math.abs(dx) + Math.abs(dy) < 1) continue;
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 650, delay: wait, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+    } else {
+      el.animate([{ transform: 'translateY(-26px) scale(.4)', opacity: 0 }, { transform: 'translateY(3px) scale(1.08)', opacity: 1, offset: 0.7 }, { transform: 'none', opacity: 1 }], { duration: 560, delay: wait + 90 * (k++ % 12), easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'backwards' });
+    }
+  }
 }
 
 function extrasRow(t) {
@@ -951,6 +1064,10 @@ const actions = {
   seat: (el) => {
     push({ k: 'seat', v: el.dataset.v });
     paintAll();
+  },
+  seatleg: (el) => {
+    S.seatLeg = el.dataset.v;
+    paintFrame();
   },
   extra: (el) => {
     push({ k: 'extra', key: el.dataset.k, on: !V.trip.extras[el.dataset.k] });

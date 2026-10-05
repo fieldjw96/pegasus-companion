@@ -82,10 +82,16 @@
     await click('.ow');
     check($('.ow.done') && /Waiting on 1/.test(bar()), 'tapping the orange word lets it go');
 
+    check($('.seatmap.loose') && $$('.seatmap .pm').length === 2 && !$('.closeup') && /At check-in: \d different rows?/.test(text('.sm-cap')), 'seats at check-in: the map shows two loose seats, no close-up', text('.sm-cap'));
     const together = button('Sit together');
     const before = text('.row[data-row="price"] b');
     if (together) await click(together);
     check(together && /Seats together/.test(row('seats')) && text('.row[data-row="price"] b') !== before, 'a heads-up line is one tap, and the price moves', row('seats'));
+
+    check(!$('.seatmap.loose') && $$('.closeup .lp').length === 2 && $$('.closeup .lap').length === 1 && /^Row \d+, A B$/.test(text('.sm-cap')), 'together: two seats side by side in the close-up, the baby on a lap', text('.sm-cap'));
+    await click('[data-act="seatleg"][data-v="back"]');
+    check(/PC\d+/.test($('.plane').getAttribute('aria-label')) && $('[data-act="seatleg"][data-v="back"]').classList.contains('on'), 'the map switches to the flight home');
+    await click('[data-act="seatleg"][data-v="out"]');
 
     await click('.row[data-row="who"] .row-main');
     await click('[data-act="fill"][data-id="baby"]');
@@ -109,6 +115,17 @@
     await click('.row[data-row="when"] .opt');
     const apart = $$('.tip span').map((s) => s.textContent).find((x) => /may sit apart/.test(x));
     check($('#frame').classList.contains('full') && /Book it/.test(bar()) && apart, 'one tap finishes it; six people seated apart is pointed out', `${$('#frame').className} | ${bar()} | ${row('back')} | ${$$('.tip span').map((x) => x.textContent).join(' / ')} | ${text('#said')}`);
+
+    check($('.seatmap.apart') && $$('.seatmap .pm').length === 6, 'six at check-in: six loose seats on the map');
+    await type('#chg', 'switch to Saver Plus');
+    await submit('#say');
+    check(/Seats together/.test(row('seats')) && /Saver Plus/.test(row('seats')) && !$$('.tip span').some((x) => /may sit apart/.test(x.textContent)) && $$('.closeup .lp').length === 6, 'Saver Plus: seats are free, so it seats all six together and drops the paid line', `${row('seats')} | ${text('.sm-cap')}`);
+    await sleep(900);
+    const box = $('.seatmap').getBoundingClientRect();
+    check(box.top >= 0 && box.top < w.innerHeight - 170, 'a change that moves seats brings the map on screen', `${Math.round(box.top)} of ${w.innerHeight}`);
+    const tops = new Set($$('.closeup .cs.you').map((el) => el.offsetTop));
+    check(tops.size === 1 && /^Row \d+, A to F$/.test(text('.sm-cap')), 'six together read as one row across the card', `${tops.size} lines | ${text('.sm-cap')}`);
+    await click('#strip .undo');
 
     await click('.me');
     await click('.priv input[data-c="trip"]');

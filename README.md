@@ -17,6 +17,7 @@ This branch is a standalone idea. It shares no history or code with `main`.
 - **What you said:** your first sentence comes back above the trip, word for word, with what it worked out in blue right after the words it belongs to ("6 month old · on a lap, one per adult", "morning · 07:05, lands 08:25", "one bag · Saver, 15 kg checked"). A word it couldn't use is orange, and Book waits until you tap it (let it go) or say it another way. Nothing is dropped silently.
 - **Say a change:** the bar at the bottom has a mic for changes, the total and Book. "Make it five nights", "add my mom", "evening flight back", "a day earlier", "switch to Saver Plus", "without Dana", "seats together", "one way". Each change lands once as a receipt above the bar, with Undo, and stays as a small chip under your sentence, with its own undo. The rows it touched flash once. However many changes you make, the trip still starts on the first screen.
 - **Or tap:** any row opens for a one-tap change (flight times, bundle, seats, extras, travelers). Taps and spoken changes are kept apart: "add my mom" keeps the flight you tapped, and "evening flight back" replaces only the flight home.
+- **The seat map:** under the seats row, a dark card shows the whole plane (a demo A320neo, 31 rows of 3-3) with your party glowing in it, and a close-up of your rows with everyone's initials in their seats and a lap baby as a small badge on the adult's seat. Seats at check-in show the party as loose, pulsing dots spread over the cabin ("At check-in: 2 different rows"); a child always sits beside an adult, so only a party of two or more adults gets the "may sit apart" line. A change that moves seats scrolls the map into view before the seats glide. "Seats together" or the blue line's **Sit together** makes them glide side by side; "add my mom" drops one more seat in next to them, and Undo puts it back. A tab switches between the flight out and the flight home.
 - **Something missing:** that row asks in place with taps ("When?" with the next three weekends, or weeks if you said "for a week"; "How many of you?"; "A seat or a lap?"), or you just say it.
 
 On a phone it is one column with the bar under your thumb. The grid icon (top right) goes to the classic booking form, which is just another way of saying the first sentence.
@@ -69,9 +70,9 @@ Fare families: Light (under-seat bag 40×30×15 cm, 3 kg; international only), S
 2. Say: "And we're bringing a pram." Nothing changes, and "pram" stays orange: the bar reads **Check 1 word** until you tap it. Nothing it doesn't understand is dropped silently.
 3. Say: "Make it five nights and add my mom." Receipt: Back Sun 15 Nov · Mom added · €78 more. Tap Undo, then say it again.
 4. Tap the travelers row. Mom: **Ask** sends the group link, and 2.6 s later she has typed in her own details. The baby: **Add**, a name and a birthday. The bar now reads **Book it**.
-5. Tap **Sit together** on the blue line under seats, then **Book it**.
+5. Look at the seat map: two loose dots in different rows. Tap **Sit together** on the blue line and watch them glide into one row, the baby riding on the lap badge. Then **Book it**.
 6. New trip (top right): "Me and my two babies to Antalya next weekend, morning." One adult can hold one baby on a lap (a Pegasus rule), so the travelers row asks: give a baby a seat, or another adult is coming.
-7. New trip: "Barcelona with the boys, cheapest, no bags." The friends come from your past trips; the dates were never said, so the When row asks. One tap on a weekend, and a blue line points out that six people seated at check-in may sit apart, or that the cheapest flight home lands in the small hours.
+7. New trip: "Barcelona with the boys, cheapest, no bags." The friends come from your past trips; the dates were never said, so the When row asks. One tap on a weekend, and six loose dots scatter over the seat map while a blue line points out that six people seated at check-in may sit apart. Say "switch to Saver Plus": seat choice is free in that bundle, so all six land in one row and the paid line disappears.
 8. New trip: "Annemle babamla yılbaşında İzmir'e, akşam uçuşu." Mom, Dad and the evening flight are understood; "yılbaşında" stays orange and the date is asked. English only in this demo; Turkish words it doesn't know stay orange instead of being guessed.
 
 Where the browser has no speech recognition, or the microphone is refused, the mic plays the demo sentence (and, in the bar, the demo change, on the demo trip only) and labels it "demo voice". When the mic hears nothing, it says so and asks you to type.
@@ -146,19 +147,20 @@ Then open http://localhost:8090, or http://localhost:8090/phone.html for the pho
 npm test
 ```
 
-39 tests (Node 20 or newer): the engine; the 47-sentence no-silent-errors scorecard, including every sentence judgment 2026-10-05-0155 found ("tomorrow morning, back Sunday", "no morning flights", "2 adults, 2 children and an infant", "for a couple of days", "for a week", "the 10th"); the people and switch rules; and 15 for talking to change the trip (what it added, in blue; receipts, undo, taps that survive changes, details that stay with the right person, weekdays near the trip, "add a friend", "not Saturday, Sunday", Light refused on domestic flights, nothing paid unasked, orange words holding Book, the blue lines).
+51 tests (Node 20 or newer): the engine; 12 for the seat map (side by side, children beside an adult at check-in, nobody moves when someone joins, no taken or doubled seats, lap babies, exit rows adults only, a baby who turns two mid-trip, Saver Plus and Comfort Flex seat rules); the 47-sentence no-silent-errors scorecard, including every sentence judgment 2026-10-05-0155 found ("tomorrow morning, back Sunday", "no morning flights", "2 adults, 2 children and an infant", "for a couple of days", "for a week", "the 10th"); the people and switch rules; and 15 for talking to change the trip (what it added, in blue; receipts, undo, taps that survive changes, details that stay with the right person, weekdays near the trip, "add a friend", "not Saturday, Sunday", Light refused on domestic flights, nothing paid unasked, orange words holding Book, the blue lines).
 
 ```bash
 npm run test:ui
 ```
 
-30 checks in headless Chrome, about 15 s, that drive the real page at phone width: typing fills the rows, the blue additions in your sentence, a spoken change and its receipt, undo, an orange word holding Book, a blue line, filling in the baby, booking, a missing date answered by a tap and by talking, the past-trips switch, a mic that hears nothing, the demo voice (and that it never changes another trip), five changes with the trip still on the first screen, a reload, the classic form, no sideways scroll, no page errors.
+35 checks in headless Chrome, about 15 s, that drive the real page at phone width: typing fills the rows, the seat map (loose at check-in, side by side after Sit together, the flight home tab, Saver Plus seating six together), the blue additions in your sentence, a spoken change and its receipt, undo, an orange word holding Book, a blue line, filling in the baby, booking, a missing date answered by a tap and by talking, the past-trips switch, a mic that hears nothing, the demo voice (and that it never changes another trip), five changes with the trip still on the first screen, a reload, the classic form, no sideways scroll, no page errors.
 
 ## What is real and what is mocked
 
 | Real | Mocked |
 |---|---|
 | Voice input (Web Speech API) | Flights and prices (stable per route and date), including the infant fee |
+| The seat solver: side by side, stable, children beside an adult at check-in, exit rows adults only, Pegasus bundle seat rules | The cabin layout (a demo A320neo) and other passengers' seats (stable per flight). The mock keeps two rows open per flight so a group always fits side by side; a real cabin may not have them |
 | The parser, talking to change it, receipts and undo, the bundle choice, pricing, Pegasus' fare rules, time zones | The passenger (Deniz Aksoy, invented, living in Istanbul), their past trips and the people in them (`lib/persona.js`, never exported) |
 | The past-trips switch really stops that data being used | The group link and the people answering it; payment |
 
@@ -171,6 +173,7 @@ npm run test:ui
 | `lib/parse.js` | One sentence to trip context: where, when, time of day (and times ruled out), who (typed travelers), bags, budget, and the words it couldn't place |
 | `lib/talk.js` | Talking to change it: every sentence and tap is an event; replaying them builds the trip, the receipts, the orange words and the blue lines |
 | `lib/agent.js` | The three must-haves, one-tap questions, bundle choice, rules, trip assembly and pricing |
+| `lib/seats.js` | The seat map's solver: who sits where on each flight, at check-in or side by side, and what the bundle makes free |
 | `lib/flights.js`, `lib/dates.js` | Mock schedule with correct local times; calendar helpers |
 | `lib/data.js`, `lib/persona.js` | Routes, fare families, extras and sources; the invented passenger |
 | `scripts/export-classic.mjs` | Bundles the parser (without the persona) as one classic script for other prototypes |

@@ -166,8 +166,9 @@ test('heads-up lines can lower or raise the price, one tap each, two at most', (
   const together = view(boys, pick, { id: 's1', k: 'seat', v: 'together' });
   assert.deepEqual(headsUp(together.trip).map((x) => x.k), ['late', 'light'], 'seats together, so the Light bag line gets its turn');
   const evening = view(say('Berlin 20 to 22 Nov, leave in the evening, back in the morning, carry-on'));
-  const cheaper = headsUp(evening.trip).find((x) => x.k === 'cheaper');
-  assert.match(cheaper.text, /^The 07:05 is €\d+ less each\.$/, 'down as well as up');
+  assert.equal(headsUp(evening.trip).some((x) => x.k === 'cheaper'), false, 'you said evening: a cheaper morning flight is not offered');
+  const kid = view(say('Izmir with my 4 year old son 20 to 22 Nov, morning, cabin bag'));
+  assert.equal(headsUp(kid.trip).some((x) => x.k === 'apart'), false, 'one adult and a child are seated together at check-in: no paid scare');
   assert.equal(headsUp(view(base(), say('make it five nights')).trip).some((x) => x.k === 'cheaper'), false, 'never a €1 saving that lands after midnight');
 });
 
