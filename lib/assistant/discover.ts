@@ -125,16 +125,7 @@ function travellers(profile: Profile): number {
   return profile.travellers.filter((t) => t.kind !== "infant").length;
 }
 
-/** With no descriptors given, lean on what this kind of trip usually is. */
+/** With no descriptors given, lean on what this person usually does. */
 function defaultVibes(profile: Profile): string[] {
-  switch (profile.id) {
-    case "business":
-      return ["city", "short"];
-    case "family":
-      return ["warm", "beach"];
-    case "weekend":
-      return ["city", "short", "cheap"];
-    default:
-      return ["warm", "beach"];
-  }
+  return profile.coldStart ? ["warm", "beach", "cheap"] : ["city", "short"];
 }

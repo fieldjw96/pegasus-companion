@@ -1,143 +1,92 @@
 import type { FareFamily } from "@/lib/journey/flights";
 
 /**
- * Saved booking profiles.
+ * Who is holding the phone.
  *
- * The dropdown under the chat box is not a filter. Each option is a remembered
- * context from previous bookings of that kind: who travels, what they usually
- * take, what they usually pay for. Choosing one is how the assistant knows
- * things nobody has typed yet.
+ * Two people, two starts. Will has never used the app: a cold start, where
+ * everything the companion fills in is a prediction and says so. Emre flies
+ * the same route home a few times a year: a warm start, where most of the
+ * ticket is remembered from the last time.
  *
- * This is where the product's leverage actually comes from. A prompt can carry
- * a destination and a date; it cannot reasonably carry "Mila is four, so we
- * need seats together and a hold bag".
+ * This is where the companion's leverage comes from. A sentence can carry a
+ * destination and a month; it cannot reasonably carry "you always take the
+ * Friday 19:05 and sit in 3A".
  */
 
 export type Traveller = {
   name: string;
   kind: "adult" | "child" | "infant";
   age?: number;
-  /** Anything the profile knows that changes a booking. */
-  note?: string;
 };
 
 export type Profile = {
-  id: string;
+  id: "will" | "emre";
   label: string;
-  blurb: string;
   travellers: Traveller[];
-  /** What this kind of trip usually needs. Feeds prediction, never overrides. */
+  /** True when there is no history to remember from. */
+  coldStart: boolean;
+  /** Where the phone says home is, used to predict an origin. */
+  homeAirport: string;
+  homeCity: string;
+  /** What this person usually books. Feeds prediction, never overrides. */
   habits: {
     package: FareFamily;
     checkedBag: boolean;
     seatPreference: "aisle" | "window" | "together" | "none";
     flexibility: "none" | "change" | "full";
-    /**
-     * Why this kind of trip is or is not worth paying to change.
-     *
-     * Per profile, and required, because the first version had one hardcoded
-     * sentence for every profile that chose flexibility — so a family holiday
-     * explained itself with "your work trips get changed often enough". On a
-     * screen whose entire claim is that it shows its reasoning, a reason
-     * belonging to somebody else's trip is worse than no reason at all.
-     */
     flexibilityReason: string;
     preferredDeparture: "early" | "midday" | "evening" | "any";
     reason: string;
   };
-  /** Shown as a chip so the remembered context is visible, not hidden. */
+  /** Remembered from past bookings and shown as such. */
   remembers: string[];
+  /** Things on file that fill in a form nobody has to see. */
+  onFile: { passport: string; payment: string };
 };
 
 export const PROFILES: Profile[] = [
   {
-    id: "business",
-    label: "Personal — business",
-    blurb: "Solo, in and out, flexible",
-    travellers: [{ name: "Jack Field", kind: "adult" }],
-    habits: {
-      package: "saverPlus",
-      checkedBag: false,
-      seatPreference: "aisle",
-      flexibility: "change",
-      flexibilityReason:
-        "Work trips move. Three of your last four were changed at least once.",
-      preferredDeparture: "early",
-      reason:
-        "Your last four work trips were hand luggage only, aisle, and changed at least once.",
-    },
-    remembers: ["Just you", "Hand luggage only", "Aisle seat", "Needs to be changeable"],
-  },
-  {
-    id: "holiday",
-    label: "Personal — holiday",
-    blurb: "You and Ayşe, a week away",
-    travellers: [
-      { name: "Jack Field", kind: "adult" },
-      { name: "Ayşe Field", kind: "adult" },
-    ],
-    habits: {
-      package: "saver",
-      checkedBag: true,
-      seatPreference: "window",
-      flexibility: "none",
-      flexibilityReason: "You have never paid to make a holiday changeable.",
-      preferredDeparture: "any",
-      reason:
-        "You check a bag on every holiday booking, and you have never paid for flexibility.",
-    },
-    remembers: ["You and Ayşe", "One checked bag", "Window seat", "Price over timing"],
-  },
-  {
-    id: "family",
-    label: "Family holiday",
-    blurb: "With Ayşe and Mila (4)",
-    travellers: [
-      { name: "Jack Field", kind: "adult" },
-      { name: "Ayşe Field", kind: "adult" },
-      { name: "Mila Field", kind: "child", age: 4, note: "Needs a seat beside an adult" },
-    ],
-    habits: {
-      package: "saverPlus",
-      checkedBag: true,
-      seatPreference: "together",
-      flexibility: "change",
-      flexibilityReason: "School dates move. You changed last October's half term twice.",
-      preferredDeparture: "midday",
-      reason:
-        "Travelling with Mila, you have always chosen seats together and avoided the first flight of the day.",
-    },
-    remembers: [
-      "Three of you",
-      "Mila is 4",
-      "Seats together",
-      "Not the 06:00",
-      "25 kg checked",
-    ],
-  },
-  {
-    id: "weekend",
-    label: "Weekend away",
-    blurb: "Two of you, light and cheap",
-    travellers: [
-      { name: "Jack Field", kind: "adult" },
-      { name: "Sam Okonkwo", kind: "adult" },
-    ],
+    id: "will",
+    label: "First time here",
+    travellers: [{ name: "Will Parker", kind: "adult" }],
+    coldStart: true,
+    homeAirport: "STN",
+    homeCity: "London",
     habits: {
       package: "light",
       checkedBag: false,
       seatPreference: "none",
       flexibility: "none",
-      flexibilityReason: "Two nights away is not worth paying to move.",
-      preferredDeparture: "evening",
-      reason: "Short trips, cabin bags only, and you have never chosen a seat on one.",
+      flexibilityReason: "Nothing on file says you pay to move trips, so I left it out.",
+      preferredDeparture: "any",
+      reason: "You're new here, so this is a guess from the trip, not a memory.",
     },
-    remembers: ["You and Sam", "Cabin bag only", "Friday evening out", "Cheapest fare"],
+    remembers: [],
+    onFile: { passport: "Passport, from your wallet", payment: "Apple Pay" },
+  },
+  {
+    id: "emre",
+    label: "Flies home a few times a year",
+    travellers: [{ name: "Emre Kaya", kind: "adult" }],
+    coldStart: false,
+    homeAirport: "SAW",
+    homeCity: "Istanbul",
+    habits: {
+      package: "saver",
+      checkedBag: true,
+      seatPreference: "window",
+      flexibility: "none",
+      flexibilityReason: "You have never paid to make a trip home changeable.",
+      preferredDeparture: "evening",
+      reason: "Every trip to Trabzon so far: the Friday 19:05, SAVER, and seat 3A.",
+    },
+    remembers: ["Friday 19:05", "SAVER", "Seat 3A", "Passport and card"],
+    onFile: { passport: "Passport ·· 4471 · valid to 2031", payment: "VISA •••• 2210" },
   },
 ];
 
-export function profileById(id: string): Profile | null {
-  return PROFILES.find((p) => p.id === id) ?? null;
+export function profileById(id: string): Profile {
+  return PROFILES.find((p) => p.id === id) ?? PROFILES[0]!;
 }
 
 export function partyOf(profile: Profile): {
@@ -150,4 +99,8 @@ export function partyOf(profile: Profile): {
     children: profile.travellers.filter((t) => t.kind === "child").length,
     infants: profile.travellers.filter((t) => t.kind === "infant").length,
   };
+}
+
+export function firstName(name: string): string {
+  return name.split(" ")[0] ?? name;
 }

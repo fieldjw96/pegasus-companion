@@ -6,168 +6,93 @@ import { useJourney } from "@/components/journey-provider";
 import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
 import { Avatar, Mark, Says } from "@/components/ui/avatar";
 import { LockCard, LockScreen } from "@/components/ui/lock-screen";
-import { AppIcon, Initials, PrimaryButton, Wordmark } from "@/components/ui/primitives";
-import { Sheet } from "@/components/ui/sheet";
-import { SentenceBox } from "@/components/ui/sentence-box";
+import { AppIcon, Initials, PrimaryButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
 import { SentenceSection } from "./home-screen";
-import { Ticket } from "./ticket";
+import { SeatSheet } from "./seat-sheet";
+import { Ticket, cityOf } from "./ticket";
+import type { ExtraRow } from "./change-panel";
 import { countBySource, type TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor, nights } from "@/lib/assistant/itinerary";
-import { breakdown, priceOf } from "@/lib/assistant/price";
-import { PROFILES } from "@/lib/assistant/profiles";
-import { AIRPORTS, formatFare } from "@/lib/journey/flights";
-import { dateSpan, heroDraft, shortDate } from "@/lib/demo/hero";
+import { breakdown, withLines } from "@/lib/assistant/price";
+import { formatFare } from "@/lib/journey/flights";
+import { SQUAD } from "@/lib/journey/script";
+import { dateSpan, shortDate, WILL, willDraft } from "@/lib/demo/personas";
 import {
+  BREAKFAST,
+  FREEZE,
   FRIENDS,
-  HOLD,
   buildInviteeDraft,
   firstName,
   friendByName,
-  seatOffer,
-  type SeatOffer,
+  inviteeExtras,
+  seatBeside,
+  type Friend,
 } from "@/lib/group/group";
 
 /**
- * The invitee's side: Sam's phone.
+ * The invitee's side: Archie's phone, then Tom's.
  *
- * Sam said nothing. A notification tells him Jack booked; opening it is a
- * ticket already built from Jack's flights and Sam's own history, with one
- * question the companion could not answer on its own: whether to pay for the
- * seat beside Jack. He pays only for himself and sees nothing of what Jack
- * paid.
+ * Neither said anything. Archie has the app, so a push in Will's name opens a
+ * booking already built: the flights from Will, the fare and seat predicted,
+ * the passport, payment and his usual hot meal remembered. He checks and pays.
+ * Tom has no app, so a WhatsApp from Will opens the same booking on the web
+ * and brings him into the app. When he stalls, the companion finishes the
+ * booking up to the pay button and nudges him in Will's name.
  */
-const SAM = FRIENDS[0]!;
+export type FriendId = "archie" | "tom";
 
-function useInvitee() {
+function useInvitee(id: FriendId) {
   const { state, update } = useJourney();
-  const organiser = state.draft ?? heroDraft();
-  const profile = PROFILES.find((p) => p.id === state.profileId) ?? PROFILES[0]!;
-  const organiserNames = profile.travellers
-    .filter((t) => t.kind !== "infant")
-    .map((t) => t.name);
-  const invitee = friendByName(state.invited[0] ?? SAM.name) ?? SAM;
-  const base = buildInviteeDraft(organiser, invitee);
-  const offer = seatOffer(organiser, organiserNames);
-  const taken = state.invitee.seatTaken && offer !== null;
-  const draft: TripDraft = taken
-    ? {
-        ...base,
-        seating: { value: "aisle", source: "said", why: "You took the seat beside Jack." },
-      }
-    : base;
-  const city =
-    AIRPORTS[organiser.destination.value as keyof typeof AIRPORTS]?.city ??
-    organiser.destination.value;
-  const organiserFirst = firstName(organiserNames[0] ?? "Jack Field");
+  const organiser = state.draft ?? willDraft();
+  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const friend: Friend =
+    friendByName(id === "archie" ? "Archie Bell" : "Tom Baker") ?? FRIENDS[0]!;
+  const draft = buildInviteeDraft(organiser, friend, me);
+  const seat = seatBeside(organiser, friend, me);
+  const extras = inviteeExtras(organiser, friend, me);
+  const booked = friend.name in state.inviteesBooked;
+  const city = cityOf(organiser.destination.value);
+  const itinerary = itineraryFor(organiser, me);
   return {
     state,
     update,
     organiser,
-    organiserNames,
-    organiserFirst,
-    invitee,
+    me,
+    friend,
     draft,
-    offer,
-    taken,
+    seat,
+    extras,
+    booked,
     city,
+    itinerary,
   };
 }
 
-/** The seat the offer adds, priced on top of the fare the pricer computed. */
-function inviteeTotal(draft: TripDraft, offer: SeatOffer | null, taken: boolean): number {
-  return (
-    Math.round((priceOf(draft) + (taken && offer !== null ? offer.total : 0)) * 100) / 100
-  );
-}
-
-function noticeText(
-  organiserFirst: string,
-  city: string,
-  organiser: TripDraft,
-  fare: number,
-): { lead: string; rest: string } {
-  const span =
-    organiser.returnDate.value === null
-      ? shortDate(organiser.departDate.value)
-      : `${shortDate(organiser.departDate.value)} to ${shortDate(organiser.returnDate.value)}`;
+function noticeText(me: string, city: string, organiser: TripDraft, seat: string | null) {
   return {
-    lead: `${organiserFirst} booked ${city} — ${span}.`,
-    rest: ` A seat beside ${organiserFirst === "Jack" ? "him" : "them"} is held for you until ${HOLD.untilShort}. Your fare: ${formatFare(fare)} GBP.`,
+    lead: `${firstName(me)}'s booked ${city}.`,
+    rest: ` ${seat ?? "A seat"} next to ${firstName(me) === "Will" ? "him" : "them"} is yours. Fare frozen until ${FREEZE.untilShort}.`,
+    span: dateSpan(organiser.departDate.value, organiser.returnDate.value),
   };
 }
 
-export function InviteeLockScreen() {
+/** Archie's lock screen: a push in Will's name. */
+export function ArchiePushScreen() {
   const router = useRouter();
-  const { organiser, organiserFirst, draft, city, invitee } = useInvitee();
-  const [opened, setOpened] = useState(false);
-  const notice = noticeText(organiserFirst, city, organiser, priceOf(draft));
-
-  if (opened) {
-    return (
-      <AppShell
-        bodyClassName="pt-2"
-        header={<AppHeader user={invitee.name} />}
-        overlay={
-          <div className="absolute inset-x-2.5 top-2.5 z-40">
-            <button
-              type="button"
-              onClick={() => router.push("/invite/ticket")}
-              className="spring-up flex w-full items-start gap-3 rounded-[24px] bg-white/95 p-3.5 text-left text-pg-navy"
-              style={{ boxShadow: "0 12px 32px rgba(0,0,0,0.25)" }}
-            >
-              <AppIcon size={38} />
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-baseline justify-between gap-2">
-                  <span className="text-[13px] leading-[18px] font-extrabold tracking-[0.04em]">
-                    PEGASUS
-                  </span>
-                  <span className="text-[13px] leading-[18px] text-pg-ink">now</span>
-                </span>
-                <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
-                  <strong className="font-extrabold">{notice.lead}</strong>
-                  {notice.rest}
-                </span>
-              </span>
-              <Avatar size={44} className="mt-5" />
-            </button>
-          </div>
-        }
-      >
-        <div className="flex flex-col items-center gap-3">
-          <Avatar size={120} />
-          <span className="flex h-[26px] items-center gap-1.5 rounded-full bg-white px-3 text-[11px] font-bold tracking-[0.08em] shadow-[0_1px_2px_rgba(31,42,55,0.06)]">
-            YOUR AI COMPANION
-          </span>
-          <h1 className="mt-1 text-[28px] leading-[34px] font-extrabold tracking-[-0.02em]">
-            Good afternoon, {firstName(invitee.name)}
-          </h1>
-        </div>
-        <div className="mt-5">
-          <SentenceBox
-            placeholder="Where are we going? Or tell me the whole trip at once."
-            action="Plan it"
-            onSubmit={() => router.push("/invite/ticket")}
-          />
-        </div>
-        <p className="mt-4 px-1 text-[13px] leading-[18px] text-pg-ink">
-          Just you · remembered from your past weekend away bookings
-        </p>
-      </AppShell>
-    );
-  }
-
+  const { me, city, organiser, seat } = useInvitee("archie");
+  const notice = noticeText(me, city, organiser, seat);
   return (
     <LockScreen
-      date={HOLD.bookedAt.split(",")[0] === "Mon 5 Oct" ? "Monday 5 October" : HOLD.bookedAt}
-      time="14:20"
+      date={FREEZE.bookedLong}
+      time="18:42"
       bottom={150}
-      onTap={() => setOpened(true)}
+      onTap={() => router.push("/invite/archie/ticket")}
     >
       <button
         type="button"
-        onClick={() => setOpened(true)}
+        onClick={() => router.push("/invite/archie/ticket")}
         className="w-full text-left"
         aria-label="Open the notification"
       >
@@ -188,6 +113,19 @@ export function InviteeLockScreen() {
               <strong className="font-extrabold">{notice.lead}</strong>
               {notice.rest}
             </span>
+            <span className="mt-1.5 flex flex-col gap-0.5 text-[13px] leading-[18px] text-pg-ink">
+              <Row
+                label="Flights"
+                value={`${notice.span}, from ${firstName(me)}`}
+                tag="from"
+              />
+              <Row label="Passport, payment" value="remembered" tag="profile" />
+              <Row label={`SAVER + seat ${seat ?? ""}`} value="predicted" tag="predicted" />
+              <Row label="Hot meal, Pegasus Café" value="remembered" tag="profile" />
+            </span>
+            <span className="mt-2 text-[14px] font-extrabold text-pg-orange">
+              Book in one tap
+            </span>
           </span>
           <Avatar size={44} className="mt-5" />
         </LockCard>
@@ -196,78 +134,164 @@ export function InviteeLockScreen() {
   );
 }
 
-export function InviteeTicketScreen() {
-  const router = useRouter();
-  const { update, draft, offer, taken, organiserFirst, organiserNames, invitee } =
-    useInvitee();
-  const [sheet, setSheet] = useState(false);
-  const counts = countBySource(draft, ["seating"]);
-  const total = inviteeTotal(draft, offer, taken);
-  const away = nights(draft);
-  const [localDraft, setLocalDraft] = useState<TripDraft | null>(null);
-  const shown = localDraft ?? draft;
-
-  const offerRow =
-    offer !== null && !taken ? (
-      <button
-        type="button"
-        aria-label={`Open the seat offer: sit next to ${organiserFirst}`}
-        onClick={() => setSheet(true)}
-        className="pg-card mt-3 flex w-full items-center gap-3 py-3.5 pr-4 pl-3.5 text-left"
+function Row({
+  label,
+  value,
+  tag,
+}: {
+  label: string;
+  value: string;
+  tag: "from" | "profile" | "predicted";
+}) {
+  return (
+    <span className="flex items-center justify-between gap-2">
+      <span className="font-semibold text-pg-navy">{label}</span>
+      <span
+        className={`tag ${tag === "from" ? "tag-shared" : tag === "profile" ? "tag-profile" : "tag-predicted"}`}
+        style={{ height: 18, lineHeight: "16px" }}
       >
-        <span
-          aria-hidden
-          className="display flex h-11 w-10 shrink-0 items-center justify-center bg-pg-yellow text-[13px] font-extrabold"
-          style={{ borderRadius: "11px 11px 8px 8px", boxShadow: "inset 0 -3px 0 #E5A70C" }}
-        >
-          {offer.seat}
+        {tag === "from" && <Initials name="Will Parker" size={14} />}
+        {value}
+      </span>
+    </span>
+  );
+}
+
+/** Tom's WhatsApp: an invite from Will that opens the trip, pre-filled. */
+export function TomWhatsAppScreen() {
+  const router = useRouter();
+  const { me, city, organiser, seat } = useInvitee("tom");
+  const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
+  return (
+    <div className="flex h-full flex-col bg-[#EFE7DD] text-pg-navy">
+      <div className="flex shrink-0 items-center gap-3 bg-[#075E54] px-4 pt-12 pb-3 text-white">
+        <span className="text-[22px]" aria-hidden>
+          ‹
         </span>
-        <span className="flex flex-1 flex-col">
-          <span className="text-[16px] leading-[22px] font-extrabold">
-            Sit next to {organiserFirst}?
-          </span>
-          <span className="text-[13px] leading-[18px] text-pg-ink">
-            {offer.seat} is free on both legs.
-          </span>
+        <Initials name={me} size={36} tone="surface" />
+        <span className="flex flex-col">
+          <span className="text-[16px] leading-5 font-bold">{firstName(me)}</span>
+          <span className="text-[12px] leading-4 opacity-80">online</span>
         </span>
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
-    ) : null;
+      </div>
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pt-6">
+        <div className="mx-auto mb-4 w-fit rounded-md bg-white/70 px-3 py-1 text-[12px] font-semibold text-pg-ink">
+          {FREEZE.bookedLong}
+        </div>
+        <div className="max-w-[300px] rounded-2xl rounded-tl-sm bg-white p-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
+          <button
+            type="button"
+            onClick={() => router.push("/invite/tom/ticket")}
+            className="block w-full overflow-hidden rounded-xl bg-pg-surface text-left"
+          >
+            <span className="flex items-center gap-2 bg-pg-yellow px-3 py-2">
+              <AppIcon size={22} />
+              <span className="text-[12px] font-extrabold tracking-[0.06em]">PEGASUS</span>
+            </span>
+            <span className="flex flex-col gap-0.5 px-3 py-2.5">
+              <span className="text-[15px] leading-5 font-extrabold">
+                {firstName(me)} invited you to {city} ✈︎
+              </span>
+              <span className="text-[13px] leading-[18px] text-pg-ink">
+                {span} · seat {seat} saved next to {firstName(me) === "Will" ? "him" : "them"}
+              </span>
+              <span className="mt-1 text-[13px] font-extrabold text-pg-orange">
+                Join {firstName(me)}&rsquo;s trip on Pegasus
+              </span>
+            </span>
+          </button>
+          <p className="px-2 pt-2 pb-1 text-[15px] leading-5">
+            Lads. Booked it. Your seat&rsquo;s held next to mine, fare&rsquo;s frozen till
+            Thursday 🎈
+          </p>
+          <span className="block pr-2 pb-1 text-right text-[11px] text-pg-ink">18:51</span>
+        </div>
+        <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
+          Opens the app, or the web if it isn&rsquo;t installed. A new direct customer Pegasus
+          didn&rsquo;t have.
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-8">
+        <span className="h-10 flex-1 rounded-full bg-white px-4 text-[15px] leading-10 text-pg-ink">
+          Message
+        </span>
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#075E54] text-white">
+          🎙
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function InviteeTicketScreen({ id }: { id: FriendId }) {
+  const router = useRouter();
+  const { me, friend, draft, seat, extras, itinerary } = useInvitee(id);
+  const [local, setLocal] = useState<TripDraft | null>(null);
+  const [sheet, setSheet] = useState(false);
+  const shown = local ?? draft;
+  const counts = countBySource(shown);
+  counts.profile += extraRowsFor(friend).length;
+  const price = withLines(breakdown(shown), extras);
+  const away = nights(shown);
+  const first = firstName(me);
 
   return (
     <AppShell
-      header={<AppHeader user={invitee.name} withAvatar />}
+      header={<AppHeader user={friend.name} withAvatar />}
       bodyClassName="pt-4 pb-7"
       footer={
         <TotalFooter
           line={`1 travelling${away === null ? "" : `, ${away} nights`}`}
-          total={`${formatFare(total)} GBP`}
+          total={`${formatFare(price.total)} GBP`}
         >
-          <PrimaryButton onClick={() => router.push("/invite/checkout")}>
-            Checkout
+          <PrimaryButton onClick={() => router.push(`/invite/${id}/checkout`)}>
+            Book in one tap
           </PrimaryButton>
         </TotalFooter>
       }
       overlay={
-        sheet && offer !== null ? (
+        sheet && seat !== null ? (
           <SeatSheet
-            offer={offer}
-            organiserFirst={organiserFirst}
-            names={organiserNames}
+            title={`Sit next to ${first}?`}
+            row={SQUAD.row}
+            seats={[
+              { letter: "A", name: me },
+              {
+                letter: "B",
+                name: id === "archie" ? friend.name : (FRIENDS[0]?.name ?? null),
+                held: id !== "archie",
+              },
+              {
+                letter: "C",
+                name: id === "tom" ? friend.name : (FRIENDS[1]?.name ?? null),
+                held: id !== "tom",
+              },
+              { letter: "D", name: null },
+              { letter: "E", name: null },
+              { letter: "F", name: null },
+            ]}
+            you={seat.slice(-1)}
+            perLeg={SQUAD.seatPricePerLeg}
+            legs={itinerary.legs.length}
+            included={shown.seating.value !== "none"}
+            says={`${first} is in ${itinerary.out?.seats[0] ?? "14A"}. ${seat} is held for you on every leg; it's the one time it's worth paying for a seat.`}
+            cta={
+              shown.seating.value === "none"
+                ? `Take ${seat} · +${formatFare(SQUAD.seatPricePerLeg * itinerary.legs.length)} GBP`
+                : `Keep ${seat}`
+            }
             onTake={() => {
-              update((prev) => ({ invitee: { ...prev.invitee, seatTaken: true } }));
+              setLocal({
+                ...shown,
+                seating: { value: "window", source: "said", why: `You took ${seat}.` },
+              });
+              setSheet(false);
+            }}
+            onAnywhere={() => {
+              setLocal({
+                ...shown,
+                seating: { value: "none", source: "said", why: "You'll sit anywhere." },
+              });
               setSheet(false);
             }}
             onClose={() => setSheet(false)}
@@ -276,253 +300,166 @@ export function InviteeTicketScreen() {
       }
     >
       <Says>
-        {organiserFirst} booked this and asked me to build yours.{" "}
+        {first} booked this and asked me to build yours.{" "}
         <Mark>
-          {counts.shared} things come from {organiserFirst === "Jack" ? "his" : "their"}{" "}
-          booking, {counts.profile} from your own past trips, {counts.predicted} I worked out.
+          {counts.shared} things from {first === "Will" ? "his" : "their"} booking,{" "}
+          {counts.profile > 0 ? `${counts.profile} remembered, ` : ""}
+          {counts.predicted} I worked out.
         </Mark>{" "}
         Tap any <span className="mine font-semibold">dotted value</span> to change it. You pay
         only for yourself.
       </Says>
       <Ticket
         draft={shown}
-        onChange={setLocalDraft}
-        names={[invitee.name]}
-        owner={invitee.name}
+        onChange={setLocal}
+        names={[friend.name]}
+        owner={friend.name}
         pending
-        seatLabel={taken && offer !== null ? offer.seat : "Choose below"}
-        seatDotted={!taken}
-        onSeat={taken ? undefined : () => setSheet(true)}
-        between={offerRow}
-        extraLine={
-          taken && offer !== null
-            ? {
-                label: `Seat ${offer.seat}`,
-                detail: `${formatFare(offer.perLeg)} × 1 traveller × 2 legs, which you chose`,
-                amount: offer.total,
-              }
-            : null
-        }
-        extraBreakdownNote={
-          offer !== null && !taken ? (
-            <p className="mt-3 text-[14px] leading-[21px] font-semibold">
-              Becomes {formatFare(priceOf(shown) + offer.total)} if you take the seat.
-            </p>
-          ) : undefined
-        }
+        seatLabel={shown.seating.value === "none" ? "At check-in" : (seat ?? undefined)}
+        seatDotted={shown.seating.source !== "said"}
+        onSeat={() => setSheet(true)}
+        extraLines={extras}
+        extraRows={extraRowsFor(friend)}
       />
-      {taken && offer !== null && (
-        <SeatTaken seat={offer.seat} organiserFirst={organiserFirst} />
-      )}
       <SentenceSection onSubmit={() => undefined} />
     </AppShell>
   );
 }
 
-function SeatTaken({ seat, organiserFirst }: { seat: string; organiserFirst: string }) {
-  return (
-    <p className="mt-3 px-1 text-[13px] leading-[18px] text-pg-ink">
-      Seat {seat}, beside {organiserFirst}, is on your ticket. It stays dotted nowhere: you
-      chose it.
-    </p>
-  );
+function extraRowsFor(friend: Friend): ExtraRow[] {
+  if (friend.remembered === null) return [];
+  return [
+    { label: "Passport", source: "profile", value: friend.remembered.passport },
+    { label: "Payment", source: "profile", value: friend.remembered.payment },
+    ...(friend.remembered.meal
+      ? [
+          {
+            label: "Meal",
+            source: "profile" as const,
+            value: friend.remembered.meal,
+            reason: "Already in the basket, as on your last bookings.",
+          },
+        ]
+      : []),
+  ];
 }
 
-/** The seat offer sheet: the row, who is in it, the price, and three honest exits. */
-function SeatSheet({
-  offer,
-  organiserFirst,
-  names,
-  onTake,
-  onClose,
-}: {
-  offer: SeatOffer;
-  organiserFirst: string;
-  names: string[];
-  onTake: () => void;
-  onClose: () => void;
-}) {
-  const letters = ["A", "B", "C", "D", "E", "F"];
-  const byLetter = new Map(offer.neighbours.map((n) => [n.seat.slice(-1), n.name]));
-  const you = offer.seat.slice(-1);
-  return (
-    <Sheet label={`Sit next to ${organiserFirst}?`} onClose={onClose} className="pb-[26px]">
-      <h2 className="mt-[18px] text-[28px] leading-[34px] font-extrabold tracking-[-0.02em]">
-        Sit next to {organiserFirst}?
-      </h2>
-      <div className="mt-4 flex flex-col items-center gap-3 rounded-[20px] bg-pg-surface px-3 pt-4 pb-3.5">
-        <div className="flex items-start justify-center gap-1.5">
-          {letters.map((letter, i) => {
-            const name = byLetter.get(letter);
-            const isYou = letter === you;
-            const seat = (
-              <div key={letter} className="flex w-[46px] flex-col items-center gap-1.5">
-                <span
-                  className={`display text-[12px] leading-[14px] font-extrabold ${
-                    name !== undefined || isYou ? "text-pg-navy" : "text-pg-ink"
-                  }`}
-                >
-                  {letter}
-                </span>
-                <span
-                  className={`relative flex h-[54px] w-[46px] items-center justify-center text-[16px] font-extrabold ${
-                    isYou
-                      ? "bg-pg-yellow text-[14px] text-pg-navy"
-                      : name !== undefined
-                        ? "bg-pg-navy text-white"
-                        : "bg-pg-surface shadow-[inset_0_0_0_1.5px_#E3E8EF]"
-                  }`}
-                  style={{
-                    borderRadius: "13px 13px 9px 9px",
-                    boxShadow: isYou ? "inset 0 -4px 0 #E5A70C" : undefined,
-                  }}
-                >
-                  {isYou && (
-                    <span
-                      aria-hidden
-                      className="seatpulse absolute -inset-[5px] border-2 border-pg-yellow"
-                      style={{ borderRadius: "17px 17px 13px 13px" }}
-                    />
-                  )}
-                  {isYou ? "You" : (name?.[0] ?? "")}
-                </span>
-                <span className="text-[12px] leading-4 font-semibold">
-                  {name === undefined ? " " : firstName(name)}
-                </span>
-              </div>
-            );
-            if (i === 3) {
-              return (
-                <div key="aisle" className="contents">
-                  <div
-                    aria-hidden
-                    className="flex w-[30px] flex-col items-center gap-0.5 pt-5"
-                  >
-                    <span className="caps" style={{ fontSize: 9.5 }}>
-                      Row
-                    </span>
-                    <span className="display text-[18px] leading-5 font-extrabold">
-                      {offer.row}
-                    </span>
-                  </div>
-                  {seat}
-                </div>
-              );
-            }
-            return seat;
-          })}
-        </div>
-        <p className="text-[14px] leading-5 font-semibold">
-          {offer.seat} is free on both legs.
-        </p>
-      </div>
-      <p className="tabular mt-4 text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
-        {formatFare(offer.perLeg)} GBP per leg · {formatFare(offer.total)} total
-      </p>
-      <Says className="mt-3.5">
-        You&rsquo;ve never paid for a seat and I didn&rsquo;t add this. It&rsquo;s the one time
-        it&rsquo;s worth asking.
-      </Says>
-      <PrimaryButton size="lg" className="mt-[18px]" onClick={onTake}>
-        Take {offer.seat} · +{formatFare(offer.total)} GBP
-      </PrimaryButton>
-      <div className="mt-1 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="min-h-12 text-center text-[13.5px] leading-[18px] font-bold"
-          style={{ textWrap: "balance" }}
-        >
-          Sit anywhere — free at check-in
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="min-h-12 border-l border-pg-line text-center text-[13.5px] leading-[18px] font-bold"
-        >
-          Pick a different seat
-        </button>
-      </div>
-      <span className="sr-only">{names.join(", ")}</span>
-    </Sheet>
-  );
-}
-
-export function InviteeCheckout() {
-  const { update, draft, offer, taken, invitee } = useInvitee();
-  const seat = taken && offer !== null ? offer.seat : null;
-  const priced: TripDraft = draft;
+export function InviteeCheckout({ id }: { id: FriendId }) {
+  const { update, draft, seat, extras, friend } = useInvitee(id);
   return (
     <CheckoutScreen
-      draft={priced}
-      names={[invitee.name]}
-      owner={invitee.name}
+      draft={draft}
+      names={[friend.name]}
+      owner={friend.name}
       seat={seat}
-      extra={taken && offer !== null ? offer.total : 0}
-      card={{ brand: "MASTERCARD", last4: "2210" }}
-      backHref="/invite/ticket"
-      nextHref="/invite/confirmation"
-      onPay={() => update((prev) => ({ invitee: { ...prev.invitee, booked: true } }))}
+      extraLines={extras}
+      onFile={
+        friend.remembered === null
+          ? { passport: "Add at check-in", payment: "Card ending 3309" }
+          : { passport: friend.remembered.passport, payment: friend.remembered.payment }
+      }
+      backHref={`/invite/${id}/ticket`}
+      nextHref={`/invite/${id}/confirmation`}
+      declineFirst={id === "tom"}
+      cta="Book"
+      onPay={() =>
+        update((prev) => ({
+          inviteesBooked: { ...prev.inviteesBooked, [friend.name]: seat },
+          declined: prev.declined || id === "tom",
+          invited: prev.invited.length > 0 ? prev.invited : FRIENDS.map((f) => f.name),
+        }))
+      }
     />
   );
 }
 
-export function InviteeConfirmation() {
-  const { state, draft, offer, taken, invitee, organiserFirst } = useInvitee();
+export function InviteeConfirmation({ id }: { id: FriendId }) {
+  const { state, draft, seat, extras, friend, me, itinerary } = useInvitee(id);
   const invited = state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name);
-  const others = invited.filter((n) => n !== invitee.name);
-  const position = 2;
+  const bookedNames = [
+    me,
+    ...invited.filter((n) => n in state.inviteesBooked || n === friend.name),
+  ];
   const total = invited.length + 1;
-  const names = ["Jack Field", invitee.name, ...others];
+  const position = bookedNames.length;
+  const complete = position === total;
+  const [breakfast, setBreakfast] = useState(false);
+  const early = itinerary.out?.flight.departs ?? "06:10";
+  const everyone = [me, ...invited];
+
   return (
     <ConfirmationScreen
       draft={draft}
-      owner={invitee.name}
-      extra={taken && offer !== null ? offer.total : 0}
+      owner={friend.name}
+      extraLines={extras}
       says={
         <>
-          {organiserFirst}&rsquo;s flight, your fare, your seat. You said nothing and changed{" "}
-          {taken ? "one thing" : "nothing"}.
+          {firstName(me)}&rsquo;s flights, your fare, your seat. You said nothing and changed
+          nothing.
         </>
       }
     >
-      {taken && offer !== null && (
-        <div className="pg-card mt-5 flex items-center gap-3 px-4 py-3.5">
-          <span
-            aria-hidden
-            className="display flex h-11 w-10 shrink-0 items-center justify-center bg-pg-yellow text-[13px] font-extrabold"
-            style={{ borderRadius: "11px 11px 8px 8px", boxShadow: "inset 0 -3px 0 #E5A70C" }}
-          >
-            {offer.seat}
-          </span>
-          <span className="text-[15px] leading-[22px] font-bold">
-            Seat {offer.seat} beside {organiserFirst}
-          </span>
-        </div>
-      )}
-      <div className="pg-card mt-3 flex flex-col gap-3 p-5">
+      <div className="pg-card mt-5 flex flex-col gap-3 p-5">
         <div className="flex items-center">
-          {names.map((n, i) => (
+          {everyone.map((n, i) => (
             <Initials
               key={n}
               name={n}
               size={36}
-              tone={i < position ? "navy" : "surface"}
+              tone={bookedNames.includes(n) ? "navy" : "surface"}
               className={`ring-[3px] ring-white ${i > 0 ? "-ml-2.5" : ""}`}
             />
           ))}
         </div>
-        <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-          You&rsquo;re the {ordinal(position)} of {total} booked.{" "}
-          {others.length > 0 && (
-            <>
-              {others.map(firstName).join(" and ")}{" "}
-              {others.length === 1 ? "hasn't" : "haven't"} yet — the hold ends{" "}
-              {HOLD.untilShort}.
-            </>
-          )}
-        </p>
+        {complete ? (
+          <>
+            <p className="text-[16px] leading-[22px] font-extrabold">All {total} booked 🎉</p>
+            <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
+              {everyone
+                .map(
+                  (n) =>
+                    state.inviteesBooked[n] ??
+                    (n === friend.name ? seat : itinerary.out?.seats[0]),
+                )
+                .filter(Boolean)
+                .join(" · ")}
+              , together.
+            </p>
+            <div className="flex items-start gap-3 rounded-[14px] bg-pg-surface p-3.5">
+              <Avatar size={36} />
+              <div className="flex flex-col gap-2">
+                <p className="text-[15px] leading-[22px] font-extrabold">
+                  Breakfast for the squad?
+                </p>
+                <p className="text-[14px] leading-5 text-pg-ink">
+                  {total} hot breakfasts from Pegasus Café for the {early}.
+                </p>
+                {breakfast ? (
+                  <p className="text-[14px] font-bold">Added for all {total}.</p>
+                ) : (
+                  <PrimaryButton size="sm" onClick={() => setBreakfast(true)}>
+                    Add for all {total} · {formatFare(BREAKFAST.each * total)} GBP
+                  </PrimaryButton>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
+            You&rsquo;re the {ordinal(position)} of {total} booked.{" "}
+            {invited
+              .filter((n) => !bookedNames.includes(n))
+              .map(firstName)
+              .join(" and ")}{" "}
+            {total - position === 1 ? "hasn't" : "haven't"} yet — the frozen fare ends{" "}
+            {FREEZE.untilShort}.
+          </p>
+        )}
       </div>
+      <p className="mt-3 px-1 text-[12px] leading-[18px] text-pg-ink">
+        {firstName(me)} sees that you booked and your seat. Not what you paid.{" "}
+        {shortDate(draft.departDate.value)}: see you at the gate.
+      </p>
     </ConfirmationScreen>
   );
 }
@@ -531,106 +468,78 @@ function ordinal(n: number): string {
   return ["", "1st", "2nd", "3rd", "4th", "5th"][n] ?? `${n}th`;
 }
 
-export function EmailScreen() {
-  const { organiser, organiserFirst, city } = useInvitee();
-  const tom = FRIENDS.find((f) => !f.account) ?? FRIENDS[2]!;
-  const tomDraft = buildInviteeDraft(organiser, tom);
-  const fare = priceOf(tomDraft);
-  const itinerary = itineraryFor(organiser);
-  const notice = noticeText(organiserFirst, city, organiser, fare);
-  const lines = breakdown(tomDraft).lines;
+/** Tom stalls: a nudge in Will's name, and a rescue when his card fails. */
+export function TomStallsScreen() {
+  const router = useRouter();
+  const { me, seat } = useInvitee("tom");
+  const archie = firstName(FRIENDS[0]?.name ?? "Archie");
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-pg-surface">
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-5 pt-[58px] pb-8">
-        <div className="pg-card flex flex-col gap-4 p-6">
-          <Wordmark size={22} />
-          <p className="text-[17px] leading-[26px] font-semibold">Hi {firstName(tom.name)},</p>
-          <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-            <strong className="font-extrabold">{notice.lead}</strong>
-            {notice.rest}
-          </p>
-          <div className="flex flex-col gap-3 rounded-[14px] bg-pg-surface p-4">
-            {itinerary.out !== null && (
-              <LegLine
-                label={`Outbound · ${shortDate(itinerary.out.flight.date)}`}
-                from={organiser.origin.value}
-                to={organiser.destination.value}
-                departs={itinerary.out.flight.departs}
-                arrives={itinerary.out.flight.arrives}
-                flight={itinerary.out.flight.flightNo}
-              />
-            )}
-            {itinerary.back !== null && (
-              <LegLine
-                label={`Return · ${shortDate(itinerary.back.flight.date)}`}
-                from={organiser.destination.value}
-                to={organiser.origin.value}
-                departs={itinerary.back.flight.departs}
-                arrives={itinerary.back.flight.arrives}
-                flight={itinerary.back.flight.flightNo}
-              />
-            )}
-          </div>
-          <p className="flex items-center gap-2 text-[14px] font-bold">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3.5 2" />
-            </svg>
-            Held until {HOLD.until}
-          </p>
-          <PrimaryButton href="/invite/ticket" className="w-full">
-            See my booking
-          </PrimaryButton>
-          <p className="text-[13px] leading-[18px] text-pg-ink" style={{ textWrap: "pretty" }}>
-            Your booking is already built: {lines.map((l) => l.label.toLowerCase()).join(", ")}
-            , {dateSpan(organiser.departDate.value, organiser.returnDate.value)}. You pay only
-            for yourself.
-          </p>
-          <p className="border-t border-pg-line pt-4 text-[12px] leading-[18px] text-pg-ink">
-            Nothing is booked and no payment is taken. This is a mock built for the Pegasus ×
-            Berkeley Haas AI Travel Companion Hackathon.
-          </p>
-        </div>
+    <LockScreen
+      date="Thursday 5 March"
+      time="09:15"
+      bottom={130}
+      onTap={() => router.push("/invite/tom/checkout")}
+    >
+      <div className="flex flex-col gap-2.5">
+        <Notice
+          onTap={() => router.push("/invite/tom/checkout")}
+          lead={`${firstName(me)} and ${archie} are waiting on you.`}
+          rest={` Your booking's ready: just tap pay. Your frozen fare ends today at ${FREEZE.until.split(", ")[1]}.`}
+        />
+        <Notice
+          onTap={() => router.push("/invite/tom/checkout")}
+          lead="Card declined?"
+          rest={` Try Apple Pay. ${seat} is still next to them.`}
+          when="2m ago"
+        />
       </div>
-    </div>
+    </LockScreen>
   );
 }
 
-function LegLine({
-  label,
-  from,
-  to,
-  departs,
-  arrives,
-  flight,
+export function Notice({
+  lead,
+  rest,
+  when = "now",
+  onTap,
+  from = "PEGASUS",
 }: {
-  label: string;
-  from: string;
-  to: string;
-  departs: string;
-  arrives: string;
-  flight: string;
+  lead: string;
+  rest: string;
+  when?: string;
+  onTap?: () => void;
+  from?: string;
 }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="caps">{label}</span>
-      <span className="flex items-baseline gap-2 text-[15px] font-bold">
-        <span className="display text-[18px] font-extrabold">{from}</span>
-        <span className="tabular">{departs}</span>
-        <span className="text-pg-ink">{flight}</span>
-        <span className="display ml-auto text-[18px] font-extrabold">{to}</span>
-        <span className="tabular">{arrives}</span>
+  const body = (
+    <LockCard
+      label={`Notification from ${from}`}
+      radius={24}
+      className="!flex-row items-start gap-3 bg-white/95 !p-3.5"
+    >
+      <AppIcon size={38} />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="text-[13px] leading-[18px] font-extrabold tracking-[0.04em]">
+            {from}
+          </span>
+          <span className="text-[13px] leading-[18px] text-pg-ink">{when}</span>
+        </span>
+        <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
+          <strong className="font-extrabold">{lead}</strong>
+          {rest}
+        </span>
       </span>
-    </div>
+    </LockCard>
+  );
+  if (onTap === undefined) return body;
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      className="w-full text-left"
+      aria-label="Open the notification"
+    >
+      {body}
+    </button>
   );
 }

@@ -3,18 +3,18 @@
 import { useState, type ReactNode } from "react";
 import { DestinationPhoto } from "@/components/ui/destination-photo";
 import { ChevronDown, PlaneIcon, Tick, Wordmark } from "@/components/ui/primitives";
-import { ChangePanel } from "./change-panel";
+import { ChangePanel, type ExtraRow } from "./change-panel";
 import type { TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor, nights, type Leg } from "@/lib/assistant/itinerary";
 import {
   breakdown,
   naivePath,
-  withLine,
+  withLines,
   type PriceBreakdown,
   type PriceLine,
 } from "@/lib/assistant/price";
 import { AIRPORTS, FARE_RULES, formatDuration, formatFare } from "@/lib/journey/flights";
-import { shortDate } from "@/lib/demo/hero";
+import { shortDate } from "@/lib/demo/personas";
 
 /**
  * The assembled trip, printed as a ticket.
@@ -26,7 +26,8 @@ import { shortDate } from "@/lib/demo/hero";
  * A dotted underline on the pass means the companion filled that value in.
  * Tapping it opens the change panel. That is the only legend this screen
  * needs. Everything the companion wants to justify lives one tap down, behind
- * the two controls on the stub.
+ * the two controls on the stub. A multi-stop trip prints every leg; the first
+ * one large, the rest as the return would be.
  */
 export type Panel = "none" | "breakdown" | "change";
 
@@ -41,16 +42,17 @@ export function Ticket({
   onSeat,
   between,
   extraBreakdownNote,
-  extraLine = null,
+  extraLines = [],
+  extraRows = [],
   initialPanel = "none",
 }: {
   draft: TripDraft;
   onChange: (next: TripDraft) => void;
   /** Passenger names, in order. The first is printed; the rest are "+n". */
   names: string[];
-  /** Set for an invitee, which changes the reference and the dotted marks. */
+  /** Set for an invitee, which changes the reference and seats. */
   owner?: string;
-  /** "pending" in place of the reference, before the invitee pays. */
+  /** "pending" in place of the reference, before the passenger pays. */
   pending?: boolean;
   /** Overrides the seat printed on the pass, e.g. "Choose below". */
   seatLabel?: string;
@@ -58,22 +60,23 @@ export function Ticket({
   seatDotted?: boolean;
   /** Tapping the seat on the pass. Defaults to opening the change panel. */
   onSeat?: () => void;
-  /** Drawn between the ticket and the panels: the seat offer row. */
+  /** Drawn between the ticket and the panels: an offer row. */
   between?: ReactNode;
   /** One more line at the foot of the breakdown. */
   extraBreakdownNote?: ReactNode;
-  /** A seat bought on top of the fare, printed in the total and the breakdown. */
-  extraLine?: PriceLine | null;
+  /** Things bought on top of the fare, printed in the total and the breakdown. */
+  extraLines?: PriceLine[];
+  /** Remembered things that are not draft fields: passport, payment, a meal. */
+  extraRows?: ExtraRow[];
   initialPanel?: Panel;
 }) {
   const [panel, setPanel] = useState<Panel>(initialPanel);
   const itinerary = itineraryFor(draft, owner);
-  const price = withLine(breakdown(draft), extraLine);
+  const price = withLines(breakdown(draft), extraLines);
   const away = nights(draft);
   const people = draft.party.value.adults + draft.party.value.children;
-  const city =
-    AIRPORTS[draft.destination.value as keyof typeof AIRPORTS]?.city ??
-    draft.destination.value;
+  const city = cityOf(draft.destination.value);
+  const first = itinerary.legs[0];
 
   function toggle(next: Exclude<Panel, "none">): void {
     setPanel((current) => (current === next ? "none" : next));
@@ -110,6 +113,7 @@ export function Ticket({
           <span className="absolute bottom-3.5 left-5 flex flex-col gap-0.5 text-white">
             <span className="caps text-white">
               {away === null ? "One way" : `${away} night${away === 1 ? "" : "s"}`}
+              {itinerary.legs.length > 2 ? ` · ${itinerary.legs.length} flights` : ""}
             </span>
             <span className="text-[32px] leading-[34px] font-extrabold tracking-[-0.02em]">
               {city}
@@ -117,26 +121,20 @@ export function Ticket({
           </span>
         </div>
 
-        {itinerary.out === null ? (
+        {first === undefined ? (
           <p className="px-5 py-6 text-[14px] text-pg-ink">
             No flight on this route that day. Change the date below.
           </p>
         ) : (
           <div className="flex flex-col gap-4 px-5 pt-5 pb-[18px]">
             <div className="caps">
-              Outbound · {shortDate(itinerary.out.flight.date)} ·{" "}
-              {itinerary.out.flight.aircraft}
+              {itinerary.legs.length > 2 ? "Leg 1" : "Outbound"} · {shortDate(first.date)} ·{" "}
+              {first.flight.aircraft}
             </div>
-            <LegRow
-              leg={itinerary.out}
-              from={draft.origin.value}
-              to={draft.destination.value}
-              dotted={mine("origin") || mine("destination")}
-              big
-            />
+            <LegRow leg={first} dotted={mine("origin") || mine("destination")} big />
             <div className="flex justify-between gap-3 text-[13px] leading-[18px] text-pg-ink">
-              <span>{nameOf(draft.origin.value)}</span>
-              <span className="text-right">{nameOf(draft.destination.value)}</span>
+              <span>{nameOf(first.from)}</span>
+              <span className="text-right">{nameOf(first.to)}</span>
             </div>
 
             <dl className="grid grid-cols-6 gap-x-3 gap-y-4 border-t border-pg-line pt-4">
@@ -152,15 +150,13 @@ export function Ticket({
                 why="chosen by your companion"
               >
                 {seatLabel ??
-                  (itinerary.out.seats.length === 0
-                    ? "At check-in"
-                    : itinerary.out.seats.join(" "))}
+                  (first.seats.length === 0 ? "At check-in" : first.seats.join(" "))}
               </Slot>
               <Slot label="Gate" span={2}>
-                {itinerary.out.gate}
+                {first.gate}
               </Slot>
               <Slot label="Boards" span={2}>
-                {itinerary.out.boards}
+                {first.boards}
               </Slot>
               <Slot
                 label="Fare"
@@ -193,17 +189,21 @@ export function Ticket({
           </div>
         )}
 
-        {itinerary.back !== null && (
-          <div className="flex flex-col gap-3.5 border-t border-pg-line px-5 py-[18px]">
-            <div className="caps">Return · {shortDate(itinerary.back.flight.date)}</div>
+        {itinerary.legs.slice(1).map((leg, i, rest) => (
+          <div
+            key={leg.flight.id}
+            className="flex flex-col gap-3.5 border-t border-pg-line px-5 py-[18px]"
+          >
+            <div className="caps">
+              {i === rest.length - 1 ? "Return" : `Leg ${i + 2}`} · {shortDate(leg.date)}
+              {i < rest.length - 1 ? ` · ${cityOf(leg.to)}` : ""}
+            </div>
             <LegRow
-              leg={itinerary.back}
-              from={draft.destination.value}
-              to={draft.origin.value}
-              dotted={mine("returnDate")}
+              leg={leg}
+              dotted={i === rest.length - 1 ? mine("returnDate") : mine("stops")}
             />
           </div>
-        )}
+        ))}
 
         <div aria-hidden className="relative flex h-6 items-center">
           <span
@@ -254,6 +254,8 @@ export function Ticket({
           names={names}
           seatLabel={seatLabel}
           seatSaid={seatLabel !== undefined && !seatDotted}
+          seats={first?.seats ?? []}
+          extraRows={extraRows}
         />
       )}
     </>
@@ -263,14 +265,10 @@ export function Ticket({
 /** One leg: codes in Archivo, times under them, the flight across the middle. */
 function LegRow({
   leg,
-  from,
-  to,
   big = false,
   dotted = false,
 }: {
   leg: Leg;
-  from: string;
-  to: string;
   big?: boolean;
   dotted?: boolean;
 }) {
@@ -284,7 +282,7 @@ function LegRow({
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-col items-start gap-1">
-        <span className={`${code} ${underline}`}>{from}</span>
+        <span className={`${code} ${underline}`}>{leg.from}</span>
         <span className={time}>{leg.flight.departs}</span>
       </div>
       <div className="flex flex-1 flex-col items-center gap-1.5">
@@ -307,7 +305,7 @@ function LegRow({
         </span>
       </div>
       <div className="flex flex-col items-end gap-1">
-        <span className={`${code} ${underline}`}>{to}</span>
+        <span className={`${code} ${underline}`}>{leg.to}</span>
         <span className={time}>
           {leg.flight.arrives}
           {leg.flight.arrivesNextDay && <sup className="text-[10px] text-pg-ink">+1</sup>}
@@ -340,7 +338,7 @@ function Slot({
       <dt className="caps" style={{ fontSize: 10.5 }}>
         {label}
       </dt>
-      <dd className="m-0 min-w-0 max-w-full">
+      <dd className="m-0 max-w-full min-w-0">
         {dotted && onTap !== undefined ? (
           <button
             type="button"
@@ -476,8 +474,8 @@ export function BreakdownPanel({
 
       {saving !== null && (
         <p className="mt-[18px] text-[14px] leading-[21px]" style={{ textWrap: "pretty" }}>
-          The same trip bought the long way — cheapest fare first, then this bag on the baggage
-          screen — comes to{" "}
+          The same trip bought the long way — cheapest fare first, then the bag at the airport
+          — comes to{" "}
           <strong className="tabular font-extrabold">{formatFare(saving.paid)} GBP</strong>.
           The allowance costs less inside the fare than it does on its own, and the app only
           ever tells you the second price.
@@ -498,6 +496,10 @@ export function baggageOf(draft: TripDraft): string {
   const kg = draft.checkedKg.value;
   if (kg === 0) return draft.cabinBag.value ? "Cabin bag" : "Underseat";
   return `${kg} kg${draft.cabinBag.value ? " + cabin" : ""}`;
+}
+
+export function cityOf(code: string): string {
+  return AIRPORTS[code as keyof typeof AIRPORTS]?.city ?? code;
 }
 
 export function nameOf(code: string): string {

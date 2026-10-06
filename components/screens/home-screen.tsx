@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
 import { Avatar, Mark, Says, ThinkingAvatar } from "@/components/ui/avatar";
@@ -8,15 +8,30 @@ import { DestinationPhoto } from "@/components/ui/destination-photo";
 import { PrimaryButton, Sparkle, TextButton } from "@/components/ui/primitives";
 import { SentenceBox } from "@/components/ui/sentence-box";
 import { useJourney } from "@/components/journey-provider";
-import { Ticket } from "./ticket";
+import { SeatSheet } from "./seat-sheet";
+import { Ticket, cityOf } from "./ticket";
 import { Suggestions } from "./suggestions";
-import { PROFILES, type Profile } from "@/lib/assistant/profiles";
-import { buildDraft, extract } from "@/lib/assistant/understand";
+import { buildDraft, extract, stopsFor } from "@/lib/assistant/understand";
 import { suggest, type Suggestion } from "@/lib/assistant/discover";
 import { countBySource, type TripDraft } from "@/lib/assistant/draft";
-import { nights } from "@/lib/assistant/itinerary";
-import { breakdown, naivePath } from "@/lib/assistant/price";
-import { formatFare } from "@/lib/journey/flights";
+import { itineraryFor, nights } from "@/lib/assistant/itinerary";
+import { breakdown, naivePath, withLines, type PriceLine } from "@/lib/assistant/price";
+import { AIRPORTS, formatFare } from "@/lib/journey/flights";
+import { SQUAD } from "@/lib/journey/script";
+import { FRIENDS, firstName } from "@/lib/group/group";
+import { GIFTS, MOMENT } from "@/lib/moments/moments";
+import {
+  EMRE,
+  WILL,
+  WILL_PROMPT,
+  dateSpan,
+  dayLongMonth,
+  emreDraft,
+  shift,
+  shortDate,
+  weekdayName,
+  type Persona,
+} from "@/lib/demo/personas";
 
 /**
  * Home: the greeting, the thinking beat, and the ticket.
@@ -26,17 +41,14 @@ import { formatFare } from "@/lib/journey/flights";
  * rather than being walked through nine screens of questions the app could
  * mostly have answered itself.
  *
- * The thinking delay is the only piece of theatre here. An answer that appears
- * instantly reads as a lookup; a short pause reads as work. Everything behind
- * it is deterministic, so a rehearsal and the live run give the same answer.
+ * Two people use it. Will has never been here: everything he did not say is a
+ * prediction, and the first thing under his sentence is what the companion
+ * heard, as editable chips. Emre arrives from a nudge with his usual trip
+ * already rebuilt, and the first question is whether it got it right.
  */
 
 const TRY: { code: string; title: string; prompt: string }[] = [
-  {
-    code: "ADB",
-    title: "Izmir",
-    prompt: "Stansted to Izmir on 19 October, back on the 25th, checking a bag",
-  },
+  { code: "ASR", title: "Cappadocia", prompt: WILL_PROMPT },
   {
     code: "AYT",
     title: "Somewhere warm",
@@ -51,16 +63,16 @@ const TRY: { code: string; title: string; prompt: string }[] = [
 
 type Phase = "idle" | "thinking" | "discovery" | "trip";
 
-export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
+export function HomeScreen({ persona }: { persona: Persona }) {
   const router = useRouter();
   const { state, update } = useJourney();
-  const profile = PROFILES.find((p) => p.id === state.profileId) ?? PROFILES[0]!;
-  // Whether a trip is on screen lives in the store, so it survives a refresh
-  // and a round trip through the checkout. Only the two transient beats
-  // (thinking, discovery) are local.
+  const profile = persona === "emre" ? EMRE : WILL;
+  const draft = persona === "emre" ? (state.emre.draft ?? emreDraft()) : state.draft;
   const [beat, setBeat] = useState<"thinking" | "discovery" | null>(null);
-  const phase: Phase = beat ?? (state.draft === null ? "idle" : "trip");
+  const phase: Phase = beat ?? (draft === null ? "idle" : "trip");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [seatSheet, setSeatSheet] = useState(false);
+  const [thumbsDown, setThumbsDown] = useState(false);
   const greeting = useSyncExternalStore(
     () => () => {},
     () => {
@@ -70,9 +82,18 @@ export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
     () => "Good morning",
   );
 
+  const names = profile.travellers.map((t) => t.name);
+  const first = firstName(names[0] ?? "");
+
+  function setDraft(next: TripDraft | null): void {
+    if (persona === "emre") update((prev) => ({ emre: { ...prev.emre, draft: next } }));
+    else update({ draft: next });
+  }
+
   function run(text: string): void {
-    update({ prompt: text });
+    update({ prompt: text, thumbs: null });
     setBeat("thinking");
+    setThumbsDown(false);
     window.setTimeout(() => {
       const said = extract(text);
       if (said.discovery) {
@@ -83,39 +104,30 @@ export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
             d.setDate(d.getDate() + 21);
             return d.toISOString().slice(0, 10);
           })();
-        setSuggestions(suggest(said, profile, when));
-        update({ draft: null });
+        setSuggestions(suggest(said, profile, when, profile.homeAirport));
+        setDraft(null);
         setBeat("discovery");
         return;
       }
-      update({ draft: buildDraft(text, profile), booked: false });
+      setDraft(buildDraft(text, profile));
+      if (persona === "will") update({ booked: false });
       setSuggestions([]);
       setBeat(null);
     }, 900);
   }
 
   function choose(code: string): void {
-    update({ draft: buildDraft(`${state.prompt ?? ""} to ${code}`, profile), booked: false });
+    setDraft(buildDraft(`${state.prompt ?? ""} to ${code}`, profile));
     setSuggestions([]);
     setBeat(null);
   }
 
   function reset(): void {
-    update({ draft: null, prompt: null, booked: false });
+    setDraft(null);
+    update({ prompt: null, booked: false, thumbs: null });
     setSuggestions([]);
     setBeat(null);
   }
-
-  function setProfile(next: Profile): void {
-    update((prev) => ({
-      profileId: next.id,
-      draft:
-        prev.draft !== null && prev.prompt !== null ? buildDraft(prev.prompt, next) : null,
-    }));
-  }
-
-  const draft = state.draft;
-  const names = profile.travellers.filter((t) => t.kind !== "infant").map((t) => t.name);
 
   if (phase === "idle") {
     return (
@@ -127,7 +139,7 @@ export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
             YOUR AI COMPANION
           </span>
           <h1 className="mt-1 text-center text-[28px] leading-[34px] font-extrabold tracking-[-0.02em]">
-            {greeting}, {names[0]?.split(" ")[0] ?? "Jack"}
+            {greeting}, {first}
           </h1>
         </div>
 
@@ -139,46 +151,11 @@ export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
           />
         </div>
 
-        <div className="mt-4 flex flex-col gap-2">
-          <div className="relative flex h-[60px] flex-col justify-center rounded-2xl bg-white px-5 shadow-[0_1px_2px_rgba(31,42,55,0.05)]">
-            <label htmlFor="trip-kind" className="caps">
-              Trip
-            </label>
-            <select
-              id="trip-kind"
-              value={profile.id}
-              onChange={(e) => {
-                const next = PROFILES.find((p) => p.id === e.target.value);
-                if (next !== undefined) setProfile(next);
-              }}
-              className="w-full appearance-none bg-transparent text-[17px] leading-6 font-bold outline-none"
-            >
-              {PROFILES.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-              className="pointer-events-none absolute top-5 right-[18px]"
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </div>
-          <p className="px-1 text-[13px] leading-[18px] text-pg-ink">
-            {names.map((n) => n.split(" ")[0]).join(", ")} · remembered from your past{" "}
-            {profile.label.toLowerCase()} bookings
-          </p>
-        </div>
+        <p className="mt-3 px-1 text-[13px] leading-[18px] text-pg-ink">
+          {profile.coldStart
+            ? "First time here? Just tell me the trip. I'll fill in the rest and show you where each guess came from."
+            : `${profile.remembers.join(" · ")} · remembered from your trips home`}
+        </p>
 
         <div className="mt-7 flex flex-col gap-3">
           <h2 className="caps px-1">Try</h2>
@@ -211,8 +188,9 @@ export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
     );
   }
 
+  const heard = state.prompt === null ? null : extract(state.prompt);
   const youSaid = (
-    <div className="pg-card mt-4 flex flex-col px-5 pt-1.5 pb-[18px]">
+    <div className="pg-card mt-4 flex flex-col px-5 pt-1.5 pb-4">
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-semibold text-pg-ink">You said:</span>
         <TextButton onClick={reset} className="pl-4">
@@ -220,19 +198,48 @@ export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
         </TextButton>
       </div>
       <p className="text-[17px] leading-[25px] font-semibold" style={{ textWrap: "pretty" }}>
-        {state.prompt}
+        {state.prompt ?? "Your usual trip home"}
       </p>
+      {heard !== null && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="caps mr-1">Heard</span>
+          {heard.companions !== null && (
+            <Heard label="Travellers" value={String(heard.companions + 1)} />
+          )}
+          {heard.month !== null && (
+            <Heard label="Month" value={MONTH_NAMES[heard.month] ?? ""} />
+          )}
+          {heard.destination !== null && (
+            <Heard label="To" value={cityOf(heard.destination)} />
+          )}
+          {heard.nights !== null && (
+            <Heard
+              label="Nights"
+              value={heard.nights === 7 ? "a week" : String(heard.nights)}
+            />
+          )}
+          {heard.tripType !== null && (
+            <Heard
+              label="Trip"
+              value={heard.tripType === "backpacking" ? "backpacking" : "city break"}
+            />
+          )}
+          {heard.origin === null && draft !== null && (
+            <Heard label="From" value={cityOf(draft.origin.value)} guessed />
+          )}
+        </div>
+      )}
     </div>
   );
 
   if (phase === "thinking") {
     return (
-      <AppShell header={<AppHeader withAvatar />}>
+      <AppShell header={<AppHeader user={names[0]} withAvatar />}>
         {youSaid}
-        <div role="status" className="flex flex-col items-center gap-7 pt-24 pb-10">
+        <div role="status" className="flex flex-col items-center gap-7 pt-20 pb-10">
           <ThinkingAvatar />
           <p className="text-center text-[17px] leading-6 font-semibold">
-            Filling in what you did not say…
+            {profile.coldStart ? "Building your week…" : "Rebuilding your usual…"}
           </p>
         </div>
       </AppShell>
@@ -241,82 +248,451 @@ export function HomeScreen({ fromWatch = false }: { fromWatch?: boolean }) {
 
   if (phase === "discovery" || draft === null) {
     return (
-      <AppShell header={<AppHeader withAvatar />} bodyClassName="pb-8">
+      <AppShell header={<AppHeader user={names[0]} withAvatar />} bodyClassName="pb-8">
         {youSaid}
         <div className="mt-5">
           <Says>
-            You did not name anywhere, so here is what I would pick for a{" "}
-            {profile.label.toLowerCase()} — priced for {names.length} and already carrying
-            everything you usually book.
+            You did not name anywhere, so here is what I would pick: priced for{" "}
+            {(heard?.companions ?? 0) + 1}, with nothing you did not ask for.
           </Says>
         </div>
         <div className="mt-4">
-          <Suggestions suggestions={suggestions} travellers={names.length} onChoose={choose} />
+          <Suggestions
+            suggestions={suggestions}
+            travellers={(heard?.companions ?? 0) + 1}
+            onChoose={choose}
+          />
         </div>
         <SentenceSection onSubmit={run} />
       </AppShell>
     );
   }
 
-  const price = breakdown(draft);
+  const itinerary = itineraryFor(draft, names[0]);
+  const gifts: PriceLine[] =
+    persona === "emre" && state.emre.gifts
+      ? [
+          {
+            label: GIFTS.extraWeight.label,
+            detail: `${GIFTS.extraWeight.perLeg.toFixed(2)} on the way home`,
+            amount: GIFTS.extraWeight.perLeg,
+          },
+          {
+            label: GIFTS.delight.label,
+            detail: `${GIFTS.delight.perLeg.toFixed(2)}, ready at your seat`,
+            amount: GIFTS.delight.perLeg,
+          },
+        ]
+      : [];
+  const price = withLines(breakdown(draft), gifts);
   const away = nights(draft);
   const people = draft.party.value.adults + draft.party.value.children;
+  const counts = countBySource(draft);
+  const saving = naivePath(draft);
+  const seatLegs = itinerary.legs.length;
+
+  const willIntro = (
+    <>
+      <Says>
+        Here&rsquo;s your week. You told me {counts.said} things; the{" "}
+        {counts.predicted + counts.profile} with a{" "}
+        <span className="mine font-semibold">dotted line underneath</span> are mine. Tap one to
+        see why.{" "}
+        {saving !== null && (
+          <>
+            <Mark>The bag is in the fare: {formatFare(saving.saved)} GBP cheaper</Mark> than
+            adding it at the airport.
+          </>
+        )}
+      </Says>
+      {draft.stops.value.length > 0 && (
+        <div className="pg-card mt-4 flex flex-col gap-2 px-5 py-4">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[16px] font-extrabold">
+              Your week · {dateSpan(draft.departDate.value, draft.returnDate.value)}
+            </span>
+            <span className="text-[13px] font-semibold text-pg-ink">
+              for {(heard?.companions ?? 0) + 1}
+            </span>
+          </div>
+          <ol className="flex flex-col gap-1 text-[14px] leading-5">
+            {itinerary.legs.map((leg, i) => (
+              <li key={leg.flight.id} className="flex items-baseline justify-between gap-3">
+                <span className="font-bold">
+                  {leg.from} → {leg.to}{" "}
+                  <span className="font-medium text-pg-ink">
+                    {i < itinerary.legs.length - 1
+                      ? `${cityOf(leg.to)} · ${draft.stops.value[i]?.nights ?? ""} nights`
+                      : "Home"}
+                  </span>
+                </span>
+                <span className="tabular text-[13px] text-pg-ink">{shortDate(leg.date)}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="text-[13px] leading-[18px] text-pg-ink">
+            Why {MONTH_NAMES[Number(draft.departDate.value.slice(5, 7)) - 1]}: balloons fly
+            most mornings, before peak fares. Your mates book their own, with the seats beside
+            you held.
+          </p>
+        </div>
+      )}
+      <Thumbs
+        question="Did we get your trip right?"
+        value={state.thumbs}
+        onPick={(v) => {
+          update({ thumbs: v });
+          setThumbsDown(v === "down");
+        }}
+        open={thumbsDown}
+        options={[
+          {
+            label: "Actually: a city break",
+            onPick: () => {
+              const route = stopsFor(draft.destination.value, away ?? 7, "cityBreak");
+              if (route !== null) {
+                setDraft({
+                  ...draft,
+                  stops: { value: route.stops, source: "said", why: "You said so." },
+                  package: {
+                    value: "light",
+                    source: "predicted",
+                    why: "A city break with a small bag: the cheapest fare.",
+                  },
+                  checkedKg: {
+                    value: 0,
+                    source: "predicted",
+                    why: "No hold bag for a city break.",
+                  },
+                  cabinBag: {
+                    value: true,
+                    source: "predicted",
+                    why: "A cabin bag, 17.00 a leg.",
+                  },
+                });
+              }
+              setThumbsDown(false);
+            },
+          },
+          {
+            label: "Wrong month",
+            onPick: () => setThumbsDown(false),
+          },
+        ]}
+        reply={
+          thumbsDown
+            ? null
+            : draft.stops.source === "said"
+              ? "Re-ranked: Istanbul first, then the balloons, home from Kayseri."
+              : null
+        }
+      />
+    </>
+  );
+
+  const birthday = MOMENT.occasion;
+  const emreIntro = (
+    <>
+      <Says>
+        Your usual, rebuilt from last June: the Friday {itinerary.out?.flight.departs}, SAVER,
+        seat {itinerary.out?.seats[0]}, back on the {weekdayName(draft.returnDate.value ?? "")}
+        . <Mark>All in, {formatFare(price.total)} GBP.</Mark> Mum&rsquo;s birthday is{" "}
+        {dayLongMonth(birthday)}.
+      </Says>
+      <Thumbs
+        question="Did we get it right?"
+        value={state.emre.corrected === null ? null : "down"}
+        onPick={(v) => setThumbsDown(v === "down")}
+        open={thumbsDown}
+        prefix="Not quite:"
+        options={[
+          {
+            label: "return date",
+            onPick: () => {
+              const back = shift(birthday, 1);
+              setDraft({
+                ...draft,
+                returnDate: {
+                  value: back,
+                  source: "said",
+                  why: `You're staying for the birthday. Next time I'll ask.`,
+                },
+              });
+              update((prev) => ({ emre: { ...prev.emre, corrected: "return date" } }));
+              setThumbsDown(false);
+            },
+          },
+          { label: "seat", onPick: () => setThumbsDown(false) },
+          { label: "bags", onPick: () => setThumbsDown(false) },
+          { label: "flight time", onPick: () => setThumbsDown(false) },
+        ]}
+        reply={
+          state.emre.corrected !== null && !thumbsDown
+            ? `Changed: back on ${shortDate(draft.returnDate.value ?? "")}, the day after the birthday. Next time I'll ask about the return.`
+            : null
+        }
+      />
+    </>
+  );
+
+  const giftsOffer =
+    persona === "emre" && !state.emre.gifts ? (
+      <section aria-label="Room for presents" className="pg-card mt-3 flex flex-col gap-3 p-5">
+        <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
+          Room for presents?
+        </h2>
+        <div className="flex flex-col gap-2.5">
+          <OfferLine
+            title="Taking gifts home? Add 15 kg to your bag."
+            price={GIFTS.extraWeight.perLeg}
+          />
+          <OfferLine
+            title="Turkish delight for Mum 🎂"
+            detail="Pre-order from Pegasus Café, ready at your seat."
+            price={GIFTS.delight.perLeg}
+          />
+        </div>
+        <PrimaryButton
+          className="w-full"
+          onClick={() => update((prev) => ({ emre: { ...prev.emre, gifts: true } }))}
+        >
+          Add both · +{formatFare(GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg)} GBP
+        </PrimaryButton>
+        <p className="text-[12px] leading-[18px] text-pg-ink">
+          Offered because it&rsquo;s a birthday trip. Ignore it and I won&rsquo;t ask again.
+        </p>
+      </section>
+    ) : null;
+
+  const seatLetter = itinerary.out?.seats[0]?.slice(-1) ?? "A";
+  const squadRow = itinerary.out?.seats[0]?.slice(0, -1) ?? String(SQUAD.row);
 
   return (
     <AppShell
-      header={<AppHeader withAvatar />}
+      header={<AppHeader user={names[0]} withAvatar />}
       bodyClassName="pt-4 pb-7"
       footer={
         <TotalFooter
           line={`${people} travelling${away === null ? "" : `, ${away} nights`}`}
           total={`${formatFare(price.total)} GBP`}
         >
-          <PrimaryButton onClick={() => router.push("/checkout")}>Checkout</PrimaryButton>
+          <PrimaryButton
+            onClick={() => router.push(persona === "emre" ? "/emre/checkout" : "/checkout")}
+          >
+            {persona === "emre" ? "Confirm" : "Checkout"}
+          </PrimaryButton>
         </TotalFooter>
       }
+      overlay={
+        seatSheet && itinerary.out !== null ? (
+          <SeatSheet
+            title={persona === "will" ? "Grab the window?" : `Keep ${itinerary.out.seats[0]}?`}
+            row={Number(squadRow)}
+            seats={
+              persona === "will"
+                ? [
+                    { letter: "A", name: names[0] ?? null },
+                    { letter: "B", name: FRIENDS[0]?.name ?? null, held: true },
+                    { letter: "C", name: FRIENDS[1]?.name ?? null, held: true },
+                    { letter: "D", name: null },
+                    { letter: "E", name: null },
+                    { letter: "F", name: null },
+                  ]
+                : ["A", "B", "C", "D", "E", "F"].map((letter) => ({
+                    letter,
+                    name: letter === seatLetter ? (names[0] ?? null) : null,
+                  }))
+            }
+            you={seatLetter}
+            perLeg={7}
+            legs={seatLegs}
+            included={draft.seating.value !== "none"}
+            says={
+              persona === "will"
+                ? `${itinerary.out.flight.departs} departure. Grab the window and sleep; ${FRIENDS.map((f) => firstName(f.name)).join(" and ")} will see the seats next to you when they book.`
+                : "Your usual. Say if you'd rather sit anywhere this time."
+            }
+            cta={
+              draft.seating.value === "none"
+                ? `Take ${squadRow}${seatLetter} · +${formatFare(7 * seatLegs)} GBP`
+                : `Keep ${squadRow}${seatLetter}`
+            }
+            onTake={() => {
+              if (draft.seating.value === "none") {
+                setDraft({
+                  ...draft,
+                  seating: { value: "window", source: "said", why: "You took the window." },
+                });
+              }
+              setSeatSheet(false);
+            }}
+            onAnywhere={() => {
+              setDraft({
+                ...draft,
+                seating: { value: "none", source: "said", why: "You'll sit anywhere." },
+              });
+              setSeatSheet(false);
+            }}
+            onClose={() => setSeatSheet(false)}
+          />
+        ) : undefined
+      }
     >
-      <Intro draft={draft} fromWatch={fromWatch} />
-      <Ticket draft={draft} onChange={(next) => update({ draft: next })} names={names} />
+      {persona === "will" ? youSaid : null}
+      <div className={persona === "will" ? "mt-5" : ""}>
+        {persona === "emre" ? emreIntro : willIntro}
+      </div>
+      <Ticket
+        draft={draft}
+        onChange={setDraft}
+        names={names}
+        owner={names[0]}
+        onSeat={() => setSeatSheet(true)}
+        seatLabel={draft.seating.value === "none" ? "At check-in" : undefined}
+        seatDotted={draft.seating.source !== "said"}
+        between={giftsOffer}
+        extraLines={gifts}
+      />
       <SentenceSection onSubmit={run} />
     </AppShell>
   );
 }
 
-/** What the companion says over the ticket. */
-function Intro({ draft, fromWatch }: { draft: TripDraft; fromWatch: boolean }) {
-  const counts = countBySource(draft);
-  const inferred = counts.profile + counts.predicted;
-  const saving = naivePath(draft);
-  if (fromWatch) {
-    return (
-      <Says>
-        I built this from your watch. {counts.said} things from what you told me in September,{" "}
-        {counts.profile} remembered, {counts.predicted} I worked out —{" "}
-        <span className="mine font-semibold">the dotted ones</span>. Tap any to change it
-        before you approve.
-      </Says>
-    );
-  }
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** One thing the companion heard, as a chip. Dotted when it had to guess. */
+function Heard({
+  label,
+  value,
+  guessed = false,
+}: {
+  label: string;
+  value: string;
+  guessed?: boolean;
+}) {
   return (
-    <Says>
-      {inferred === 0 ? (
-        <>Here is your ticket. Everything on it came from you.</>
-      ) : (
-        <>
-          Here is your ticket. You told me {counts.said}{" "}
-          {counts.said === 1 ? "thing" : "things"}; the {inferred} with a{" "}
-          <span className="mine font-semibold">dotted line underneath</span> are mine. Tap one
-          to see why.
-        </>
+    <span className="flex h-7 items-center gap-1.5 rounded-full bg-pg-surface pr-2.5 pl-2.5 text-[12px]">
+      <span className="font-semibold text-pg-ink">{label}</span>
+      <span className={`font-extrabold ${guessed ? "mine" : ""}`}>{value}</span>
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#6B7684"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M4 20h4l10-10-4-4L4 16v4Z" />
+      </svg>
+    </span>
+  );
+}
+
+function OfferLine({
+  title,
+  detail,
+  price,
+}: {
+  title: string;
+  detail?: string;
+  price: number;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-[14px] bg-pg-surface px-4 py-3">
+      <span className="flex flex-col gap-0.5">
+        <span className="text-[15px] leading-5 font-bold">{title}</span>
+        {detail !== undefined && (
+          <span className="text-[13px] leading-[18px] text-pg-ink">{detail}</span>
+        )}
+      </span>
+      <span className="tabular shrink-0 text-[15px] font-bold">{formatFare(price)}</span>
+    </div>
+  );
+}
+
+/**
+ * One-tap feedback, Uber-style. The thumbs tell the companion exactly what it
+ * got wrong, so each prediction improves. A down vote opens a short list of
+ * what it could have been; nothing here is a text box.
+ */
+export function Thumbs({
+  question,
+  value,
+  onPick,
+  open,
+  prefix,
+  options,
+  reply,
+}: {
+  question: string;
+  value: "up" | "down" | null;
+  onPick: (v: "up" | "down") => void;
+  open: boolean;
+  prefix?: string;
+  options: { label: string; onPick: () => void }[];
+  reply: string | null;
+}) {
+  return (
+    <div className="mt-3 flex flex-col gap-2 px-1">
+      <div className="flex items-center gap-2.5">
+        <span className="text-[13px] font-semibold text-pg-ink">{question}</span>
+        {(["up", "down"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-label={v === "up" ? "Yes, that's right" : "Not quite"}
+            aria-pressed={value === v}
+            onClick={() => onPick(v)}
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-[15px] ${
+              value === v
+                ? "bg-pg-navy text-white"
+                : "bg-white shadow-[0_1px_2px_rgba(31,42,55,0.08)]"
+            }`}
+          >
+            {v === "up" ? "👍" : "👎"}
+          </button>
+        ))}
+        {value === "up" && (
+          <span className="text-[12px] font-semibold text-pg-ink">Thanks. Noted.</span>
+        )}
+      </div>
+      {open && (
+        <div className="fade flex flex-wrap items-center gap-1.5">
+          {prefix !== undefined && (
+            <span className="text-[13px] font-semibold text-pg-ink">{prefix}</span>
+          )}
+          {options.map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              onClick={o.onPick}
+              className="h-8 rounded-full bg-white px-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(31,42,55,0.08)]"
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
       )}
-      {saving !== null && (
-        <>
-          {" "}
-          <Mark>Buying it this way is {formatFare(saving.saved)} GBP cheaper</Mark> than taking
-          the cheapest fare and adding the same bag later.
-        </>
+      {reply !== null && (
+        <p className="fade text-[13px] leading-[18px] font-semibold">{reply}</p>
       )}
-    </Says>
+    </div>
   );
 }
 
@@ -334,3 +710,9 @@ export function SentenceSection({ onSubmit }: { onSubmit: (text: string) => void
     </div>
   );
 }
+
+export function cityName(code: string): string {
+  return AIRPORTS[code as keyof typeof AIRPORTS]?.city ?? code;
+}
+
+export type { ReactNode };

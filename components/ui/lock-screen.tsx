@@ -72,7 +72,7 @@ export function LockScreen({
       </div>
       <div
         aria-hidden
-        className="absolute inset-x-[46px] bottom-11 flex justify-between"
+        className="pointer-events-none absolute inset-x-[46px] bottom-11 flex justify-between"
         style={{ opacity: dim ? 0 : 1 }}
       >
         <span className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-white/[0.14]">

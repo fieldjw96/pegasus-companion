@@ -15,6 +15,7 @@ function draftOf(over: Partial<TripDraft> = {}): TripDraft {
   return {
     origin: field("STN"),
     destination: field("ADB"),
+    stops: field([]),
     departDate: field("2026-10-19"),
     returnDate: field<string | null>("2026-10-25"),
     party: field({ adults: 2, children: 1, infants: 0 }),
@@ -83,9 +84,17 @@ describe("breakdown", () => {
     expect(breakdown(draftOf()).lines.some((l) => l.label === "Cabin baggage")).toBe(false);
   });
 
-  it("doubles a return against the same trip one way", () => {
-    const oneWay = breakdown(draftOf({ returnDate: f<string | null>(null) })).total;
-    expect(breakdown(draftOf()).total).toBeCloseTo(oneWay * 2, 2);
+  it("prices a return as the outbound plus the return, each on its own flight", () => {
+    const out = breakdown(draftOf({ returnDate: f<string | null>(null) })).total;
+    const back = breakdown(
+      draftOf({
+        origin: f("ADB"),
+        destination: f("STN"),
+        departDate: f("2026-10-25"),
+        returnDate: f<string | null>(null),
+      }),
+    ).total;
+    expect(breakdown(draftOf()).total).toBeCloseTo(out + back, 2);
   });
 
   it("lists what the fare covers, so no zero is left unexplained", () => {
@@ -97,7 +106,7 @@ describe("breakdown", () => {
   it("shows its working on every line", () => {
     for (const line of breakdown(draftOf({ package: f("light" as const) })).lines) {
       expect(line.detail).not.toBe("");
-      expect(line.detail).toContain("x");
+      expect(line.detail).toContain("×");
     }
   });
 });

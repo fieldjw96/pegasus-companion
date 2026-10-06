@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Ticket } from "./ticket";
-import { heroDraft } from "@/lib/demo/hero";
+import { WILL, willDraft } from "@/lib/demo/personas";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { breakdown } from "@/lib/assistant/price";
 
@@ -10,37 +10,32 @@ import { breakdown } from "@/lib/assistant/price";
  * underneath it computed? Typecheck, lint and build cannot see whether a
  * component renders at all; a render test is the cheapest thing that can.
  */
-const NAMES = ["Jack Field", "Ayşe Field", "Mila Field"];
+const NAMES = WILL.travellers.map((t) => t.name);
 
 function mount() {
-  const draft = heroDraft();
+  const draft = willDraft();
   const onChange = vi.fn();
-  render(<Ticket draft={draft} onChange={onChange} names={NAMES} />);
+  render(<Ticket draft={draft} onChange={onChange} names={NAMES} owner={NAMES[0]} />);
   return { draft, onChange };
 }
 
 describe("Ticket", () => {
-  it("prints the reference, seats and total the libraries computed", () => {
+  it("prints the reference, every leg, the seat and the total the libraries computed", () => {
     const { draft } = mount();
-    const itinerary = itineraryFor(draft);
+    const itinerary = itineraryFor(draft, NAMES[0]);
     expect(screen.getByText(itinerary.reference)).toBeTruthy();
-    expect(screen.getByText(itinerary.out!.seats.join(" "))).toBeTruthy();
+    for (const leg of itinerary.legs) {
+      expect(screen.getByText(leg.flight.flightNo)).toBeTruthy();
+    }
     expect(screen.getAllByText(breakdown(draft).total.toFixed(2)).length).toBeGreaterThan(0);
-    expect(screen.getByText("PC 1474")).toBeTruthy();
-    expect(screen.getByText("Jack Field +2")).toBeTruthy();
+    expect(screen.getByText("Will Parker")).toBeTruthy();
     cleanup();
   });
 
-  it("marks the companion's values dotted and the passenger's not", () => {
+  it("marks the companion's values dotted", () => {
     mount();
-    // Seat, fare and changes are the companion's on the hero trip.
-    expect(screen.getByRole("button", { name: /^Seat 19D 19E 19F/ }).className).toContain(
-      "mine",
-    );
-    expect(screen.getByRole("button", { name: /^Fare SAVER PLUS/ }).className).toContain(
-      "mine",
-    );
-    expect(screen.queryByRole("button", { name: /^Baggage/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Seat 14A/ }).className).toContain("mine");
+    expect(screen.getByRole("button", { name: /^Fare SAVER/ }).className).toContain("mine");
     cleanup();
   });
 
@@ -48,9 +43,10 @@ describe("Ticket", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: "Full breakdown" }));
     expect(screen.getByText(/What makes up/)).toBeTruthy();
-    expect(screen.getByText("SAVER PLUS flight fare")).toBeTruthy();
+    expect(screen.getByText("SAVER flight fares")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Change anything" }));
-    expect(screen.getByText(/4 from you · 3 remembered · 3 predicted/)).toBeTruthy();
+    expect(screen.getByText(/3 from you · 8 predicted/)).toBeTruthy();
+    expect(screen.getByText(/Istanbul 2 · Cappadocia 3 · Antalya 2/)).toBeTruthy();
     cleanup();
   });
 

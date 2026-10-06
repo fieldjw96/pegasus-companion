@@ -1,11 +1,15 @@
 # pegasus-companion
 
 A mock of the Pegasus Airlines mobile app with an agentic **AI Travel Companion**
-built into it, as a web app.
+built into it, as a web app. The companion is four agents behind one face:
+**Trip** turns a wish into an itinerary and rebuilds repeat trips; **Offer**
+predicts which bag, seat or bundle each traveller will buy, and when to ask;
+**Group** turns one booking into a group; **Moments** picks the moment and the
+channel.
 
-Built for the Pegasus × Berkeley Haas **AI Travel Companion Hackathon**.
-**Not affiliated with Pegasus Airlines.** Every fare, flight, price and person
-here is invented. Nothing books anything and no payment is taken.
+Built by Team Winging It for the Pegasus × Berkeley Haas **AI Travel Companion
+Hackathon**. **Not affiliated with Pegasus Airlines.** Every fare, flight, price
+and person here is invented. Nothing books anything and no payment is taken.
 
 ## Running it
 
@@ -29,40 +33,57 @@ npm run typecheck && npm run lint && npm run format:check && npm run test && npm
 ## What you are looking at
 
 The phone is the mock. The **scenes panel** beside it is for the presenter: it
-lists every screen of both journeys and jumps straight to it, because a phone
-cannot show "two days later" or "on a friend's phone" on its own. Every screen
-also works when opened cold; the trip falls back to the demo's hero trip.
+lists every beat of both journeys and jumps straight to it, because a phone
+cannot show "two days later" or "on Archie's phone" on its own. Every screen
+also works when opened cold; it falls back to the persona's starting trip.
 
-Everything the companion does is one of three things:
+### Journey 1 · The lads go to Cappadocia
 
-1. **Part 1 · Booking.** A passenger says a trip in one sentence (or taps one under
-   _Try_). The companion fills in what was not said from past bookings and prints a
-   ticket. Every value it chose carries a dotted underline; _Change anything_ shows
-   where each came from (you said, remembered, predicted) and why. One tap to pay.
-2. **Part 2 · Group booking.** From the confirmation, the companion offers to hold
-   the same flights for the friends the passenger usually travels with and to build
-   each their own booking. On the friend's phone a notification leads to a ticket
-   already built from the organiser's flights and the friend's own history, with one
-   question the companion could not answer alone: the seat beside the organiser.
-   Each pays only for themself; nobody sees anybody else's fare.
-3. **Part 3 · The companion moves first.** A trip described as tolerances rather
-   than a search: a week, a few places, a cap, must-haves, a buy rule, a deadline.
-   The companion checks every morning and speaks only when the answer changes,
-   on the lock screen, with _Why I spoke_. Approve goes through Face ID without
-   opening the app. The mornings it has nothing to say, it says so, and counts
-   them.
+Will, 26, London. A cold start: no history, no profile.
 
-### The two journeys
+1. **A wish becomes a week.** He says "Balloons in Cappadocia with 2 mates,
+   backpacking, a week in May". The companion builds a four-flight route on
+   Pegasus's network, picks the week, prices it, and prints a ticket. What it
+   heard is shown as chips; everything it guessed carries a dotted underline and
+   a reason. One tap says "actually: a city break" and the route re-ranks.
+2. **The bag, sold at booking.** From "backpacking" it puts SAVER on the ticket
+   with the reason: a 40L pack won't fit under the seat, and the bag costs less
+   inside the fare than at the airport.
+3. **Nab the window.** The seat sheet gives a reason to buy: the 06:10, the
+   window, and the two seats beside him shown to his mates when they book.
+4. **Lock the price, invite the lads.** From the confirmation, Price Freeze holds
+   today's fare for Archie and Tom and sends the invites. Thumbs feed the agents.
+5. **Archie has the app.** A push in Will's name opens a booking already built:
+   flights from Will, fare and seat predicted, passport, payment and his usual
+   hot meal remembered. He checks and pays.
+6. **Tom doesn't.** A WhatsApp from Will opens the same booking on the web and
+   brings him into the app.
+7. **The waiting window.** A lock-screen tracker shows who has booked and how
+   long the frozen fare has left, and sells extras to the ones already in.
+8. **Tom stalls.** A nudge in Will's name, and a rescue when his card is
+   declined.
+9. **Squad complete.** All three booked, seats together, one group offer that
+   makes sense for three: breakfast for the 06:10.
+10. **Checked in for them**, **the next trip** (a new route offered first to the
+    group), and the unhappy path of a cancelled flight.
 
-The prototype has to carry two user journeys end to end, and does:
+### Journey 2 · Home for Mum's birthday
 
-- **Journey 1, cold start.** Speak the trip → a ticket with reasons → checkout →
-  confirmation → build a group → friends' seats held → the friend's phone →
-  group status filling in. Scenes: Part 1 then Part 2.
-- **Journey 2, warm start.** The moment is spotted before anyone searches → the
-  intent sheet → watching → a quiet morning → the fare drops and the companion
-  proposes → approve from the lock screen, or look, or say not this one → the
-  deadline rule. Scenes: Part 3.
+Emre, 34, Istanbul. A warm start: he has flown it before.
+
+1. **Two months out.** The companion learned last June's trip and speaks on the
+   lock screen on 14 April, with _Why I spoke_, while he is most likely to book.
+2. **One tap, his usual.** The trip is rebuilt from last year: the Friday 19:05,
+   SAVER, seat 3A, all-in price up front. It guessed the Sunday; it's Mum's
+   birthday, so he stays. "Not quite: return date" fixes it and teaches it.
+3. **Room for presents.** Extras built around the occasion: weight for gifts and
+   Turkish delight from Pegasus Café. The passport is checked before payment.
+4. **Dad's in on the surprise.** Dad follows the flight; Mum finds out when Emre
+   walks in.
+5. **The flight is cancelled.** Rebooked first, told second, Dad told too.
+6. **Next year.** The same nudge, two months out. It stays quiet if told to:
+   "not this year" holds for a year, "don't suggest again" for good, and Dad's
+   STOP leaves him with flight status only.
 
 ## Design
 
@@ -71,47 +92,47 @@ wordmark, airport codes, times and totals; white cards on `#F2F6FA`; yellow fill
 for the one primary action per screen; orange for text links, the active
 underline and the dotted "mine" underline, never a fill. Both fonts are OFL and
 self-hosted under `public/fonts`, so neither the build nor the demo depends on
-the venue's wifi.
-
-The companion's face is a cartoon Pegasus from the myth, drawn as inline SVG so
-its wings can beat while it thinks. It is not the airline's trademark.
+the venue's wifi. The companion's face is a cartoon Pegasus from the myth, drawn
+as inline SVG so its wings can beat while it thinks. It is not the airline's
+trademark.
 
 ## Architecture
 
 ```
 app/                       One route per screen. Server components rendering client islands.
-  page.tsx                 Greeting, thinking, ticket.
-  checkout/ confirmation/  Jack's checkout and confirmation (with the group card).
-  group/                   Organiser side: people, review, status.
-  invite/                  Invitee side: lock screen, ticket, checkout, confirmation, email.
-  flights/                 My Flights: trips I'm watching, the intent sheet.
-  companion/               Lock-screen mornings: quiet, proposal, look, not this one, deadline.
+  page.tsx                 Will's home: greeting, thinking, the week as a ticket.
+  checkout/ confirmation/  Will's checkout and confirmation (Freeze and invite).
+  group/                   Organiser side: who's coming, review, squad status.
+  invite/archie/ tom/      Invitee side: push or WhatsApp, ticket, checkout, confirmation, stalls.
+  squad/                   Lock-screen moments: waiting window, check-in, next trip, cancelled.
+  emre/                    Emre's usual trip, checkout, confirmation.
+  flights/                 My Flights: trips I'm watching, the moment sheet.
+  moment/                  Lock-screen mornings: nudge, quiet, look, reminder, opt-outs, Dad.
 components/
   phone-frame.tsx          The device. Every screen renders inside it.
   scenes.tsx               The presenter's panel.
-  journey-provider.tsx     What the passenger has done so far, kept in session storage.
+  journey-provider.tsx     What the passengers have done so far, in session storage.
   ui/                      The design system: avatar, shell, nav, sheet, lock screen, tags.
   screens/                 One file per screen or family of screens.
 lib/
   journey/flights.ts       Deterministic mock inventory. No network.
-  journey/script.ts        The hero trip, pinned, so every screen prints the same numbers.
+  journey/script.ts        The demo's routes, pinned, so every screen prints the same numbers.
   assistant/               Sentence → trip: understand, draft (provenance), price, itinerary.
-  group/group.ts           Friends, the hold, the invitee's booking, the seat offer.
-  watch/watch.ts           The watch: intent, the scripted market, the three gates.
+  group/group.ts           Friends, Price Freeze, the invitee's booking, the seat beside.
+  moments/moments.ts       Mum's birthday: the usual trip, the nudge rule, the three gates.
 ```
 
-**Everything is arithmetic, in code.** The companion's sentences ("84.00 GBP
-cheaper", "dropped 94 GBP overnight") are computed, never asserted. The one hero
-trip is pinned in `lib/journey/script.ts` so the ticket, the Live Activity, the
-friend's notification and the deck all agree: SAVER PLUS for three over two legs
-is 1224.66, a friend on LIGHT with a cabin bag is 342.22, and the seat beside the
-family is 19C at 9.00 a leg. `lib/journey/script.test.ts` asserts every one of
-those figures.
+**Everything the companion says is arithmetic, in code.** "112.00 GBP cheaper",
+"14B next to him is yours", "down to 7 seats": computed, never asserted. The
+routes the demo runs on are pinned by route in `lib/journey/script.ts`, keyed
+by route rather than date so the figures hold whichever month the demo is run
+in. `lib/journey/script.test.ts` asserts every one of them.
 
-**Restraint is a property of the system.** `lib/watch/watch.ts` has three gates,
-each of which alone keeps the companion quiet: nothing changed; the change does
-not cross the cap; the interruption budget is spent. A change that makes it speak
-more often is a regression unless the Ticket says otherwise.
+**Restraint is a property of the system.** `lib/moments/moments.ts` has three
+gates, each of which alone keeps the companion quiet: it is not the moment; the
+passenger said not this year, or never; the interruption budget is spent. A
+change that makes it speak more often is a regression unless the Ticket says
+otherwise.
 
 **The sentence is deterministic.** `lib/assistant/understand.ts` is rules over
 the text. A real build would put a model there; nothing else would change,

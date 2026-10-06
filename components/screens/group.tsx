@@ -16,59 +16,51 @@ import {
   TextButton,
   Tick,
 } from "@/components/ui/primitives";
-import { PROFILES } from "@/lib/assistant/profiles";
 import { itineraryFor } from "@/lib/assistant/itinerary";
-import { AIRPORTS } from "@/lib/journey/flights";
-import { heroDraft } from "@/lib/demo/hero";
+import { formatFare } from "@/lib/journey/flights";
 import {
+  BREAKFAST,
+  FREEZE,
   FRIENDS,
-  HOLD,
   firstName,
   friendByName,
   groupMembers,
-  seatOffer,
+  seatBeside,
 } from "@/lib/group/group";
+import { WILL, willDraft } from "@/lib/demo/personas";
+import { cityOf } from "./ticket";
 
 /**
  * The organiser's side of a group booking.
  *
- * Jack has booked. The companion offers to hold the same flights for the
- * people he usually travels with and to build each of them their own booking.
- * He picks who, reviews what each will receive, and sends. From then on the
- * group lives in My Flights as a card that fills in as people book.
+ * Will has booked. The companion freezes today's fare for the mates he picks
+ * and builds each of them their own booking in his name. From then on the
+ * squad lives in My Flights as a card that fills in as people book, with the
+ * frozen fare's clock on it: a bit of friendly pressure.
  *
  * Privacy is in the layout: the organiser's screens carry names, status and
  * seat only. No fare of anyone else's appears on his side.
  */
 function useOrganiser() {
   const { state, update } = useJourney();
-  const draft = state.draft ?? heroDraft();
-  const profile = PROFILES.find((p) => p.id === state.profileId) ?? PROFILES[0]!;
-  const names = profile.travellers.filter((t) => t.kind !== "infant").map((t) => t.name);
-  const city =
-    AIRPORTS[draft.destination.value as keyof typeof AIRPORTS]?.city ??
-    draft.destination.value;
-  const groupName = `${city} half term`;
-  return { state, update, draft, names, city, groupName };
+  const draft = state.draft ?? willDraft();
+  const names = WILL.travellers.map((t) => t.name);
+  const me = names[0] ?? "Will Parker";
+  const groupName = `${cityOf(draft.destination.value)} squad`;
+  const itinerary = itineraryFor(draft, me);
+  return { state, update, draft, names, me, groupName, itinerary };
 }
 
 export function AddPeopleScreen() {
   const router = useRouter();
-  const { state, update, groupName } = useOrganiser();
+  const { state, update, groupName, draft, me } = useOrganiser();
   const [picked, setPicked] = useState<string[]>(
     state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name),
   );
-  const [query, setQuery] = useState("");
-
-  const flownWith = FRIENDS.filter((f) => f.flewWith > 0);
   const added = FRIENDS.filter((f) => picked.includes(f.name));
-  const matches = FRIENDS.filter(
-    (f) =>
-      query.trim() !== "" &&
-      f.flewWith === 0 &&
-      f.name.toLowerCase().includes(query.trim().toLowerCase()) &&
-      !picked.includes(f.name),
-  );
+  const seats = added
+    .map((f) => seatBeside(draft, f, me))
+    .filter((s): s is string => s !== null);
 
   function toggle(name: string): void {
     setPicked((prev) =>
@@ -92,7 +84,7 @@ export function AddPeopleScreen() {
           Who&rsquo;s coming?
         </h1>
         <div
-          className="mt-3 flex h-[34px] items-center gap-2 self-start rounded-full bg-white pr-3.5 pl-3 shadow-[0_1px_2px_rgba(31,42,55,0.06)]"
+          className="mt-3 flex h-[34px] items-center gap-2 rounded-full bg-white pr-3.5 pl-3 shadow-[0_1px_2px_rgba(31,42,55,0.06)]"
           style={{ width: "fit-content" }}
         >
           <Sparkle />
@@ -105,19 +97,38 @@ export function AddPeopleScreen() {
           </button>
         </div>
 
-        <h2 className="caps mt-6 mb-2 px-1">People you&rsquo;ve flown with</h2>
+        <h2 className="caps mt-6 mb-2 px-1">From your contacts</h2>
         <div className="pg-card flex flex-col py-1 pr-3.5 pl-4">
-          {flownWith.map((friend, i) => {
+          {FRIENDS.map((friend, i) => {
             const on = picked.includes(friend.name);
             return (
               <div key={friend.name}>
                 {i > 0 && <div className="h-px bg-pg-line" />}
                 <div className="flex items-center gap-3 py-2.5">
-                  <Initials name={friend.name} tone="surface" />
+                  <Initials name={friend.name} tone={on ? "navy" : "surface"} />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="text-[16px] leading-[22px] font-bold">{friend.name}</span>
-                    <span className="text-[13px] leading-[18px] text-pg-ink">
-                      {friend.flewWith === 1 ? "1×" : `flew with you ${friend.flewWith}×`}
+                    <span className="flex items-start gap-1.5 text-[13px] leading-[18px] text-pg-ink">
+                      {friend.account ? (
+                        <span
+                          aria-hidden
+                          className="display mt-0.5 h-3.5 w-3.5 shrink-0 rounded-[4px] bg-pg-yellow text-center text-[10px] leading-[14px] font-black text-pg-navy"
+                        >
+                          P
+                        </span>
+                      ) : (
+                        <span className="mt-0.5 text-pg-ink">
+                          <MailIcon />
+                        </span>
+                      )}
+                      <span>
+                        {friend.account ? "Has the app" : "No app"} ·{" "}
+                        <span className="font-semibold text-pg-navy">
+                          {friend.account
+                            ? `I'll build ${friend.pronoun.possessive} booking`
+                            : `${friend.pronoun.subject}'ll get a WhatsApp link`}
+                        </span>
+                      </span>
                     </span>
                   </div>
                   <button
@@ -181,98 +192,14 @@ export function AddPeopleScreen() {
             type="search"
             aria-label="Search your contacts"
             placeholder="Search contacts"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
             className="h-[52px] w-full rounded-2xl bg-white pr-4 pl-[46px] text-[16px] font-medium shadow-[0_1px_2px_rgba(31,42,55,0.05)] outline-none"
           />
-          {matches.length > 0 && (
-            <div className="pg-card mt-2 flex flex-col px-4 py-1">
-              {matches.map((friend) => (
-                <button
-                  key={friend.name}
-                  type="button"
-                  onClick={() => {
-                    toggle(friend.name);
-                    setQuery("");
-                  }}
-                  className="flex items-center gap-3 py-2.5 text-left"
-                >
-                  <Initials name={friend.name} tone="surface" />
-                  <span className="text-[16px] font-bold">{friend.name}</span>
-                  <span className="ml-auto text-[14px] font-bold text-pg-orange">Add</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-
-        {added.length > 0 && (
-          <>
-            <h2 className="caps mt-6 mb-2 px-1">Added</h2>
-            <div className="pg-card flex flex-col px-4 py-1">
-              {added.map((friend, i) => (
-                <div key={friend.name}>
-                  {i > 0 && <div className="h-px bg-pg-line" />}
-                  <div className="flex items-center gap-3 py-2.5">
-                    <Initials name={friend.name} />
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-[16px] leading-[22px] font-bold">
-                        {friend.name}
-                      </span>
-                      <span className="flex items-start gap-1.5 text-[13px] leading-[18px] text-pg-ink">
-                        {friend.account ? (
-                          <span
-                            aria-hidden
-                            className="display mt-0.5 h-3.5 w-3.5 shrink-0 rounded-[4px] bg-pg-yellow text-center text-[10px] leading-[14px] font-black text-pg-navy"
-                          >
-                            P
-                          </span>
-                        ) : (
-                          <span className="mt-0.5 text-pg-ink">
-                            <MailIcon />
-                          </span>
-                        )}
-                        <span>
-                          {friend.account ? "Pegasus account" : "No account"} ·{" "}
-                          <span className="font-semibold text-pg-navy">
-                            {friend.account
-                              ? `I'll build ${friend.pronoun.possessive} booking`
-                              : `${friend.pronoun.subject}'ll get an email link`}
-                          </span>
-                        </span>
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${friend.name}`}
-                      onClick={() => toggle(friend.name)}
-                      className="flex h-11 w-11 items-center justify-center text-pg-ink"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.6"
-                        strokeLinecap="round"
-                        aria-hidden
-                      >
-                        <path d="M6 6l12 12" />
-                        <path d="M18 6L6 18" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
 
         <Says className="mt-5 mb-6">
           {added.length === 0
-            ? "Pick anyone. I'll hold a seat beside yours for each of them and build each their own booking."
-            : `${words(added.length)} ${added.length === 1 ? "person" : "people"}. I'll hold ${words(added.length).toLowerCase()} seat${added.length === 1 ? "" : "s"} on both legs beside yours until ${HOLD.untilShort}, and let each person know.`}
+            ? "Pick anyone. I'll freeze today's fare for each of them, hold a seat beside yours, and build each their own booking."
+            : `${words(added.length)} ${added.length === 1 ? "person" : "people"}. I'll freeze today's fare for ${added.length === 1 ? "them" : "both"} and hold ${seats.join(" and ")} beside you until ${FREEZE.untilShort}. Each gets their own booking, in your name.`}
         </Says>
       </main>
       <div className="shrink-0 px-5 pt-3 pb-3.5">
@@ -280,11 +207,11 @@ export function AddPeopleScreen() {
           size="lg"
           disabled={added.length === 0}
           onClick={() => {
-            update({ invited: added.map((f) => f.name), invitesSent: false });
+            update({ invited: added.map((f) => f.name), frozen: false });
             router.push("/group/review");
           }}
         >
-          Hold seats and invite
+          Freeze and invite · {formatFare(FREEZE.feePerFriend * added.length)} GBP
         </PrimaryButton>
       </div>
       <BottomNav />
@@ -298,9 +225,8 @@ function words(n: number): string {
 
 export function ReviewSendScreen() {
   const router = useRouter();
-  const { state, update, draft, names } = useOrganiser();
+  const { state, update, draft, me } = useOrganiser();
   const invited = state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name);
-  const offer = seatOffer(draft, names);
 
   return (
     <div className="relative flex h-full flex-col bg-pg-surface text-pg-navy">
@@ -319,14 +245,14 @@ export function ReviewSendScreen() {
         </h1>
         <p className="mt-2 flex items-center gap-2 text-[15px] font-semibold">
           <ClockIcon size={18} />
-          Held until {HOLD.until}
+          Fare frozen until {FREEZE.until}
         </p>
 
         <div className="pg-card mt-5 flex flex-col px-5 py-1">
           {invited.map((name, i) => {
             const friend = friendByName(name);
             const first = firstName(name);
-            const possessive = friend?.pronoun.possessive ?? "their";
+            const seat = friend === null ? null : seatBeside(draft, friend, me);
             return (
               <div key={name}>
                 {i > 0 && <div className="h-px bg-pg-line" />}
@@ -340,17 +266,21 @@ export function ReviewSendScreen() {
                     >
                       {friend?.account ? (
                         <>
-                          {first} gets: your flights, {possessive} own fare built from{" "}
-                          {possessive} past bookings
-                          {offer !== null && i === 0
-                            ? `, and the offer of ${offer.seat} beside you.`
-                            : "."}
+                          {first} gets: a push in your name. Your flights,{" "}
+                          {friend.pronoun.possessive} own fare, {seat ?? "a seat"} next to you,
+                          and{" "}
+                          {friend.remembered?.meal
+                            ? "the hot meal he always has"
+                            : "nothing else"}{" "}
+                          already in.{" "}
+                          {friend.pronoun.subject.replace(/^\w/, (c) => c.toUpperCase())}{" "}
+                          checks and pays.
                         </>
                       ) : (
                         <>
-                          {first} gets: an email with your flights and a booking already built,
-                          {possessive === "his" ? " his" : ` ${possessive}`} own fare, nothing
-                          to type.
+                          {first} gets: a WhatsApp from you. The same booking, built on the
+                          web, with {seat ?? "a seat"} saved next to you. It opens the app, or
+                          the web if {friend?.pronoun.subject ?? "they"} hasn&rsquo;t got it.
                         </>
                       )}
                     </span>
@@ -370,7 +300,7 @@ export function ReviewSendScreen() {
         <PrimaryButton
           size="lg"
           onClick={() => {
-            update({ invited, invitesSent: true });
+            update({ invited, frozen: true });
             router.push("/group");
           }}
         >
@@ -386,23 +316,23 @@ export function ReviewSendScreen() {
 }
 
 export function GroupStatusScreen() {
-  const { state, draft, names, groupName } = useOrganiser();
+  const router = useRouter();
+  const { state, groupName, me, itinerary, draft } = useOrganiser();
   const invited = state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name);
-  const offer = seatOffer(draft, names);
-  const inviteeBooked =
-    state.invitee.booked && invited[0] !== undefined
-      ? {
-          name: invited[0],
-          seat: state.invitee.seatTaken && offer !== null ? offer.seat : null,
-        }
-      : null;
-  const members = groupMembers(names[0] ?? "Jack Field", invited, inviteeBooked);
+  const members = groupMembers(
+    me,
+    itinerary.out?.seats[0] ?? null,
+    invited,
+    state.inviteesBooked,
+  );
   const booked = members.filter((m) => m.status === "booked").length;
-  const nudge = members.find((m) => m.status === "opened");
-  const itinerary = itineraryFor(draft);
+  const complete = booked === members.length;
+  const waiting = members.find((m) => m.status !== "booked");
+  const [breakfast, setBreakfast] = useState(false);
+  const early = itinerary.out?.flight.departs ?? "06:10";
 
   return (
-    <AppShell header={<AppHeader />} active="My Flights" bodyClassName="pt-4 pb-6">
+    <AppShell header={<AppHeader user={me} />} active="My Flights" bodyClassName="pt-4 pb-6">
       <h1 className="text-[28px] leading-[34px] font-extrabold tracking-[-0.02em]">
         My Flights
       </h1>
@@ -429,12 +359,14 @@ export function GroupStatusScreen() {
               {members.map((m, i) => (
                 <span
                   key={m.name}
-                  className={`h-2 rounded ${i < booked ? "bg-pg-navy" : "bg-pg-line"}`}
+                  className={`h-2 rounded ${i < booked ? (complete ? "bg-pg-yellow" : "bg-pg-navy") : "bg-pg-line"}`}
                 />
               ))}
             </div>
             <span className="text-[14px] leading-[18px] font-bold">
-              {booked} of {members.length} booked
+              {complete
+                ? `All ${members.length} booked 🎉`
+                : `${booked} of ${members.length} booked`}
             </span>
           </div>
         </div>
@@ -443,11 +375,18 @@ export function GroupStatusScreen() {
             <span className="text-pg-yellow">
               <ClockIcon />
             </span>
-            Held until {HOLD.until}
+            {complete
+              ? `Together in ${members
+                  .map((m) => m.seat)
+                  .filter(Boolean)
+                  .join(" · ")}`
+              : `Fare frozen until ${FREEZE.until}`}
           </span>
-          <span className="display text-[16px] font-extrabold whitespace-nowrap">
-            {HOLD.remaining}
-          </span>
+          {!complete && (
+            <span className="display text-[16px] font-extrabold whitespace-nowrap">
+              {FREEZE.remaining}
+            </span>
+          )}
         </div>
         <div className="flex flex-col px-5 py-1.5">
           {members.map((m, i) => (
@@ -466,11 +405,6 @@ export function GroupStatusScreen() {
                         {m.seat}
                       </span>
                     )}
-                    {m.organiser &&
-                      itinerary.out !== null &&
-                      itinerary.out.seats.length > 0 && (
-                        <span className="sr-only">{itinerary.out.seats.join(" ")}</span>
-                      )}
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5 text-[14px] font-semibold text-pg-ink">
@@ -500,20 +434,52 @@ export function GroupStatusScreen() {
             </div>
           ))}
         </div>
-        {nudge !== undefined && (
-          <div className="mx-3 mb-3 mt-1.5 flex items-start gap-3 rounded-[14px] bg-pg-surface p-3.5">
+        {!complete && waiting !== undefined && (
+          <div className="mx-3 mt-1.5 mb-3 flex items-start gap-3 rounded-[14px] bg-pg-surface p-3.5">
             <Avatar size={36} />
             <div className="flex flex-1 flex-col items-start gap-2.5">
               <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-                {firstName(nudge.name)}&rsquo;s fare goes up Thursday. Want me to tell{" "}
-                {friendByName(nudge.name)?.pronoun.object ?? "them"}?
+                {firstName(waiting.name)} hasn&rsquo;t booked and the frozen fare ends{" "}
+                {FREEZE.untilShort}. Want me to nudge{" "}
+                {friendByName(waiting.name)?.pronoun.object ?? "them"} in your name?
               </p>
-              <PrimaryButton size="sm">Nudge {firstName(nudge.name)}</PrimaryButton>
+              <PrimaryButton size="sm" onClick={() => router.push("/invite/tom/stalls")}>
+                Nudge {firstName(waiting.name)}
+              </PrimaryButton>
             </div>
           </div>
         )}
+        {complete && (
+          <div className="mx-3 mt-1.5 mb-3 flex flex-col gap-2.5 rounded-[14px] bg-pg-surface p-3.5">
+            <div className="flex items-start gap-3">
+              <Avatar size={36} />
+              <div className="flex flex-col gap-0.5">
+                <p className="text-[16px] leading-[22px] font-extrabold">
+                  Breakfast for the squad?
+                </p>
+                <p
+                  className="text-[14px] leading-5 text-pg-ink"
+                  style={{ textWrap: "pretty" }}
+                >
+                  {members.length} hot breakfasts from Pegasus Café for the {early}. One offer
+                  for three, because I now know you&rsquo;re travelling together.
+                </p>
+              </div>
+            </div>
+            {breakfast ? (
+              <p className="text-[14px] font-bold">
+                Added for all {members.length}. See you at {early}.
+              </p>
+            ) : (
+              <PrimaryButton size="sm" onClick={() => setBreakfast(true)}>
+                Add for all {members.length} · {formatFare(BREAKFAST.each * members.length)}{" "}
+                GBP
+              </PrimaryButton>
+            )}
+          </div>
+        )}
       </section>
-      {!state.invitesSent && (
+      {!state.frozen && (
         <p className="mt-4 px-1 text-[13px] leading-[18px] text-pg-ink">
           Invites not sent yet.{" "}
           <TextButton href="/group/review" className="min-h-0 text-[13px]">
@@ -521,6 +487,9 @@ export function GroupStatusScreen() {
           </TextButton>
         </p>
       )}
+      <p className="mt-4 px-1 text-[12px] leading-[18px] text-pg-ink">
+        {draft.stops.value.length} stops · {itinerary.legs.length} flights each.
+      </p>
     </AppShell>
   );
 }

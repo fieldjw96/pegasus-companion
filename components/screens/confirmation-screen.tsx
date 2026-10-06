@@ -7,7 +7,7 @@ import { DestinationPhoto } from "@/components/ui/destination-photo";
 import { Wordmark } from "@/components/ui/primitives";
 import type { TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor } from "@/lib/assistant/itinerary";
-import { priceOf } from "@/lib/assistant/price";
+import { breakdown, withLines, type PriceLine } from "@/lib/assistant/price";
 import { AIRPORTS, formatFare } from "@/lib/journey/flights";
 
 /**
@@ -18,21 +18,24 @@ import { AIRPORTS, formatFare } from "@/lib/journey/flights";
 export function ConfirmationScreen({
   draft,
   owner,
-  extra = 0,
+  extraLines = [],
+  headline,
   says,
   children,
 }: {
   draft: TripDraft;
   owner?: string;
-  /** Anything bought on top of the fare, such as a seat. */
-  extra?: number;
+  /** Anything bought on top of the fare. */
+  extraLines?: PriceLine[];
+  /** Over the city: "You're going, Will". */
+  headline?: string;
   /** The companion's one line under the receipt. */
   says: ReactNode;
   /** Anything else: the group card, the seat, the group progress. */
   children?: ReactNode;
 }) {
   const itinerary = itineraryFor(draft, owner);
-  const total = Math.round((priceOf(draft) + extra) * 100) / 100;
+  const total = withLines(breakdown(draft), extraLines).total;
   const city =
     AIRPORTS[draft.destination.value as keyof typeof AIRPORTS]?.city ??
     draft.destination.value;
@@ -71,7 +74,7 @@ export function ConfirmationScreen({
               BOOKED
             </span>
             <h1 className="text-[44px] leading-[46px] font-extrabold tracking-[-0.02em]">
-              {city}
+              {headline ?? city}
             </h1>
           </div>
         </div>

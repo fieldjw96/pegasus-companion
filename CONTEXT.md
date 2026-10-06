@@ -6,6 +6,33 @@ jury: can an agent make the purchase decision easier without becoming a chatbot?
 
 ## Language
 
+### The agents
+
+**Companion**:
+The one face the passenger sees. Behind it, four agents, each named for what it
+does. The passenger never sees the seams.
+_Avoid_: assistant, chatbot, bot
+
+**Trip agent**:
+Turns a wish into a full itinerary on Pegasus's network, and rebuilds repeat
+trips. Will's week and Emre's usual are both its work.
+_Avoid_: planner, search
+
+**Offer agent**:
+Predicts which bag, seat or bundle each traveller will buy, and when to ask. It
+acts only where the predicted need is high, and stays quiet where it is low.
+_Avoid_: upsell engine, recommender
+
+**Group agent**:
+Turns one booking into a group: freezes the fare, invites, pre-fills each
+friend's booking in the organiser's name, and nudges the stragglers.
+_Avoid_: sharing, referral
+
+**Moments agent**:
+Picks the moment and the channel: a birthday two months out, check-in opening, a
+cancellation, a new route. Everything it sends arrives on a lock screen.
+_Avoid_: notifications, marketing
+
 ### The trip
 
 **Sentence**:
@@ -14,9 +41,16 @@ the companion answers with a ticket rather than with text. There is no transcrip
 and no reply bubble, which is what keeps this from being a chatbot.
 _Avoid_: prompt, query, message, chat
 
+**Heard**:
+What the companion took from the sentence, shown as chips under it: travellers,
+month, place, nights, trip type. Every chip is editable, because a misheard
+word must cost one tap, not a fresh search.
+_Avoid_: parsed, entities
+
 **Draft**:
-The trip as the companion has assembled it, field by field, with where each value
-came from. It becomes a Ticket when printed and a booking when paid for.
+The trip as the companion has assembled it, field by field, with where each
+value came from. It becomes a Ticket when printed and a booking when paid for.
+A draft has a route: a simple return, or stops with nights at each.
 _Avoid_: search, form, itinerary
 
 **Provenance**:
@@ -27,105 +61,101 @@ their initials). On the pass, anything not said carries a dotted underline. A
 value loses its tag the moment the passenger changes it.
 _Avoid_: source, confidence, inferred
 
-**Worth a look**:
-A predicted value the companion is not sure of, flagged beside its tag. Flexibility
-on a family holiday is one; a cabin bag for someone who usually goes for a weekend
-is another.
-_Avoid_: uncertain, low confidence
+**Cold start**:
+A passenger with no history. Nothing is remembered, so everything not said is a
+prediction and is tagged as one. Will.
+_Avoid_: new user, anonymous
 
-**Hero trip**:
-The one trip the demo is built around: Stansted to Izmir, 19 to 25 October, three
-travelling, SAVER PLUS, 1224.66 GBP, reference NSVSXR, seats 19D 19E 19F. Pinned
-in `lib/journey/script.ts` so every screen prints the same numbers.
-_Avoid_: default, sample, fixture
+**Warm start**:
+A passenger whose past bookings fill most of the ticket. Emre.
+_Avoid_: returning user, profile
+
+**Thumbs**:
+One-tap feedback, Uber-style: did we get it right? A down vote opens a short list
+of what it could have been (the return date, the seat, the bags). It tells the
+agents exactly what they got wrong, so each prediction improves.
+_Avoid_: rating, survey, feedback form
 
 ### The group
 
 **Organiser**:
-The passenger who booked first and had the companion hold the same flights for
-others. Sees names, status and seat only; never anybody else's fare.
+The passenger who booked first and had the companion freeze the fare for others.
+Sees names, status and seat only; never anybody else's fare. Will.
 _Avoid_: host, leader, admin
 
 **Invitee**:
-Someone the organiser invited. With a Pegasus account, the companion builds their
-booking from their own history; without one, they get an email link to a booking
-built from the organiser's flights alone. They pay only for themself.
-_Avoid_: guest, member, friend (in code)
+Someone the organiser invited. With the app, the companion builds their booking
+from what Pegasus knows about them and sends a push in the organiser's name.
+Without it, a WhatsApp link opens the same booking on the web. Archie and Tom.
+_Avoid_: guest, member
 
-**Hold**:
-The 48 hours during which the seats beside the organiser are kept for invitees.
-Shown as a deadline everywhere it matters and as time left on the group card.
-_Avoid_: reservation, lock, price freeze
+**Price Freeze**:
+A product Pegasus sells today: the organiser pays a small fee per friend and the
+fare is held for 48 hours while they book. The clock is shown everywhere it
+matters.
+_Avoid_: hold, reservation, lock
 
-**Seat offer**:
-The one question the companion will not answer on an invitee's behalf: whether to
-pay for the seat beside the organiser. Computed off the organiser's block, priced
-per leg, and asked exactly once.
-_Avoid_: upsell, add-on, recommendation
+**Squad**:
+The group, once it exists: a card in My Flights that fills in as people book, a
+Live Activity on the lock screen while they do, and one offer for all of them
+once they have.
+_Avoid_: party, booking group
 
-### The watch
+**Seat beside**:
+The seat held for a friend next to the organiser's. Computed off the organiser's
+block, offered once, priced per leg.
+_Avoid_: upsell, add-on
 
-**Watch**:
-A trip the passenger will take, described as tolerances rather than a search, which
-the companion checks every morning. The unit the companion reasons about across
-days, and the reason it exists: nobody books a half term in one sitting.
-_Avoid_: alert, price alert, saved search, deliberation
+### The moment
 
-**Intent**:
-The watch's contents: a week, places still in the running, who, an all-in cap,
-must-haves, a buy rule, and a deadline. Set on the intent sheet, which has no input
-boxes: each row is a tolerance with a provenance tag.
-_Avoid_: criteria, filters, preferences
+**Moment**:
+A recurring trip the companion knows about and brings up at the right time,
+before anyone searches. Mum's birthday, every June.
+_Avoid_: alert, saved search, watch
 
-**Morning**:
-One check of the watch, at 06:40. Pure and scripted, so a rehearsal and the live
-run agree. Its verdict is silent, propose, or deadline.
-_Avoid_: poll, tick, run, job
+**Usual trip**:
+The trip rebuilt from last time: flights, seat, bundle, with an all-in price up
+front. The one thing it guesses, it flags.
+_Avoid_: default, template
+
+**Nudge**:
+The companion speaking two months out, on the lock screen, with Why I spoke. One
+tap approves the usual. "Look" opens the ticket. "Not this year" keeps it quiet
+until next April.
+_Avoid_: reminder, push, campaign
 
 **The three gates**:
-What keeps a morning silent, each alone sufficient: nothing changed overnight; the
-change does not bring the best under the cap; the interruption budget is spent.
+What keeps a morning silent, each alone sufficient: it is not the moment; the
+passenger said not this year, or never; the interruption budget is spent.
 Restraint is a property of the system, not a claim in a slide.
-_Avoid_: thresholds, rules engine, filters
+_Avoid_: thresholds, rules engine
 
 **Interruption budget**:
-Three. How many times the companion may speak in one watch. When it is gone the
-companion is silent regardless of how interesting the market is.
+Three. How many times the companion may speak about one moment. When it is gone
+the companion is silent regardless of what the fares do.
 _Avoid_: rate limit, throttle, quota
 
 **Why I spoke**:
-The pale-yellow block on every proposal, in the first person, with the figures a
+The pale-yellow block on every nudge, in the first person, with the figures a
 passenger can check. Every number in it is computed in code and handed over as a
 sentence. Restraint nobody can see reads as no restraint at all, and a proposal
 nobody can check reads as a push.
-_Avoid_: explanation, rationale, reasoning
+_Avoid_: explanation, rationale
 
-**Live Activity**:
-The card on the lock screen a proposal arrives in. Compact: one line, one price,
-one yellow action. Expanded: Why I spoke, approve with Face ID, look, not this one.
-The app is not open; that is the point.
-_Avoid_: notification (that is the invitee's), push, banner
-
-**Not this one**:
-Declining a proposal and saying why: the place, the dates, or the price. The place
-is struck off the watch and the companion keeps watching the rest.
-_Avoid_: dismiss, reject, snooze
-
-**Deadline rule**:
-The morning, N days before departure, when the companion stops waiting and brings
-the best there is, with a recommendation the passenger can refuse, a cap to raise,
-or the option to keep waiting.
-_Avoid_: timeout, expiry, fallback
+**Surprise mode**:
+Dad follows the flight; Mum gets nothing from anyone's booking and finds out when
+Emre walks in. A setting on the confirmation, honoured by every message after.
+_Avoid_: privacy setting, sharing
 
 ### The demo
 
 **Scene**:
-One screen of either journey, reachable from the panel beside the phone. Scenes
+One beat of either journey, reachable from the panel beside the phone. Scenes
 exist because a phone cannot show a different morning or a different person's
 phone on its own.
 _Avoid_: step, page, slide
 
 **Journey**:
-One of the two end-to-end stories the prototype must carry: the cold start (speak
-the trip, book, build a group) and the warm start (the companion moves first).
+One of the two end-to-end stories the prototype carries: the lads go to
+Cappadocia (cold start) and home for Mum's birthday (warm start).
 _Avoid_: flow, funnel, path

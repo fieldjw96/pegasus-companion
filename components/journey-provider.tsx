@@ -3,51 +3,64 @@
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { TripDraft } from "@/lib/assistant/draft";
-import type { AirportCode } from "@/lib/journey/flights";
 
 /**
  * What the passenger has done so far in this demo, carried across screens.
  *
- * Kept in session storage rather than the URL: the trip is a dozen fields with
+ * Kept in session storage rather than the URL: a trip is a dozen fields with
  * provenance on each, which is more than a query string should carry, and a
  * presenter refreshing the page mid-demo should land where they were. Every
- * screen still works cold, by falling back to the hero trip.
+ * screen still works cold, by falling back to the persona's starting trip.
  */
 export type JourneyState = {
-  profileId: string;
+  /** Whose phone this is. */
+  persona: "will" | "emre";
   prompt: string | null;
   draft: TripDraft | null;
-  /** Jack has paid. */
+  /** Will has paid. */
   booked: boolean;
-  /** Who was invited, by name, once the group was built. */
+  /** "Did we get your trip right?" */
+  thumbs: "up" | "down" | null;
+  /** Who was invited, by name, once the fare was frozen. */
   invited: string[];
-  invitesSent: boolean;
-  /** Sam's side. */
-  invitee: { seatTaken: boolean; booked: boolean };
-  /** The watch, once set, and what has happened to it since. */
-  watch: {
+  frozen: boolean;
+  /** Invitees who have paid, with the seat they took. */
+  inviteesBooked: Record<string, string | null>;
+  /** Tom's card was declined once. */
+  declined: boolean;
+  /** Emre's side. */
+  emre: {
+    draft: TripDraft | null;
+    booked: boolean;
+    /** "Not quite: return date". */
+    corrected: string | null;
+    gifts: boolean;
+    surprise: boolean;
+  };
+  moment: {
     set: boolean;
-    excluded: AirportCode[];
-    /** The companion has spoken this many times in this deliberation. */
-    spoken: number;
-    /** Jack approved from the lock screen. */
+    declined: boolean;
+    never: boolean;
     approved: boolean;
-    capRaisedTo: number | null;
+    spoken: number;
   };
 };
 
 const INITIAL: JourneyState = {
-  profileId: "family",
+  persona: "will",
   prompt: null,
   draft: null,
   booked: false,
+  thumbs: null,
   invited: [],
-  invitesSent: false,
-  invitee: { seatTaken: false, booked: false },
-  watch: { set: false, excluded: [], spoken: 0, approved: false, capRaisedTo: null },
+  frozen: false,
+  inviteesBooked: {},
+  declined: false,
+  emre: { draft: null, booked: false, corrected: null, gifts: false, surprise: true },
+  moment: { set: false, declined: false, never: false, approved: false, spoken: 0 },
 };
 
-const KEY = "pegasus-companion-journey";
+const KEY = "pegasus-companion-journey-v2";
 
 type Journey = {
   state: JourneyState;
@@ -73,7 +86,15 @@ function load(): JourneyState {
   let loaded = INITIAL;
   try {
     const raw = window.sessionStorage.getItem(KEY);
-    if (raw !== null) loaded = { ...INITIAL, ...(JSON.parse(raw) as Partial<JourneyState>) };
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as Partial<JourneyState>;
+      loaded = {
+        ...INITIAL,
+        ...parsed,
+        emre: { ...INITIAL.emre, ...parsed.emre },
+        moment: { ...INITIAL.moment, ...parsed.moment },
+      };
+    }
   } catch {
     // A corrupt entry is not worth a broken demo: start clean.
   }

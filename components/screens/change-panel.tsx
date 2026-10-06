@@ -4,32 +4,43 @@ import { useState, type ReactNode } from "react";
 import { FieldRow, LookTag, Tag, TextButton } from "@/components/ui/primitives";
 import {
   FIELD_LABELS,
-  FIELD_ORDER,
   countBySource,
+  visibleKeys,
   type DraftKey,
+  type Source,
   type TripDraft,
 } from "@/lib/assistant/draft";
-import { itineraryFor } from "@/lib/assistant/itinerary";
 import { naivePath } from "@/lib/assistant/price";
+import { stopsFor } from "@/lib/assistant/understand";
+import { nights } from "@/lib/assistant/itinerary";
 import { AIRPORTS, FARE_RULES, airportCodes, formatFare } from "@/lib/journey/flights";
-import { shortDate } from "@/lib/demo/hero";
+import { shortDate } from "@/lib/demo/personas";
 
 /**
  * The provenance list, every field editable in place.
  *
  * Every field shows where its value came from: said, remembered, predicted, or
- * from the organiser of a group. An assistant that fills in ten things and
+ * from the organiser of a group. A companion that fills in ten things and
  * shows ten answers is asking for blind trust; this one shows which four you
  * gave it and why it chose the other six. Predictions carry a reason, not a
- * confidence score: "Mila is 4, so seats together" is checkable by a human.
- * "0.86" is not.
+ * confidence score: "a 40L pack won't fit under the seat" is checkable by a
+ * human. "0.86" is not.
  */
+export type ExtraRow = {
+  label: string;
+  source: Source;
+  value: string;
+  reason?: string;
+};
+
 export function ChangePanel({
   draft,
   onChange,
   names,
   seatLabel,
   seatSaid = false,
+  seats = [],
+  extraRows = [],
 }: {
   draft: TripDraft;
   onChange: (next: TripDraft) => void;
@@ -38,11 +49,15 @@ export function ChangePanel({
   seatLabel?: string;
   /** The offered seat was taken: it is the passenger's now. */
   seatSaid?: boolean;
+  /** The seats on the first leg, as the itinerary allocated them. */
+  seats?: string[];
+  /** Remembered things that are not draft fields. */
+  extraRows?: ExtraRow[];
 }) {
   const [editing, setEditing] = useState<DraftKey | null>(null);
   const counts = countBySource(draft, seatLabel === undefined ? [] : ["seating"]);
+  for (const row of extraRows) counts[row.source] += 1;
   const saving = naivePath(draft);
-  const itinerary = itineraryFor(draft);
   const organiser = draft.origin.from;
 
   function set<K extends DraftKey>(key: K, value: TripDraft[K]["value"]): void {
@@ -55,7 +70,7 @@ export function ChangePanel({
       ? `${counts.shared} from ${(organiser ?? "the organiser").split(" ")[0]}`
       : null,
     counts.said > 0 ? `${counts.said} from you` : null,
-    `${counts.profile} remembered`,
+    counts.profile > 0 ? `${counts.profile} remembered` : null,
     `${counts.predicted} predicted`,
   ]
     .filter((s): s is string => s !== null)
@@ -75,13 +90,13 @@ export function ChangePanel({
       >
         {summary}. Anything you change becomes yours and the ticket reprints.
       </p>
-      {FIELD_ORDER.map((key) => {
+      {visibleKeys(draft).map((key) => {
         const entry = draft[key];
         const open = editing === key;
         const offer = key === "seating" && seatLabel !== undefined;
         let reason: ReactNode = entry.source === "said" ? undefined : entry.why;
         if (key === "package" && saving !== null && entry.source === "predicted") {
-          reason = `${formatFare(saving.saved)} GBP cheaper than taking the cheapest fare and adding the same bag later.`;
+          reason = `${entry.why} ${formatFare(saving.saved)} GBP cheaper than the cheapest fare plus the same bag at the airport.`;
         }
         if (offer) reason = undefined;
         return (
@@ -113,11 +128,21 @@ export function ChangePanel({
               )
             }
           >
-            {offer ? seatLabel : display(key, draft, names, itinerary.out?.seats ?? [])}
+            {offer ? seatLabel : display(key, draft, names, seats)}
             {open && <Editor draftKey={key} draft={draft} onPick={set} />}
           </FieldRow>
         );
       })}
+      {extraRows.map((row) => (
+        <FieldRow
+          key={row.label}
+          label={row.label}
+          tags={<Tag source={row.source} />}
+          reason={row.reason}
+        >
+          {row.value}
+        </FieldRow>
+      ))}
     </section>
   );
 }
@@ -130,6 +155,10 @@ function display(key: DraftKey, draft: TripDraft, names: string[], seats: string
       const airport = AIRPORTS[code as keyof typeof AIRPORTS];
       return airport === undefined ? code : `${airport.city} ${airport.name}`;
     }
+    case "stops":
+      return draft.stops.value
+        .map((s) => `${AIRPORTS[s.code as keyof typeof AIRPORTS]?.city ?? s.code} ${s.nights}`)
+        .join(" · ");
     case "departDate":
       return shortDate(draft.departDate.value);
     case "returnDate":
@@ -178,153 +207,187 @@ function Editor({
   const input =
     "mt-3 w-full rounded-xl bg-pg-surface px-3 py-2.5 text-[15px] font-semibold outline-none";
 
-  if (draftKey === "origin" || draftKey === "destination") {
-    return (
-      <select
-        autoFocus
-        value={draft[draftKey].value}
-        onChange={(e) => onPick(draftKey, e.target.value)}
-        className={input}
-      >
-        {airportCodes.map((code) => (
-          <option key={code} value={code}>
-            {AIRPORTS[code].city} ({code})
-          </option>
-        ))}
-      </select>
-    );
-  }
-  if (draftKey === "departDate") {
-    return (
-      <input
-        autoFocus
-        type="date"
-        value={draft.departDate.value}
-        onChange={(e) => onPick("departDate", e.target.value)}
-        className={input}
-      />
-    );
-  }
-  if (draftKey === "returnDate") {
-    return (
-      <div className="mt-3 flex items-center gap-2">
-        <input
-          type="date"
-          value={draft.returnDate.value ?? ""}
-          onChange={(e) => onPick("returnDate", e.target.value === "" ? null : e.target.value)}
-          className="flex-1 rounded-xl bg-pg-surface px-3 py-2.5 text-[15px] font-semibold outline-none"
-        />
-        <Chip on={draft.returnDate.value === null} onClick={() => onPick("returnDate", null)}>
-          One way
-        </Chip>
-      </div>
-    );
-  }
-  if (draftKey === "party") {
-    const p = draft.party.value;
-    return (
-      <div className="mt-3 flex flex-col gap-2">
-        {(["adults", "children", "infants"] as const).map((kind) => (
-          <div key={kind} className="flex items-center justify-between">
-            <span className="text-[14px] font-medium capitalize">{kind}</span>
-            <span className="flex items-center gap-3">
-              <Step
-                label={`Fewer ${kind}`}
-                onClick={() =>
-                  onPick("party", {
-                    ...p,
-                    [kind]: Math.max(kind === "adults" ? 1 : 0, p[kind] - 1),
-                  })
-                }
-              >
-                −
-              </Step>
-              <span className="tabular w-4 text-center text-[15px] font-bold">{p[kind]}</span>
-              <Step
-                label={`More ${kind}`}
-                onClick={() => onPick("party", { ...p, [kind]: p[kind] + 1 })}
-              >
-                +
-              </Step>
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (draftKey === "package") {
-    return (
-      <div className={wrap}>
-        {(Object.keys(FARE_RULES) as (keyof typeof FARE_RULES)[]).map((family) => (
-          <Chip
-            key={family}
-            on={draft.package.value === family}
-            onClick={() => onPick("package", family)}
-          >
-            {FARE_RULES[family].label}
-          </Chip>
-        ))}
-      </div>
-    );
-  }
-  if (draftKey === "checkedKg") {
-    return (
-      <div className={wrap}>
-        {([0, 12, 20, 25] as const).map((kg) => (
-          <Chip
-            key={kg}
-            on={draft.checkedKg.value === kg}
-            onClick={() => onPick("checkedKg", kg)}
-          >
-            {kg === 0 ? "None" : `${kg} kg`}
-          </Chip>
-        ))}
-      </div>
-    );
-  }
-  if (draftKey === "cabinBag") {
-    return (
-      <div className={wrap}>
-        {[true, false].map((v) => (
-          <Chip
-            key={String(v)}
-            on={draft.cabinBag.value === v}
-            onClick={() => onPick("cabinBag", v)}
-          >
-            {v ? "Included" : "Not included"}
-          </Chip>
-        ))}
-      </div>
-    );
-  }
-  if (draftKey === "seating") {
-    return (
-      <div className={wrap}>
-        {(["together", "aisle", "window", "none"] as const).map((v) => (
-          <Chip key={v} on={draft.seating.value === v} onClick={() => onPick("seating", v)}>
-            {
-              { together: "Together", aisle: "Aisle", window: "Window", none: "At check-in" }[
-                v
-              ]
-            }
-          </Chip>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className={wrap}>
-      {(["none", "change", "full"] as const).map((v) => (
-        <Chip
-          key={v}
-          on={draft.flexibility.value === v}
-          onClick={() => onPick("flexibility", v)}
+  switch (draftKey) {
+    case "origin":
+    case "destination":
+      return (
+        <select
+          autoFocus
+          value={draft[draftKey].value}
+          onChange={(e) => onPick(draftKey, e.target.value)}
+          className={input}
         >
-          {{ none: "Fixed", change: "Changeable", full: "Fully flexible" }[v]}
-        </Chip>
-      ))}
-    </div>
-  );
+          {airportCodes.map((code) => (
+            <option key={code} value={code}>
+              {AIRPORTS[code].city} ({code})
+            </option>
+          ))}
+        </select>
+      );
+    case "stops": {
+      const away = nights(draft) ?? 7;
+      const options = [
+        {
+          label: "Backpacking: Istanbul, the balloons, the coast",
+          type: "backpacking" as const,
+        },
+        { label: "City break: Istanbul, then the balloons", type: "cityBreak" as const },
+      ];
+      return (
+        <div className={wrap}>
+          {options.map((o) => {
+            const route = stopsFor(draft.destination.value, away, o.type);
+            const on = JSON.stringify(route?.stops) === JSON.stringify(draft.stops.value);
+            return (
+              <Chip
+                key={o.type}
+                on={on}
+                onClick={() => route !== null && onPick("stops", route.stops)}
+              >
+                {o.label}
+              </Chip>
+            );
+          })}
+        </div>
+      );
+    }
+    case "departDate":
+      return (
+        <input
+          autoFocus
+          type="date"
+          value={draft.departDate.value}
+          onChange={(e) => onPick("departDate", e.target.value)}
+          className={input}
+        />
+      );
+    case "returnDate":
+      return (
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            type="date"
+            value={draft.returnDate.value ?? ""}
+            onChange={(e) =>
+              onPick("returnDate", e.target.value === "" ? null : e.target.value)
+            }
+            className="flex-1 rounded-xl bg-pg-surface px-3 py-2.5 text-[15px] font-semibold outline-none"
+          />
+          <Chip
+            on={draft.returnDate.value === null}
+            onClick={() => onPick("returnDate", null)}
+          >
+            One way
+          </Chip>
+        </div>
+      );
+    case "party": {
+      const p = draft.party.value;
+      return (
+        <div className="mt-3 flex flex-col gap-2">
+          {(["adults", "children", "infants"] as const).map((kind) => (
+            <div key={kind} className="flex items-center justify-between">
+              <span className="text-[14px] font-medium capitalize">{kind}</span>
+              <span className="flex items-center gap-3">
+                <Step
+                  label={`Fewer ${kind}`}
+                  onClick={() =>
+                    onPick("party", {
+                      ...p,
+                      [kind]: Math.max(kind === "adults" ? 1 : 0, p[kind] - 1),
+                    })
+                  }
+                >
+                  −
+                </Step>
+                <span className="tabular w-4 text-center text-[15px] font-bold">
+                  {p[kind]}
+                </span>
+                <Step
+                  label={`More ${kind}`}
+                  onClick={() => onPick("party", { ...p, [kind]: p[kind] + 1 })}
+                >
+                  +
+                </Step>
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    case "package":
+      return (
+        <div className={wrap}>
+          {(Object.keys(FARE_RULES) as (keyof typeof FARE_RULES)[]).map((family) => (
+            <Chip
+              key={family}
+              on={draft.package.value === family}
+              onClick={() => onPick("package", family)}
+            >
+              {FARE_RULES[family].label}
+            </Chip>
+          ))}
+        </div>
+      );
+    case "checkedKg":
+      return (
+        <div className={wrap}>
+          {([0, 12, 20, 25] as const).map((kg) => (
+            <Chip
+              key={kg}
+              on={draft.checkedKg.value === kg}
+              onClick={() => onPick("checkedKg", kg)}
+            >
+              {kg === 0 ? "None" : `${kg} kg`}
+            </Chip>
+          ))}
+        </div>
+      );
+    case "cabinBag":
+      return (
+        <div className={wrap}>
+          {[true, false].map((v) => (
+            <Chip
+              key={String(v)}
+              on={draft.cabinBag.value === v}
+              onClick={() => onPick("cabinBag", v)}
+            >
+              {v ? "Included" : "Not included"}
+            </Chip>
+          ))}
+        </div>
+      );
+    case "seating":
+      return (
+        <div className={wrap}>
+          {(["window", "aisle", "together", "none"] as const).map((v) => (
+            <Chip key={v} on={draft.seating.value === v} onClick={() => onPick("seating", v)}>
+              {
+                {
+                  together: "Together",
+                  aisle: "Aisle",
+                  window: "Window",
+                  none: "At check-in",
+                }[v]
+              }
+            </Chip>
+          ))}
+        </div>
+      );
+    case "flexibility":
+      return (
+        <div className={wrap}>
+          {(["none", "change", "full"] as const).map((v) => (
+            <Chip
+              key={v}
+              on={draft.flexibility.value === v}
+              onClick={() => onPick("flexibility", v)}
+            >
+              {{ none: "Fixed", change: "Changeable", full: "Fully flexible" }[v]}
+            </Chip>
+          ))}
+        </div>
+      );
+  }
 }
 
 export function Chip({

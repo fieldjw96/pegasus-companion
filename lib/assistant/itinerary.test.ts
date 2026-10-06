@@ -14,6 +14,7 @@ function draftOf(over: Partial<TripDraft> = {}): TripDraft {
   return {
     origin: field("STN"),
     destination: field("ADB"),
+    stops: field([]),
     departDate: field("2026-10-19"),
     returnDate: field<string | null>("2026-10-25"),
     party: field({ adults: 2, children: 1, infants: 0 }),

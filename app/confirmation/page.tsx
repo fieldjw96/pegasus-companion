@@ -1,5 +1,5 @@
-import { JackConfirmation } from "@/components/screens/jack";
+import { WillConfirmation } from "@/components/screens/will";
 
 export default function ConfirmationPage() {
-  return <JackConfirmation />;
+  return <WillConfirmation />;
 }

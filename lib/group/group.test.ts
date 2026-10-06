@@ -1,88 +1,82 @@
 import { describe, expect, it } from "vitest";
-import { FRIENDS, buildInviteeDraft, groupMembers, seatOffer } from "./group";
+import { FRIENDS, buildInviteeDraft, groupMembers, inviteeExtras, seatBeside } from "./group";
 import { countBySource } from "@/lib/assistant/draft";
-import { priceOf } from "@/lib/assistant/price";
-import { FAMILY, heroDraft } from "@/lib/demo/hero";
+import { itineraryFor } from "@/lib/assistant/itinerary";
+import { breakdown, priceOf, withLines } from "@/lib/assistant/price";
+import { WILL, willDraft } from "@/lib/demo/personas";
 
 /**
- * The invitee's booking is the claim of Part 2: built from the organiser's
- * flights and the invitee's own history, priced for one, with exactly one
- * thing the companion had to work out.
+ * The invitee's booking is the claim of the group beats: built from the
+ * organiser's flights and whatever Pegasus already knows about the invitee,
+ * priced for one, with the seat beside the organiser held.
  */
-describe("an invitee's booking", () => {
-  const jack = heroDraft();
-  const sam = FRIENDS[0]!;
-  const draft = buildInviteeDraft(jack, sam);
-  const names = FAMILY.travellers.map((t) => t.name);
+describe("Archie's booking", () => {
+  const will = willDraft();
+  const me = WILL.travellers[0]!.name;
+  const archie = FRIENDS[0]!;
+  const draft = buildInviteeDraft(will, archie, me);
 
-  it("carries the organiser's route and dates, tagged as his", () => {
-    for (const key of ["origin", "destination", "departDate", "returnDate"] as const) {
-      expect(draft[key].value).toBe(jack[key].value);
+  it("carries Will's route, stops and dates, tagged as his", () => {
+    for (const key of [
+      "origin",
+      "destination",
+      "stops",
+      "departDate",
+      "returnDate",
+    ] as const) {
+      expect(draft[key].value).toEqual(will[key].value);
       expect(draft[key].source).toBe("shared");
-      expect(draft[key].from).toBe("Jack Field");
+      expect(draft[key].from).toBe(me);
     }
   });
 
-  it("counts 4 from Jack, 4 remembered, 1 predicted, seat aside", () => {
-    expect(countBySource(draft, ["seating"])).toEqual({
-      shared: 4,
-      profile: 4,
-      predicted: 1,
-      said: 0,
-    });
+  it("counts 5 from Will, 2 remembered, 4 predicted", () => {
+    expect(countBySource(draft)).toEqual({ shared: 5, profile: 2, predicted: 4, said: 0 });
   });
 
-  it("is LIGHT with a cabin bag for one, at 342.22", () => {
-    expect(draft.package.value).toBe("light");
-    expect(draft.checkedKg.value).toBe(0);
-    expect(draft.cabinBag.value).toBe(true);
-    expect(draft.cabinBag.uncertain).toBe(true);
-    expect(draft.party.value).toEqual({ adults: 1, children: 0, infants: 0 });
-    expect(priceOf(draft)).toBe(342.22);
+  it("is held in 14B, next to Will, on every leg", () => {
+    expect(seatBeside(will, archie, me)).toBe("14B");
+    const itinerary = itineraryFor(draft, archie.name);
+    expect(itinerary.legs.map((l) => l.seats[0])).toEqual(["14B", "14B", "14B", "14B"]);
+    expect(itinerary.reference).toBe("M2PR8V");
   });
 
-  it("offers the seat beside the family's block, 9.00 a leg", () => {
-    const offer = seatOffer(jack, names);
-    expect(offer?.seat).toBe("19C");
-    expect(offer?.row).toBe(19);
-    expect(offer?.perLeg).toBe(9);
-    expect(offer?.total).toBe(18);
-    expect(offer?.neighbours.map((n) => n.name)).toEqual(names);
-    expect(priceOf(draft) + (offer?.total ?? 0)).toBeCloseTo(360.22, 2);
-  });
-
-  it("offers nothing when the organiser has no seats", () => {
-    const noSeats = {
-      ...jack,
-      seating: { value: "none" as const, source: "said" as const, why: "" },
-    };
-    expect(seatOffer(noSeats, names)).toBeNull();
-  });
-
-  it("builds a stranger's booking as predictions rather than memories", () => {
-    const tom = FRIENDS.find((f) => !f.account)!;
-    const tomDraft = buildInviteeDraft(jack, tom);
-    expect(tomDraft.package.source).toBe("predicted");
-    expect(tomDraft.flexibility.source).toBe("predicted");
+  it("has the hot meal already in the basket, and pays only for himself", () => {
+    const extras = inviteeExtras(will, archie, me);
+    expect(extras.map((e) => e.label)).toEqual(["Hot meal, Pegasus Café"]);
+    const total = withLines(breakdown(draft), extras).total;
+    expect(total).toBe(priceOf(will) + 26);
   });
 });
 
-describe("group status", () => {
+describe("Tom's booking", () => {
+  const will = willDraft();
+  const me = WILL.travellers[0]!.name;
+  const tom = FRIENDS[1]!;
+
+  it("is built from Will alone, with nothing remembered", () => {
+    const draft = buildInviteeDraft(will, tom, me);
+    expect(countBySource(draft).profile).toBe(0);
+    expect(seatBeside(will, tom, me)).toBe("14C");
+    expect(inviteeExtras(will, tom, me)).toEqual([]);
+    expect(itineraryFor(draft, tom.name).reference).toBe("X7K2PQ");
+  });
+});
+
+describe("the squad", () => {
   const invited = FRIENDS.map((f) => f.name);
 
-  it("starts with only the organiser booked", () => {
-    const members = groupMembers("Jack Field", invited, null);
-    expect(members.filter((m) => m.status === "booked").map((m) => m.name)).toEqual([
-      "Jack Field",
-    ]);
-    expect(members.find((m) => m.name === "Tom Baker")?.status).toBe("unopened");
+  it("starts with only Will booked, Archie opened, Tom unopened", () => {
+    const members = groupMembers("Will Parker", "14A", invited, {});
+    expect(members.map((m) => m.status)).toEqual(["booked", "opened", "unopened"]);
   });
 
-  it("marks the invitee booked, with their seat, once they have paid", () => {
-    const members = groupMembers("Jack Field", invited, { name: "Sam Okonkwo", seat: "19C" });
-    const sam = members.find((m) => m.name === "Sam Okonkwo");
-    expect(sam?.status).toBe("booked");
-    expect(sam?.seat).toBe("19C");
-    expect(members.filter((m) => m.status === "booked")).toHaveLength(2);
+  it("fills in as people pay, with their seats", () => {
+    const members = groupMembers("Will Parker", "14A", invited, {
+      "Archie Bell": "14B",
+      "Tom Baker": "14C",
+    });
+    expect(members.every((m) => m.status === "booked")).toBe(true);
+    expect(members.map((m) => m.seat)).toEqual(["14A", "14B", "14C"]);
   });
 });

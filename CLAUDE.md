@@ -1,8 +1,10 @@
 # pegasus-companion
 
-A mock of the Pegasus Airlines mobile booking journey, built as a web app, used as
-a harness for an agentic companion layer. It exists for the Pegasus x Berkeley Haas
-**AI Travel Companion Hackathon** (Build Day 3 October 2026).
+A mock of the Pegasus Airlines mobile app with an agentic companion built into it,
+as a web app. Four agents behind one face (Trip, Offer, Group, Moments), two
+storyboarded journeys (the lads go to Cappadocia; home for Mum's birthday). Built
+by Team Winging It for the Pegasus x Berkeley Haas **AI Travel Companion
+Hackathon** (Build Day 3 October 2026).
 
 See [[CONTEXT]] for this repo's vocabulary.
 
@@ -18,14 +20,16 @@ Pegasus ecosystem". The one input is a sentence that is answered with a ticket,
 never with text: there is no transcript and no reply bubble, and adding either
 would fail the brief. Everywhere else the companion decides when to speak.
 
-**Staying quiet is a feature.** `lib/watch/watch.ts` has three gates, each of
-which alone silences the companion. A change that makes it speak more often is a
-regression unless the Ticket says otherwise.
+**Staying quiet is a feature.** `lib/moments/moments.ts` has three gates, each of
+which alone silences the companion. Ignored offers are not repeated; "not this
+year" holds for a year; "don't suggest again" holds for good. A change that makes
+it speak more often is a regression unless the Ticket says otherwise.
 
-**Every number the companion says is computed.** "84.00 GBP cheaper", "dropped
-94 GBP overnight", "19C is free on both legs": all arithmetic in `lib/`, handed to
-the screen as a finished sentence. The hero trip is pinned in
-`lib/journey/script.ts` and asserted in its test so every screen agrees.
+**Every number the companion says is computed.** "112.00 GBP cheaper", "14B next
+to him is yours", "down to 7 seats": all arithmetic in `lib/`, handed to the
+screen as a finished sentence. The demo's routes are pinned in
+`lib/journey/script.ts`, keyed by route so the figures hold whichever month the
+demo runs in, and asserted in its test so every screen agrees.
 
 **Build to the design canvas, screen for screen.** Figtree and Archivo, self-hosted
 under `public/fonts`. White cards on `#F2F6FA`, yellow for the one primary action
@@ -33,7 +37,8 @@ per screen, orange for text links and the dotted "mine" underline and never as a
 fill. The scenes panel beside the phone is for the presenter, not the passenger.
 
 **Every screen must open cold.** There is no server state. A screen opened
-directly falls back to the hero trip, so a presenter can start the demo anywhere.
+directly falls back to the persona's starting trip (Will's week, Emre's usual), so
+a presenter can start the demo anywhere.
 
 ## Stack
 
@@ -54,7 +59,7 @@ easiest way to break the companion while appearing to improve it.
 
 **Format dates and money by hand, never through `Intl`.** Node and Chromium ship
 different ICU builds and disagree on en-GB output, which is a hydration error on
-every screen that prints a date. `lib/demo/hero.ts` has the formatters.
+every screen that prints a date. `lib/demo/personas.ts` has the formatters.
 
 **Pegasus brand orange is `#FF5C00`.** Taken from Pegasus's own hackathon site, so
 it is exact. Do not eyedrop a replacement from a screenshot.

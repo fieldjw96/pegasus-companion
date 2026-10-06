@@ -1,19 +1,16 @@
 /**
- * The demo's hero trip, pinned.
+ * The demo's routes, pinned.
  *
  * Everything else in the inventory is hashed from (origin, destination, date),
- * which is deterministic but arbitrary. The one trip the whole demo is built
- * around is not allowed to be arbitrary: the flight number on the ticket is the
- * flight number in the Live Activity, which is the one in the friend's
- * notification, which is the one in the deck. So the two legs of Jack's half
- * term are written down here, and `inventory()` serves them before it hashes
- * anything.
+ * which is deterministic but arbitrary. The routes the two journeys are built
+ * around are not allowed to be arbitrary: the flight number on Will's ticket is
+ * the one in Archie's notification, the one on the squad tracker, and the one
+ * in the deck. So they are written down here, keyed by route and not by date,
+ * and `inventory()` serves them before it hashes anything. Keying by route
+ * rather than date means the demo prints the same numbers whichever month it
+ * is given in.
  *
- * The LIGHT base of 154.11 is chosen so that SAVER PLUS (154.11 + 50) for three
- * travellers over two legs comes to exactly 1224.66, the total the design
- * canvas prints, and so that a single LIGHT traveller with a cabin bag comes to
- * 342.22, the fare it prints on Sam's ticket. Every other number on those
- * screens is arithmetic on these.
+ * Fares are LIGHT per person per leg; the other families add their uplift.
  */
 
 export type ScriptedFlight = {
@@ -23,124 +20,139 @@ export type ScriptedFlight = {
   durationMinutes: number;
   aircraft: string;
   seatsLeft: number;
-  /** The LIGHT fare per person per leg. The other families add their uplift. */
   light: number;
 };
 
-export const HERO = {
+/** Journey 1: Will, Archie and Tom's week. Four sectors each. */
+export const SQUAD = {
   origin: "STN",
-  destination: "ADB",
-  departDate: "2026-10-19",
-  returnDate: "2026-10-25",
-  reference: "NSVSXR",
-  /** The reference printed on an invitee's booking of the same flights. */
-  inviteeReference: "K7PM2W",
-  gate: "A3",
-  /** The block the family sits in, and the seat beside it a friend can take. */
-  seats: ["19D", "19E", "19F"],
-  seatBeside: "19C",
-  seatPricePerLeg: 9,
+  /** The headline place. The route runs through Istanbul and out via Antalya. */
+  destination: "ASR",
+  stops: [
+    { code: "SAW", nights: 2 },
+    { code: "ASR", nights: 3 },
+    { code: "AYT", nights: 2 },
+  ],
+  references: { will: "K4T7QX", archie: "M2PR8V", tom: "X7K2PQ" },
+  row: 14,
+  seats: { will: "14A", archie: "14B", tom: "14C" },
+  seatPricePerLeg: 7,
+  gate: "B12",
+} as const;
+
+/** Journey 2: Emre's usual trip home. */
+export const HOME = {
+  origin: "SAW",
+  destination: "TZX",
+  reference: "E9MBTZ",
+  seat: "3A",
+  seatPricePerLeg: 6,
+  gate: "C4",
+  /** The flight the cancellation scene moves him to. */
+  later: "21:15",
 } as const;
 
 const SCRIPTED: Record<string, ScriptedFlight[]> = {
-  [`${HERO.origin}|${HERO.destination}|${HERO.departDate}`]: [
+  "STN|SAW": [
     {
-      flightNo: "PC 1474",
-      departs: "07:17",
-      arrives: "10:51",
-      durationMinutes: 214,
-      aircraft: "A320neo",
+      flightNo: "PC 1164",
+      departs: "06:10",
+      arrives: "12:05",
+      durationMinutes: 235,
+      aircraft: "A321neo",
       seatsLeft: 9,
-      light: 154.11,
+      light: 89.4,
     },
     {
-      flightNo: "PC 1478",
-      departs: "13:40",
-      arrives: "17:14",
-      durationMinutes: 214,
-      aircraft: "A321neo",
-      seatsLeft: 14,
-      light: 171.4,
+      flightNo: "PC 1166",
+      departs: "13:30",
+      arrives: "19:25",
+      durationMinutes: 235,
+      aircraft: "A320neo",
+      seatsLeft: 21,
+      light: 97.1,
     },
   ],
-  [`${HERO.destination}|${HERO.origin}|${HERO.returnDate}`]: [
+  "SAW|ASR": [
     {
-      flightNo: "PC 1355",
-      departs: "07:59",
-      arrives: "11:33",
-      durationMinutes: 214,
+      flightNo: "PC 2340",
+      departs: "14:30",
+      arrives: "15:50",
+      durationMinutes: 80,
+      aircraft: "A320neo",
+      seatsLeft: 14,
+      light: 32.1,
+    },
+  ],
+  "ASR|AYT": [
+    {
+      flightNo: "PC 2411",
+      departs: "11:20",
+      arrives: "12:35",
+      durationMinutes: 75,
+      aircraft: "A320neo",
+      seatsLeft: 17,
+      light: 38.6,
+    },
+  ],
+  "AYT|STN": [
+    {
+      flightNo: "PC 1189",
+      departs: "16:40",
+      arrives: "18:55",
+      durationMinutes: 255,
+      aircraft: "A321neo",
+      seatsLeft: 6,
+      light: 101.3,
+    },
+  ],
+  "SAW|TZX": [
+    {
+      flightNo: "PC 2652",
+      departs: "19:05",
+      arrives: "20:50",
+      durationMinutes: 105,
       aircraft: "A320neo",
       seatsLeft: 11,
-      light: 154.11,
+      light: 47.9,
     },
     {
-      flightNo: "PC 1359",
-      departs: "15:05",
-      arrives: "18:39",
-      durationMinutes: 214,
+      flightNo: "PC 2656",
+      departs: "21:15",
+      arrives: "23:00",
+      durationMinutes: 105,
       aircraft: "A320neo",
-      seatsLeft: 6,
-      light: 166.2,
+      seatsLeft: 18,
+      light: 52.4,
+    },
+  ],
+  "TZX|SAW": [
+    {
+      flightNo: "PC 2655",
+      departs: "17:30",
+      arrives: "19:20",
+      durationMinutes: 110,
+      aircraft: "A320neo",
+      seatsLeft: 13,
+      light: 47.9,
     },
   ],
 };
 
-/*
- * The runner-up from the watch: Antalya, which never quite comes under the cap.
- * SAVER PLUS for three over two legs is 1341.66, the figure the deadline rule
- * quotes, and the morning flight is down to its last four seats.
- */
-SCRIPTED[`${HERO.origin}|AYT|${HERO.departDate}`] = [
-  {
-    flightNo: "PC 1180",
-    departs: "08:40",
-    arrives: "15:05",
-    durationMinutes: 265,
-    aircraft: "A321neo",
-    seatsLeft: 4,
-    light: 173.61,
-  },
-  {
-    flightNo: "PC 1184",
-    departs: "17:30",
-    arrives: "23:55",
-    durationMinutes: 265,
-    aircraft: "A320neo",
-    seatsLeft: 12,
-    light: 168.2,
-  },
-];
-SCRIPTED[`AYT|${HERO.origin}|${HERO.returnDate}`] = [
-  {
-    flightNo: "PC 1181",
-    departs: "15:50",
-    arrives: "18:15",
-    durationMinutes: 265,
-    aircraft: "A321neo",
-    seatsLeft: 7,
-    light: 173.61,
-  },
-];
-
-export function scriptedFlights(
-  origin: string,
-  destination: string,
-  date: string,
-): ScriptedFlight[] | null {
-  return SCRIPTED[`${origin}|${destination}|${date}`] ?? null;
+export function scriptedFlights(origin: string, destination: string): ScriptedFlight[] | null {
+  return SCRIPTED[`${origin}|${destination}`] ?? null;
 }
 
-/** True when a draft is the hero trip, whoever is flying it. */
-export function isHeroRoute(
-  origin: string,
-  destination: string,
-  departDate: string,
-  returnDate: string | null,
-): boolean {
-  return (
-    origin === HERO.origin &&
-    destination === HERO.destination &&
-    departDate === HERO.departDate &&
-    returnDate === HERO.returnDate
-  );
+export function isScriptedRoute(origin: string, destination: string): boolean {
+  return `${origin}|${destination}` in SCRIPTED;
+}
+
+/** Who a pinned seat or reference belongs to, by first name, lower case. */
+export type Owner = "will" | "archie" | "tom" | "emre";
+
+export function ownerOf(name: string | undefined): Owner | null {
+  const first = (name ?? "").split(" ")[0]?.toLowerCase();
+  return first === "will" || first === "archie" || first === "tom" || first === "emre"
+    ? first
+    : null;
 }

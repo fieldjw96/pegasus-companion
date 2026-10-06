@@ -1,61 +1,86 @@
 import { describe, expect, it } from "vitest";
-import { HERO } from "./script";
+import { SQUAD, HOME } from "./script";
 import { inventory } from "./flights";
-import { heroDraft } from "@/lib/demo/hero";
+import { EMRE, WILL, emreDraft, willDraft } from "@/lib/demo/personas";
 import { breakdown, naivePath, priceOf } from "@/lib/assistant/price";
-import { itineraryFor } from "@/lib/assistant/itinerary";
+import { itineraryFor, legPlan } from "@/lib/assistant/itinerary";
 import { countBySource } from "@/lib/assistant/draft";
 
 /**
- * The numbers the design canvas prints, asserted exactly.
+ * The numbers the two journeys print, asserted exactly.
  *
  * The same figure appears on the ticket, the checkout, the Live Activity and
  * the friend's notification. If any one of them drifts, the demo contradicts
  * itself in front of the jury, and nothing but a test will notice.
  */
-describe("the hero trip", () => {
-  const draft = heroDraft();
+describe("Will's week", () => {
+  const draft = willDraft();
+  const me = WILL.travellers[0]!.name;
 
-  it("is the flights the canvas prints, in the order the pricer picks them", () => {
-    const out = inventory(HERO.origin, HERO.destination, HERO.departDate);
-    const back = inventory(HERO.destination, HERO.origin, HERO.returnDate);
-    expect(out[0]?.flightNo).toBe("PC 1474");
-    expect(out[0]?.departs).toBe("07:17");
-    expect(out[0]?.arrives).toBe("10:51");
-    expect(back[0]?.flightNo).toBe("PC 1355");
-    expect(back[0]?.departs).toBe("07:59");
+  it("is four flights, on the pinned routes, whatever the dates", () => {
+    const legs = legPlan(draft);
+    expect(legs.map((l) => `${l.from}-${l.to}`)).toEqual([
+      "STN-SAW",
+      "SAW-ASR",
+      "ASR-AYT",
+      "AYT-STN",
+    ]);
+    const first = inventory("STN", "SAW", draft.departDate.value)[0];
+    expect(first?.flightNo).toBe("PC 1164");
+    expect(first?.departs).toBe("06:10");
   });
 
-  it("builds from the opening sentence to the dates and bag the canvas shows", () => {
-    expect(draft.origin.value).toBe("STN");
-    expect(draft.destination.value).toBe("ADB");
-    expect(draft.departDate.value).toBe(HERO.departDate);
-    expect(draft.returnDate.value).toBe(HERO.returnDate);
-    expect(draft.package.value).toBe("saverPlus");
-    expect(draft.checkedKg.value).toBe(25);
+  it("prices to the penny: SAVER for one over four legs, plus the window", () => {
+    const price = breakdown(draft);
+    // Fares: 89.40 + 32.10 + 38.60 + 101.30 light, + 30 SAVER each leg.
+    expect(price.lines.map((l) => l.label)).toEqual([
+      "SAVER flight fares",
+      "Taxes, fees and charges",
+      "Seat selection",
+    ]);
+    expect(priceOf(draft)).toBe(409.4);
+    expect(naivePath(draft)).toEqual({ paid: 521.4, saved: 112 });
   });
 
-  it("counts 4 said, 3 remembered, 3 predicted", () => {
-    expect(countBySource(draft)).toEqual({ said: 4, profile: 3, predicted: 3, shared: 0 });
+  it("prints K4T7QX, gate B12 and seat 14A on every leg", () => {
+    const itinerary = itineraryFor(draft, me);
+    expect(itinerary.reference).toBe(SQUAD.references.will);
+    expect(itinerary.out?.gate).toBe(SQUAD.gate);
+    expect(itinerary.legs.map((l) => l.seats[0])).toEqual(["14A", "14A", "14A", "14A"]);
   });
 
-  it("totals 1224.66 GBP, and 1308.66 bought the long way", () => {
-    expect(priceOf(draft)).toBe(1224.66);
-    expect(naivePath(draft)).toEqual({ paid: 1308.66, saved: 84 });
-    const lines = breakdown(draft).lines.map((l) => l.amount);
-    expect(lines).toEqual([1004.22, 220.44]);
+  it("counts what was said against what was predicted", () => {
+    const counts = countBySource(draft);
+    expect(counts.said).toBe(3);
+    expect(counts.profile).toBe(0);
+    expect(counts.shared).toBe(0);
+    expect(counts.predicted).toBe(8);
+  });
+});
+
+describe("Emre's usual trip", () => {
+  const draft = emreDraft();
+  const me = EMRE.travellers[0]!.name;
+
+  it("is the Friday 19:05 home and the Sunday back", () => {
+    const itinerary = itineraryFor(draft, me);
+    expect(itinerary.out?.flight.flightNo).toBe("PC 2652");
+    expect(itinerary.out?.flight.departs).toBe("19:05");
+    expect(new Date(`${draft.departDate.value}T00:00:00Z`).getUTCDay()).toBe(5);
+    expect(new Date(`${draft.returnDate.value}T00:00:00Z`).getUTCDay()).toBe(0);
   });
 
-  it("prints NSVSXR, gate A3, boarding 06:47 and the family in 19D 19E 19F", () => {
-    const itinerary = itineraryFor(draft);
-    expect(itinerary.reference).toBe("NSVSXR");
-    expect(itinerary.out?.gate).toBe("A3");
-    expect(itinerary.out?.boards).toBe("06:47");
-    expect(itinerary.out?.seats).toEqual(["19D", "19E", "19F"]);
-    expect(itinerary.back?.seats).toEqual(["19D", "19E", "19F"]);
+  it("sits in 3A under E9MBTZ, SAVER, all-in 169.80", () => {
+    const itinerary = itineraryFor(draft, me);
+    expect(itinerary.reference).toBe(HOME.reference);
+    expect(itinerary.out?.seats).toEqual([HOME.seat]);
+    expect(draft.package.value).toBe("saver");
+    expect(priceOf(draft)).toBe(169.8);
   });
 
-  it("gives an invitee on the same flights a different reference", () => {
-    expect(itineraryFor(draft, "Sam Okonkwo").reference).toBe("K7PM2W");
+  it("guesses only the return, and says so", () => {
+    expect(draft.returnDate.source).toBe("predicted");
+    expect(draft.returnDate.uncertain).toBe(true);
+    expect(countBySource(draft).profile).toBe(9);
   });
 });

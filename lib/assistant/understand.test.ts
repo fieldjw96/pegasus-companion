@@ -1,189 +1,160 @@
 import { describe, expect, it } from "vitest";
-import { buildDraft, extract } from "./understand";
+import { bestWeekIn, buildDraft, extract, stopsFor } from "./understand";
 import { PROFILES, profileById } from "./profiles";
-import { FIELD_ORDER } from "./draft";
+import { visibleKeys } from "./draft";
 
-const family = profileById("family")!;
-const business = profileById("business")!;
-const weekend = profileById("weekend")!;
+/**
+ * The sentence is the one input in the app, so what it hears has to be
+ * exactly what the ticket prints. These assert the demo's own opening line,
+ * word by word, and the cold-start rule that nothing not said is "remembered".
+ */
+const WILL = profileById("will");
+const EMRE = profileById("emre");
 
-describe("reading a prompt", () => {
+describe("extract", () => {
+  it("hears the demo's opening sentence", () => {
+    const said = extract("Balloons in Cappadocia with 2 mates, backpacking, a week in May");
+    expect(said.destination).toBe("ASR");
+    expect(said.companions).toBe(2);
+    expect(said.tripType).toBe("backpacking");
+    expect(said.nights).toBe(7);
+    expect(said.month).toBe(4);
+    expect(said.departDate).toBeNull();
+    expect(said.origin).toBeNull();
+  });
+
   it("picks origin and destination out of a sentence", () => {
-    const said = extract("Stansted to Izmir on 19 October");
+    const said = extract("Stansted to Izmir on 19 October, back on the 25th, checking a bag");
     expect(said.origin).toBe("STN");
     expect(said.destination).toBe("ADB");
+    expect(said.departDate?.slice(5)).toBe("10-19");
+    expect(said.returnDate?.slice(5)).toBe("10-25");
+    expect(said.checkedBag).toBe(true);
   });
 
   it("treats the airport after 'to' as the destination, whichever came first", () => {
     const said = extract("I want to fly to Berlin from London");
+    expect(said.origin).toBe("STN");
     expect(said.destination).toBe("BER");
-    expect(said.origin).toBe("STN");
   });
 
-  it("accepts bare IATA codes", () => {
-    const said = extract("STN to AYT");
-    expect(said.origin).toBe("STN");
-    expect(said.destination).toBe("AYT");
+  it("hears mates in words and in digits", () => {
+    expect(extract("Istanbul with three friends in June").companions).toBe(3);
+    expect(extract("me and the lads to Antalya").companions).toBe(2);
+    expect(extract("Berlin alone in March").companions).toBeNull();
   });
 
-  it("reads two dates as out and back", () => {
-    const said = extract("19 October to 25 October");
-    expect(said.departDate?.endsWith("-10-19")).toBe(true);
-    expect(said.returnDate?.endsWith("-10-25")).toBe(true);
-  });
-
-  it("derives the return from a night count", () => {
-    const said = extract("Berlin on 3 November for 2 nights");
-    expect(said.nights).toBe(2);
-    expect(said.returnDate?.endsWith("-11-05")).toBe(true);
-  });
-
-  it("hears a budget", () => {
-    expect(extract("somewhere warm under £600").budget).toBe(600);
-    expect(extract("max 250 please").budget).toBe(250);
+  it("rolls a bare return day into the next month when it has passed", () => {
+    const said = extract("London to Berlin on 28 November, back on the 2nd");
+    expect(said.returnDate?.slice(5)).toBe("12-02");
   });
 
   it("distinguishes wanting a bag from refusing one", () => {
-    expect(extract("checking a bag").checkedBag).toBe(true);
-    expect(extract("hand luggage only").checkedBag).toBe(false);
-    expect(extract("just a flight").checkedBag).toBeNull();
+    expect(extract("hand luggage only to Rome").checkedBag).toBe(false);
+    expect(extract("checking a bag to Rome").checkedBag).toBe(true);
+    expect(extract("to Rome").checkedBag).toBeNull();
   });
 
   it("recognises a discovery prompt and keeps the descriptors", () => {
-    const said = extract("somewhere warm and cheap in October");
+    const said = extract("Somewhere warm in October, under £600, nothing too long");
     expect(said.discovery).toBe(true);
+    expect(said.budget).toBe(600);
     expect(said.vibes).toContain("warm");
-    expect(said.vibes).toContain("cheap");
-  });
-
-  it("does not treat a named destination as discovery", () => {
-    expect(extract("warm week in Antalya").discovery).toBe(false);
   });
 });
 
-describe("filling the gaps", () => {
-  it("marks what the passenger said as said", () => {
-    const draft = buildDraft("Stansted to Izmir on 19 October", family);
-    expect(draft.origin.source).toBe("said");
+describe("the best week in a month", () => {
+  it("starts on the second Saturday", () => {
+    const iso = bestWeekIn(4);
+    const d = new Date(`${iso}T00:00:00Z`);
+    expect(d.getUTCMonth()).toBe(4);
+    expect(d.getUTCDay()).toBe(6);
+    expect(d.getUTCDate()).toBeGreaterThanOrEqual(8);
+    expect(d.getUTCDate()).toBeLessThanOrEqual(14);
+  });
+});
+
+describe("the route for a week in Cappadocia", () => {
+  it("runs in through Istanbul, three nights for the balloons, out via the coast", () => {
+    const route = stopsFor("ASR", 7, "backpacking");
+    expect(route?.stops).toEqual([
+      { code: "SAW", nights: 2 },
+      { code: "ASR", nights: 3 },
+      { code: "AYT", nights: 2 },
+    ]);
+  });
+
+  it("re-ranks as a city break: Istanbul first, home from Kayseri", () => {
+    const route = stopsFor("ASR", 7, "cityBreak");
+    expect(route?.stops).toEqual([
+      { code: "SAW", nights: 4 },
+      { code: "ASR", nights: 3 },
+    ]);
+  });
+
+  it("is not a multi-stop trip anywhere else", () => {
+    expect(stopsFor("ADB", 7, null)).toBeNull();
+    expect(stopsFor("ASR", 3, null)).toBeNull();
+  });
+});
+
+describe("Will's week, built from the opening sentence", () => {
+  const draft = buildDraft(
+    "Balloons in Cappadocia with 2 mates, backpacking, a week in May",
+    WILL,
+  );
+
+  it("is Stansted to Cappadocia for a week, in May, with the route predicted", () => {
+    expect(draft.origin.value).toBe("STN");
+    expect(draft.origin.source).toBe("predicted");
     expect(draft.destination.source).toBe("said");
-    expect(draft.departDate.source).toBe("said");
+    expect(draft.departDate.value.slice(5, 7)).toBe("05");
+    expect(draft.stops.value.map((s) => s.code)).toEqual(["SAW", "ASR", "AYT"]);
+    expect(draft.returnDate.source).toBe("said");
   });
 
-  it("takes the party from the profile, never from the prompt", () => {
-    const draft = buildDraft("Stansted to Izmir", family);
-    expect(draft.party.source).toBe("profile");
-    expect(draft.party.value).toEqual({ adults: 2, children: 1, infants: 0 });
-  });
-
-  it("never lets a profile override something the passenger said", () => {
-    // Family normally checks a bag; saying otherwise must win.
-    const draft = buildDraft("Izmir, hand luggage only", family);
-    expect(draft.checkedKg.source).toBe("said");
-    expect(draft.checkedKg.value).toBe(0);
-  });
-
-  it("gives every predicted field a reason", () => {
-    const draft = buildDraft("Izmir", business);
-    for (const key of ["package", "seating", "flexibility", "checkedKg"] as const) {
-      expect(draft[key].why.length, key).toBeGreaterThan(15);
-    }
-  });
-
-  it("flags the fields it is least sure about", () => {
-    const draft = buildDraft("somewhere nice", family);
-    expect(draft.departDate.uncertain).toBe(true);
-    expect(draft.destination.uncertain).toBe(true);
-  });
-});
-
-describe("the prediction that saves money", () => {
-  /*
-   * The weekend profile habitually books LIGHT. Someone who says they are
-   * checking a bag must not be predicted into LIGHT, because adding the bag
-   * afterwards costs up to 59.00 against 30.00 for SAVER on the same screen.
-   */
-  it("upgrades off LIGHT when a hold bag was mentioned", () => {
-    const draft = buildDraft("Berlin, checking a bag", weekend);
-    expect(draft.package.value).not.toBe("light");
+  it("puts the bag in the fare because of the backpack, with a reason", () => {
     expect(draft.package.value).toBe("saver");
-    expect(draft.package.why).toContain("59.00");
+    expect(draft.package.why).toContain("40L backpack");
+    expect(draft.checkedKg.value).toBe(25);
   });
 
-  it("leaves LIGHT alone when no bag is needed", () => {
-    const draft = buildDraft("Berlin for the weekend", weekend);
-    expect(draft.package.value).toBe("light");
+  it("predicts the window with a reason that names the departure", () => {
+    expect(draft.seating.value).toBe("window");
+    expect(draft.seating.why).toContain("06:10");
+    expect(draft.seating.uncertain).toBe(true);
   });
 
-  it("says why the baggage is in the fare rather than added later", () => {
-    const draft = buildDraft("Izmir, checking a bag", weekend);
-    expect(draft.notes.join(" ")).toContain("30.00");
-  });
-
-  it("reserves a seat beside an adult when a child is travelling", () => {
-    const draft = buildDraft("Izmir in October", family);
-    expect(draft.seating.value).toBe("together");
-    expect(draft.notes.join(" ")).toContain("Mila");
-  });
-});
-
-describe("every profile produces a usable draft", () => {
-  it("fills every field whatever the prompt", () => {
-    for (const profile of PROFILES) {
-      const draft = buildDraft("a trip", profile);
-      expect(draft.origin.value.length).toBe(3);
-      expect(draft.destination.value.length).toBe(3);
-      expect(draft.party.value.adults).toBeGreaterThanOrEqual(1);
-      expect(draft.departDate.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    }
-  });
-});
-
-describe("reasons belong to the trip they are shown on", () => {
-  /**
-   * A shipped bug, caught only by looking at a screenshot: every profile that
-   * chose a changeable fare explained it with one hardcoded sentence about work
-   * trips, so a family holiday justified itself with "your work trips get
-   * changed often enough". On a screen whose whole claim is that it shows its
-   * reasoning, a reason belonging to somebody else's trip is worse than silence.
-   */
-  it("gives each profile its own flexibility reason", () => {
-    for (const profile of PROFILES) {
-      const draft = buildDraft("Izmir in October", profile);
-      expect(draft.flexibility.why).toBe(profile.habits.flexibilityReason);
-    }
-  });
-
-  it("never mentions work on a trip that is not for work", () => {
-    for (const profile of PROFILES.filter((p) => p.id !== "business")) {
-      const draft = buildDraft("Izmir in October", profile);
-      expect(draft.flexibility.why.toLowerCase()).not.toContain("work");
+  it("remembers nothing on a cold start: everything not said is predicted", () => {
+    for (const key of visibleKeys(draft)) {
+      expect(["said", "predicted"]).toContain(draft[key].source);
     }
   });
 
   it("explains itself in a full sentence on every inferred field", () => {
-    // An empty reason renders as a blank line under a value the passenger did
-    // not choose, which is the worst of both: visibly inferred, unexplained.
     for (const profile of PROFILES) {
-      const draft = buildDraft("Izmir in October", profile);
-      for (const key of FIELD_ORDER) {
-        if (draft[key].source === "said") continue;
-        expect(draft[key].why.length).toBeGreaterThan(10);
-        expect(draft[key].why.endsWith(".")).toBe(true);
+      const d = buildDraft("Izmir in October", profile);
+      for (const key of visibleKeys(d)) {
+        if (d[key].source === "said") continue;
+        expect(d[key].why.length).toBeGreaterThan(10);
+        expect(d[key].why.endsWith(".")).toBe(true);
       }
     }
   });
 });
 
-describe("a return day with no month", () => {
-  it('reads "back on the 25th" as the same month as the outbound', () => {
-    const said = extract("Stansted to Izmir on 19 October, back on the 25th, checking a bag");
-    expect(said.departDate?.slice(5)).toBe("10-19");
-    expect(said.returnDate?.slice(5)).toBe("10-25");
+describe("a warm start", () => {
+  it("remembers the fare, bag and seat rather than guessing them", () => {
+    const draft = buildDraft("Trabzon on 12 June, back on the 14th", EMRE);
+    expect(draft.package.source).toBe("profile");
+    expect(draft.checkedKg.source).toBe("profile");
+    expect(draft.flexibility.source).toBe("profile");
+    expect(draft.flexibility.why).toBe(EMRE.habits.flexibilityReason);
   });
 
-  it("rolls into the next month when the day has already passed", () => {
-    const said = extract("London to Berlin on 28 November, back on the 2nd");
-    expect(said.departDate?.slice(5)).toBe("11-28");
-    expect(said.returnDate?.slice(5)).toBe("12-02");
+  it("never lets a profile override something the passenger said", () => {
+    const draft = buildDraft("Trabzon on 12 June, hand luggage only", EMRE);
+    expect(draft.checkedKg.value).toBe(0);
+    expect(draft.checkedKg.source).toBe("said");
   });
 });
