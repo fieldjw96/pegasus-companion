@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { scriptedFlights } from "./script";
 
 /**
  * Mock Pegasus inventory.
@@ -224,6 +225,32 @@ const HUBS = ["ADB", "SAW", "ESB"] as const;
  * should have an opinion about.
  */
 export function inventory(origin: string, destination: string, date: string): Flight[] {
+  // The hero trip is written down, not hashed. See script.ts for why.
+  const scripted = scriptedFlights(origin, destination, date);
+  if (scripted !== null) {
+    return scripted.map((s, i) => ({
+      id: `${s.flightNo.replace(" ", "")}-${date.replace(/-/g, "")}-${i}`,
+      flightNo: s.flightNo,
+      origin,
+      destination,
+      date,
+      departs: s.departs,
+      arrives: s.arrives,
+      durationMinutes: s.durationMinutes,
+      arrivesNextDay: false,
+      aircraft: s.aircraft,
+      seatsLeft: s.seatsLeft,
+      via: null,
+      layoverMinutes: 0,
+      fares: {
+        light: s.light,
+        saver: Math.round((s.light + FARE_RULES.saver.uplift) * 100) / 100,
+        saverPlus: Math.round((s.light + FARE_RULES.saverPlus.uplift) * 100) / 100,
+        comfortFlex: Math.round((s.light + FARE_RULES.comfortFlex.uplift) * 100) / 100,
+      },
+    }));
+  }
+
   const random = rng(seedOf(`${origin}|${destination}|${date}`));
   const duration = baseDuration(origin, destination);
   const count = 3 + Math.floor(random() * 4);

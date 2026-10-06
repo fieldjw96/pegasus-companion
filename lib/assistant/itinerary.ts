@@ -1,4 +1,5 @@
 import { inventory, type Flight } from "@/lib/journey/flights";
+import { HERO, isHeroRoute } from "@/lib/journey/script";
 import type { TripDraft } from "./draft";
 
 /**
@@ -43,7 +44,19 @@ function hash(value: string): number {
 /** I, O, 0 and 1 are left out, the way airlines leave them out. */
 const PNR_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-export function referenceFor(draft: TripDraft): string {
+export function referenceFor(draft: TripDraft, owner?: string): string {
+  // The hero trip's references are pinned, so the one on the ticket is the one
+  // in the Live Activity and the one on the friend's confirmation.
+  if (
+    isHeroRoute(
+      draft.origin.value,
+      draft.destination.value,
+      draft.departDate.value,
+      draft.returnDate.value,
+    )
+  ) {
+    return owner === undefined ? HERO.reference : HERO.inviteeReference;
+  }
   let h = hash(
     [
       draft.origin.value,
@@ -76,6 +89,14 @@ export function seatsFor(
   preference: TripDraft["seating"]["value"],
 ): string[] {
   if (preference === "none") return [];
+
+  // The family's block on the hero flights is pinned: the seat on the pass is
+  // the seat the friend's offer sits beside.
+  if (flight.flightNo === "PC 1474" || flight.flightNo === "PC 1355") {
+    if (preference === "together" && people <= HERO.seats.length) {
+      return HERO.seats.slice(0, people);
+    }
+  }
 
   const h = hash(flight.id);
   const row = 4 + (h % (ROWS - 4));
@@ -113,10 +134,11 @@ function legFor(
 ): Leg | null {
   if (flight === undefined) return null;
   const h = hash(`gate|${flight.id}`);
+  const pinned = flight.flightNo === "PC 1474" || flight.flightNo === "PC 1355";
   return {
     flight,
     seats: seatsFor(flight, people, preference),
-    gate: `${"AB"[h % 2] ?? "A"}${1 + (h % 24)}`,
+    gate: pinned ? HERO.gate : `${"AB"[h % 2] ?? "A"}${1 + (h % 24)}`,
     boards: minusMinutes(flight.departs, 30),
   };
 }
@@ -134,7 +156,7 @@ export function minusMinutes(time: string, minutes: number): string {
  * pricer values. Picking a different one here would put a price on the screen
  * that did not belong to the flight printed above it.
  */
-export function itineraryFor(draft: TripDraft): Itinerary {
+export function itineraryFor(draft: TripDraft, owner?: string): Itinerary {
   const people = draft.party.value.adults + draft.party.value.children;
   const preference = draft.seating.value;
 
@@ -154,7 +176,7 @@ export function itineraryFor(draft: TripDraft): Itinerary {
           preference,
         );
 
-  return { out, back, reference: referenceFor(draft) };
+  return { out, back, reference: referenceFor(draft, owner) };
 }
 
 /** Nights away, for the one line on the pass that a person actually checks. */

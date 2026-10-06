@@ -150,3 +150,17 @@ export function naivePath(draft: TripDraft): { paid: number; saved: number } | n
   const saved = Math.round((paid - breakdown(draft).total) * 100) / 100;
   return saved <= 0 ? null : { paid, saved };
 }
+
+/**
+ * A breakdown with one more line on it: a seat bought on top of the fare.
+ * Kept out of `breakdown` because the seat is not part of the draft; it is an
+ * offer the passenger took, and it is priced where the offer is made.
+ */
+export function withLine(price: PriceBreakdown, line: PriceLine | null): PriceBreakdown {
+  if (line === null) return price;
+  return {
+    ...price,
+    lines: [...price.lines, line],
+    total: Math.round((price.total + line.amount) * 100) / 100,
+  };
+}

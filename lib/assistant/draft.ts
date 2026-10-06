@@ -19,7 +19,9 @@ export type Source =
   /** Remembered from previous bookings of this kind. */
   | "profile"
   /** Inferred from the rest of the trip. */
-  | "predicted";
+  | "predicted"
+  /** Carried over from someone else's booking: the organiser of a group. */
+  | "shared";
 
 export type Field<T> = {
   value: T;
@@ -28,6 +30,8 @@ export type Field<T> = {
   why: string;
   /** Set when the assistant is not confident and wants a look. */
   uncertain?: boolean;
+  /** For a shared value, whose booking it came from. */
+  from?: string;
 };
 
 export type TripDraft = {
@@ -74,9 +78,13 @@ export const FIELD_LABELS: Record<DraftKey, string> = {
   flexibility: "Flexibility",
 };
 
-export function countBySource(draft: TripDraft): Record<Source, number> {
-  const counts: Record<Source, number> = { said: 0, profile: 0, predicted: 0 };
+export function countBySource(
+  draft: TripDraft,
+  except: DraftKey[] = [],
+): Record<Source, number> {
+  const counts: Record<Source, number> = { said: 0, profile: 0, predicted: 0, shared: 0 };
   for (const key of FIELD_ORDER) {
+    if (except.includes(key)) continue;
     counts[draft[key].source] += 1;
   }
   return counts;

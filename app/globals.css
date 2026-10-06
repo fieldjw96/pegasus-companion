@@ -1,30 +1,87 @@
 @import "tailwindcss";
 
 /*
- * Pegasus brand tokens, read off real screenshots of the live app.
+ * Type. Figtree for UI, Archivo for the wordmark, airport codes, times and
+ * totals. Both are OFL and self-hosted: a Google Fonts <link> would make the
+ * demo's typography depend on the venue's wifi, and a next/font download would
+ * make the build depend on it. Variable files, latin and latin-ext only, which
+ * covers "Ayşe" and "Türkiye".
+ */
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/fonts/figtree-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/fonts/figtree-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/fonts/archivo-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/fonts/archivo-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * The system, as the design canvas states it.
  *
- * The important correction over the first guess: the primary call to action is
- * YELLOW, not orange. Orange is an accent only — the BolBol mark, the active tab
- * underline, the GBP/BolPoints toggle. Getting this backwards made the first pass
- * look like a different airline.
+ * Yellow fill is the one primary action per screen, with a darker inset edge
+ * for depth. Orange is for text links, the active underline and the dotted
+ * "mine" underline, and is never a fill. White cards on a cool blue-grey, no
+ * card borders, hairlines only inside cards.
  */
 @theme {
-  /* Primary. SEARCH FLIGHT, List Selected Dates, the flights-screen header. */
   --color-pg-yellow: #fdb913;
   --color-pg-yellow-dark: #e5a70c;
-
-  /* Accent only. BolBol, active underlines, the currency toggle. */
   --color-pg-orange: #ff5c00;
-
-  /* The translucent grey bar the header becomes once the home screen scrolls. */
-  --color-pg-header: #a9b2bb;
-
+  --color-pg-orange-dark: #d94e00;
   --color-pg-navy: #1f2a37;
   --color-pg-ink: #6b7684;
   --color-pg-line: #e3e8ef;
   --color-pg-surface: #f2f6fa;
+  /* The pale yellow of a "Why I spoke" block, and the lighter one of a tag. */
+  --color-pg-speech: #ffe9a6;
+  --color-pg-look: #fff1c2;
+  --color-pg-muted: #c3ccd8;
 
-  --font-sans: var(--font-app), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-card: 20px;
+  --radius-panel: 14px;
+
+  --shadow-card: 0 1px 2px rgba(31, 42, 55, 0.05), 0 10px 28px rgba(31, 42, 55, 0.08);
+  --shadow-hero: 0 1px 2px rgba(31, 42, 55, 0.05), 0 14px 36px rgba(31, 42, 55, 0.12);
+  --shadow-sheet: 0 -16px 48px rgba(31, 42, 55, 0.28);
+  --shadow-float: 0 14px 40px rgba(0, 0, 0, 0.35);
 }
 
 html,
@@ -33,10 +90,27 @@ body {
 }
 
 body {
-  /* The device frame sits on this; it is never the app's own background. */
+  /* The stage the device frame sits on. Never the app's own background. */
   background: #0f1420;
   color: var(--color-pg-navy);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* In the base layer, or these would outrank Tailwind's own colour utilities. */
+@layer base {
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+  textarea::placeholder,
+  input::placeholder {
+    color: var(--color-pg-ink);
+    opacity: 1;
+  }
 }
 
 .no-scrollbar {
@@ -46,154 +120,272 @@ body {
   display: none;
 }
 
-/* The Pegasus wordmark is a backward-slanted italic. Faux-italic is close enough
-   for a mock and avoids shipping a font nobody licensed. */
+/* The wordmark: Archivo black, slanted forward. */
 .wordmark {
-  font-style: italic;
+  display: inline-block;
+  font-family: var(--font-display);
   font-weight: 900;
-  letter-spacing: -0.03em;
-  transform: skewX(-6deg);
+  letter-spacing: -0.01em;
+  transform: skewX(12deg);
 }
 
-/*
- * Assistant surface.
- *
- * Pegasus palette, not a cream one. The first pass borrowed Claude's warm paper
- * and stopped looking like the airline: the live app is white cards on a cool
- * blue-grey, yellow for the one action that matters, orange reserved for
- * accents. Same tokens as the rest of the mock, more air between them.
- */
-.assistant-bg {
-  background:
-    radial-gradient(120% 70% at 50% -20%, rgba(253, 185, 19, 0.22), transparent 62%),
-    linear-gradient(180deg, #ffffff 0%, var(--color-pg-surface) 28%);
+.display {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
 }
 
-/* The one card treatment used throughout, so nothing looks bolted on. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
 .pg-card {
   background: #fff;
-  border-radius: 1.25rem;
-  box-shadow:
-    0 1px 2px rgba(31, 42, 55, 0.04),
-    0 8px 24px rgba(31, 42, 55, 0.07);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
-.pg-chip {
+.pg-hero-card {
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hero);
+}
+
+/* An 11px caps label, the way every section and field is titled. */
+.caps {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-pg-ink);
+}
+
+/* The dotted underline that says "the companion filled this in". */
+.mine {
+  border-bottom: 2px dotted var(--color-pg-orange);
+}
+
+/* Primary action. Pressed: the fill darkens, the edge disappears, and it drops 2px. */
+.pg-primary {
+  border-radius: 999px;
+  background: var(--color-pg-yellow);
+  box-shadow: inset 0 -3px 0 var(--color-pg-yellow-dark);
+  color: var(--color-pg-navy);
+  font-weight: 800;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+.pg-primary:active:not(:disabled) {
+  background: var(--color-pg-yellow-dark);
+  box-shadow: none;
+  transform: translateY(2px);
+}
+.pg-primary:disabled {
+  opacity: 0.35;
+}
+/* The full-width, 58px version lifts off the page. */
+.pg-primary-lg {
+  box-shadow:
+    inset 0 -4px 0 var(--color-pg-yellow-dark),
+    0 10px 24px rgba(229, 167, 12, 0.3);
+}
+.pg-primary-lg:active:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(229, 167, 12, 0.2);
+}
+
+.pg-secondary {
   border-radius: 999px;
   background: var(--color-pg-surface);
   color: var(--color-pg-navy);
+  font-weight: 700;
 }
 
-/*
- * The assistant's avatar.
- *
- * Wings beat only while it is thinking. The mirrored wing carries its flip on a
- * nested group, because a CSS transform on the element would replace the SVG
- * transform attribute rather than compose with it, and the wing would snap to
- * the wrong side mid-animation.
- */
-@keyframes pg-flap-l {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(-17deg);
-  }
-}
-@keyframes pg-flap-r {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(17deg);
-  }
-}
-@keyframes pg-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-@keyframes pg-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-2.5px);
-  }
-}
-.pg-flap-l {
-  animation: pg-flap-l 620ms ease-in-out infinite;
-}
-.pg-flap-r {
-  animation: pg-flap-r 620ms ease-in-out infinite;
-}
-.pg-bob {
-  animation: pg-bob 1.24s ease-in-out infinite;
-}
-/* The resting hover over the greeting. Slower and gentler than the work beat. */
-.pg-float {
-  animation: pg-float 4.2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pg-flap-l,
-  .pg-flap-r,
-  .pg-bob,
-  .pg-float {
-    animation: none;
-  }
-}
-
-/*
- * The ticket.
- *
- * Deliberately not `.pg-card`: it needs a heavier shadow so it lifts off the
- * surface like a physical thing, and it must NOT clip, because the perforation
- * notches are punched outside its own edges. Children that need clipping round
- * the corners do it themselves.
- */
-.pg-ticket {
+.pg-outline {
+  border-radius: 999px;
   background: #fff;
-  border-radius: 1.25rem;
-  box-shadow:
-    0 2px 4px rgba(31, 42, 55, 0.06),
-    0 20px 48px rgba(31, 42, 55, 0.16);
+  box-shadow: inset 0 0 0 2px var(--color-pg-navy);
+  color: var(--color-pg-navy);
+  font-weight: 800;
 }
 
-/* A hole bitten out of the card, in the colour of whatever is behind it. */
-.pg-notch {
+/* Provenance tags. Four sources, four looks, so they can be told apart at 11px. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-pg-navy);
+}
+.tag-said {
+  background: var(--color-pg-navy);
+  color: #fff;
+}
+.tag-profile {
+  height: 18px;
+  line-height: 16px;
+  background: var(--color-pg-surface);
+  border: 1px solid var(--color-pg-line);
+}
+.tag-predicted {
+  height: 17px;
+  line-height: 14px;
+  border: 1.5px dotted var(--color-pg-navy);
+}
+.tag-shared {
+  height: 20px;
+  padding-left: 2px;
+  background: #fff;
+  border: 1px solid var(--color-pg-navy);
+}
+.tag-look {
+  background: var(--color-pg-look);
+}
+
+/*
+ * Motion, per the canvas's micro-motion notes.
+ *
+ * Thinking: the near wing rotates -16° to +10° about the shoulder, 520ms,
+ * alternating; the avatar bobs on the same clock; the halo pulses every second
+ * beat. Reduce Motion swaps all of it for fades.
+ */
+@keyframes wingbeat {
+  from {
+    transform: rotate(-16deg);
+  }
+  to {
+    transform: rotate(10deg);
+  }
+}
+@keyframes bob {
+  from {
+    transform: translateY(2px);
+  }
+  to {
+    transform: translateY(-3px);
+  }
+}
+@keyframes halo {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+.wing {
+  transform-box: view-box;
+  transform-origin: 62px 58px;
+  animation: wingbeat 0.52s ease-in-out infinite alternate;
+}
+.bob {
+  animation: bob 0.52s ease-in-out infinite alternate;
+}
+.halo {
+  animation: halo 2.08s ease-out infinite;
+}
+
+/* The ticket prints top to bottom from under the companion's line. */
+@keyframes print {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0.6;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+.print {
+  animation: print 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Expanders and sheets. */
+@keyframes rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.rise {
+  animation: rise 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes spring-up {
+  0% {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+.spring-up {
+  animation: spring-up 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade {
+  animation: fade 150ms ease both;
+}
+
+/* The one seat the companion is pointing at breathes. Everything else is still. */
+@keyframes seatpulse {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+.seatpulse {
+  animation: seatpulse 1.6s ease-out infinite;
+}
+
+/* A hole bitten out of the ticket, in the colour of what is behind it. */
+.notch {
   position: absolute;
-  top: 50%;
-  height: 26px;
-  width: 26px;
-  transform: translateY(-50%);
-  border-radius: 9999px;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background: var(--color-pg-surface);
 }
 
-/* Decorative, and not a real symbology. See the note in ticket.tsx. */
-.pg-barcode {
-  display: flex;
-  gap: 1px;
-  height: 34px;
-  max-width: 152px;
-  overflow: hidden;
-}
-.pg-barcode > span {
-  display: block;
-  height: 100%;
-  background: var(--color-pg-navy);
-}
-
-/* The return leg's aeroplane points the other way. */
-.pg-flip {
-  display: inline-block;
-  transform: scaleX(-1);
+@media (prefers-reduced-motion: reduce) {
+  .wing,
+  .bob,
+  .halo,
+  .seatpulse {
+    animation: none;
+  }
+  .print,
+  .rise,
+  .spring-up {
+    animation: fade 150ms ease both;
+  }
 }

@@ -152,6 +152,25 @@ export function extract(prompt: string): Extracted {
     if (monthIndex !== -1 && day >= 1 && day <= 31) dates.push(isoFrom(day, monthIndex));
   }
 
+  /*
+   * "Back on the 25th" names a day with no month. It is the month of the
+   * outbound, or the next one if the day has already passed. Without this the
+   * return in the demo's own opening sentence was being guessed.
+   */
+  if (dates.length === 1) {
+    const bare = text.match(
+      /\b(?:back|return(?:ing)?|home)\s+(?:on\s+)?(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b/,
+    );
+    const out = dates[0];
+    if (bare?.[1] !== undefined && out !== undefined) {
+      const day = Number(bare[1]);
+      const d = new Date(`${out}T00:00:00Z`);
+      if (day < d.getUTCDate()) d.setUTCMonth(d.getUTCMonth() + 1);
+      d.setUTCDate(Math.min(day, 28 + (day > 28 ? day - 28 : 0)));
+      dates.push(d.toISOString().slice(0, 10));
+    }
+  }
+
   const nightsMatch = text.match(/\b(\d{1,2})\s*(?:nights?|days?)\b/);
   const nights = nightsMatch?.[1] !== undefined ? Number(nightsMatch[1]) : null;
 
@@ -228,6 +247,7 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
   const said = extract(prompt);
   const party = partyOf(profile);
   const habits = profile.habits;
+  const child = profile.travellers.find((t) => t.kind === "child");
 
   const origin = said.origin ?? "STN";
   const destination = said.destination ?? "SAW";
@@ -304,37 +324,63 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
       `${profile.label}: ${profile.travellers.map((t) => t.name.split(" ")[0]).join(", ")}.`,
     ),
     package: field(pkg, said.checkedBag !== null ? "predicted" : "profile", packageWhy),
+    /*
+     * "Checking a bag" says there is a bag. How heavy it is comes from the
+     * profile, which is why a bag the passenger asked for is still tagged
+     * remembered: the 25 kg is the companion's, from the last family holiday.
+     */
     checkedKg: field(
       checkedKg,
-      said.checkedBag !== null ? "said" : "profile",
-      said.checkedBag === true
-        ? "You said you are checking a bag."
-        : said.checkedBag === false
-          ? "You said hand luggage only."
-          : checkedBag
-            ? `Every ${profile.label.toLowerCase()} booking has included one.`
-            : "You have never checked a bag on this kind of trip.",
+      said.checkedBag === false
+        ? "said"
+        : checkedBag === habits.checkedBag
+          ? "profile"
+          : "said",
+      said.checkedBag === false
+        ? "You said hand luggage only."
+        : checkedBag
+          ? said.checkedBag === true
+            ? `You said a bag. ${checkedKg} kg is what every ${profile.label.toLowerCase()} booking has carried.`
+            : `Every ${profile.label.toLowerCase()} booking has included one.`
+          : "You have never checked a bag on this kind of trip.",
     ),
     cabinBag: field(
       pkg !== "light" || said.cabinBag === true,
-      said.cabinBag === true ? "said" : "predicted",
+      said.cabinBag === true ? "said" : pkg === "light" ? "predicted" : "profile",
       pkg === "light"
         ? "LIGHT covers the underseat bag only."
-        : "Included in this fare, so nothing to add.",
+        : `Included in this fare, and every ${profile.label.toLowerCase()} booking has carried one.`,
     ),
+    /*
+     * A seat preference read off a fact about the party ("Mila is 4") is a
+     * prediction with a reason, not a memory, so it is tagged as one.
+     */
     seating: field(
       said.seating ?? habits.seatPreference,
-      said.seating !== null ? "said" : "profile",
+      said.seating !== null
+        ? "said"
+        : habits.seatPreference === "together"
+          ? "predicted"
+          : "profile",
       said.seating !== null
         ? "You said so."
         : habits.seatPreference === "together"
-          ? "Mila is 4, so seats together rather than assigned at check-in."
+          ? `${child?.name.split(" ")[0] ?? "A child"} is ${child?.age ?? 4}, so seats together rather than assigned at check-in.`
           : habits.reason,
     ),
+    /*
+     * Paying to change a holiday is the one guess worth a second look, so a
+     * profile that leans that way is marked predicted and flagged.
+     */
     flexibility: field(
       said.flexibility ?? habits.flexibility,
-      said.flexibility !== null ? "said" : "profile",
+      said.flexibility !== null
+        ? "said"
+        : habits.flexibility === "none"
+          ? "profile"
+          : "predicted",
       said.flexibility !== null ? "You said so." : habits.flexibilityReason,
+      said.flexibility === null && habits.flexibility !== "none",
     ),
     notes: buildNotes(said, profile, checkedBag),
   };

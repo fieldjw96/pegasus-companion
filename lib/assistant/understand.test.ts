@@ -173,3 +173,17 @@ describe("reasons belong to the trip they are shown on", () => {
     }
   });
 });
+
+describe("a return day with no month", () => {
+  it('reads "back on the 25th" as the same month as the outbound', () => {
+    const said = extract("Stansted to Izmir on 19 October, back on the 25th, checking a bag");
+    expect(said.departDate?.slice(5)).toBe("10-19");
+    expect(said.returnDate?.slice(5)).toBe("10-25");
+  });
+
+  it("rolls into the next month when the day has already passed", () => {
+    const said = extract("London to Berlin on 28 November, back on the 2nd");
+    expect(said.departDate?.slice(5)).toBe("11-28");
+    expect(said.returnDate?.slice(5)).toBe("12-02");
+  });
+});

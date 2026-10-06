@@ -1,87 +1,131 @@
 # pegasus-companion
 
-A mock of the Pegasus mobile booking journey, and a companion layer that acts
-inside it on its own initiative. The whole repo exists to answer one question for
-the hackathon jury: can an agent make the purchase decision easier without
-becoming a chatbot?
+A mock of the Pegasus mobile app with an AI companion that acts inside it on its
+own initiative. The whole repo exists to answer one question for the hackathon
+jury: can an agent make the purchase decision easier without becoming a chatbot?
 
 ## Language
 
-### The journey
+### The trip
 
-**Journey**:
-The whole booking purchase experience, from the first search to the confirmation.
-It is the brief's in-scope area. Pre-booking inspiration and post-booking service
-are explicitly out of scope and provide context only.
-_Avoid_: funnel, flow, checkout
+**Sentence**:
+The one input in the app. A passenger says a trip in one go, typed or spoken, and
+the companion answers with a ticket rather than with text. There is no transcript
+and no reply bubble, which is what keeps this from being a chatbot.
+_Avoid_: prompt, query, message, chat
 
-**Step**:
-One named screen of the Journey: `search`, `results`, `fare`, `passengers`,
-`seats`, `extras`, `payment`, `confirmation`. A Step is what a screen reports to
-the Companion, and the set is closed: adding one means changing
-`companionStateSchema`.
-_Avoid_: page, route, stage
+**Draft**:
+The trip as the companion has assembled it, field by field, with where each value
+came from. It becomes a Ticket when printed and a booking when paid for.
+_Avoid_: search, form, itinerary
 
-**Deliberation**:
-Everything one passenger does while deciding on one trip, across visits and across
-days. This is the unit the Companion reasons about, and the reason it exists: an
-airline app models a session, but nobody books a flight in one sitting. Visits,
-findings and the interruption budget all belong to the Deliberation, not the
-session.
-_Avoid_: session, visit, journey
+**Provenance**:
+Where a value on the draft came from, as one of a closed set: **you said**
+(navy), **remembered** from past bookings (surface, hairline), **predicted** from
+the rest of the trip (dotted), or **from** the organiser of a group (white, with
+their initials). On the pass, anything not said carries a dotted underline. A
+value loses its tag the moment the passenger changes it.
+_Avoid_: source, confidence, inferred
 
-**Fare Family**:
-One of `Essentials`, `Advantage`, `Extra`. What is bundled differs, and that
-difference is what the Companion can usefully reason about: a checked bag added to
-Essentials can cost more than Advantage, which includes one.
-_Avoid_: fare class, tier, bundle
+**Worth a look**:
+A predicted value the companion is not sure of, flagged beside its tag. Flexibility
+on a family holiday is one; a cabin bag for someone who usually goes for a weekend
+is another.
+_Avoid_: uncertain, low confidence
 
-### The companion
+**Hero trip**:
+The one trip the demo is built around: Stansted to Izmir, 19 to 25 October, three
+travelling, SAVER PLUS, 1224.66 GBP, reference NSVSXR, seats 19D 19E 19F. Pinned
+in `lib/journey/script.ts` so every screen prints the same numbers.
+_Avoid_: default, sample, fixture
 
-**Companion**:
-The agentic layer. It watches the Deliberation, decides whether to speak, and when
-it speaks it says exactly one thing and offers exactly one action. It has no text
-box: a passenger never asks it anything. Deliberately not called an assistant,
-which implies being asked, nor an agent, which `foreman` already owns.
-_Avoid_: assistant, agent, chatbot, bot
+### The group
 
-**Judgement**:
-The five typed answers the Companion gets back about the current state:
-`isFamilyTrip`, `needsCheckedBag`, `upgradePropensity`, `openQuestion`,
-`worthInterrupting`. Each is a bounded value, never prose. A Judgement is an input
-to a decision and is never shown to a passenger as-is.
-_Avoid_: prediction, score, inference, classification
+**Organiser**:
+The passenger who booked first and had the companion hold the same flights for
+others. Sees names, status and seat only; never anybody else's fare.
+_Avoid_: host, leader, admin
 
-**Open Question**:
-What the passenger appears to be stuck on, as one of a closed set. This is the
-Companion's central idea: it does not watch the market, it watches the specific
-question this passenger has not resolved. `none` is a valid and common answer.
-_Avoid_: intent, goal, problem
+**Invitee**:
+Someone the organiser invited. With a Pegasus account, the companion builds their
+booking from their own history; without one, they get an email link to a booking
+built from the organiser's flights alone. They pay only for themself.
+_Avoid_: guest, member, friend (in code)
 
-**Finding**:
-A fact about what has changed since the passenger last looked, written as a
-sentence and computed in code. Findings exist because the Judgement layer cannot
-do arithmetic or compare dates reliably, so every comparison is resolved before it
-is handed over.
-_Avoid_: signal, event, delta, update
+**Hold**:
+The 48 hours during which the seats beside the organiser are kept for invitees.
+Shown as a deadline everywhere it matters and as time left on the group card.
+_Avoid_: reservation, lock, price freeze
 
-**Intervention**:
-One act of speaking: a channel, a headline, a detail, one action, and a rationale.
-The rationale is not decoration — it is displayed in the demo, because restraint
-nobody can see reads as no restraint at all.
-_Avoid_: notification, message, nudge, prompt
+**Seat offer**:
+The one question the companion will not answer on an invitee's behalf: whether to
+pay for the seat beside the organiser. Computed off the organiser's block, priced
+per leg, and asked exactly once.
+_Avoid_: upsell, add-on, recommendation
 
-**Interruption Budget**:
-The fixed allowance of a passenger's attention the Companion may spend in one
-Deliberation. Three. When it is gone the Companion is silent regardless of how
-interesting the state is. It makes restraint a property of the system rather than a
-claim in a slide.
+### The watch
+
+**Watch**:
+A trip the passenger will take, described as tolerances rather than a search, which
+the companion checks every morning. The unit the companion reasons about across
+days, and the reason it exists: nobody books a half term in one sitting.
+_Avoid_: alert, price alert, saved search, deliberation
+
+**Intent**:
+The watch's contents: a week, places still in the running, who, an all-in cap,
+must-haves, a buy rule, and a deadline. Set on the intent sheet, which has no input
+boxes: each row is a tolerance with a provenance tag.
+_Avoid_: criteria, filters, preferences
+
+**Morning**:
+One check of the watch, at 06:40. Pure and scripted, so a rehearsal and the live
+run agree. Its verdict is silent, propose, or deadline.
+_Avoid_: poll, tick, run, job
+
+**The three gates**:
+What keeps a morning silent, each alone sufficient: nothing changed overnight; the
+change does not bring the best under the cap; the interruption budget is spent.
+Restraint is a property of the system, not a claim in a slide.
+_Avoid_: thresholds, rules engine, filters
+
+**Interruption budget**:
+Three. How many times the companion may speak in one watch. When it is gone the
+companion is silent regardless of how interesting the market is.
 _Avoid_: rate limit, throttle, quota
 
-### Provenance
+**Why I spoke**:
+The pale-yellow block on every proposal, in the first person, with the figures a
+passenger can check. Every number in it is computed in code and handed over as a
+sentence. Restraint nobody can see reads as no restraint at all, and a proposal
+nobody can check reads as a push.
+_Avoid_: explanation, rationale, reasoning
 
-**Judged by**:
-Whether a Judgement came from Jev or from the deterministic stub. Always surfaced
-in the demo panel, because a judgement's source changes how much it should be
-trusted and the stub is deliberately cruder than the model.
-_Avoid_: model, provider, backend
+**Live Activity**:
+The card on the lock screen a proposal arrives in. Compact: one line, one price,
+one yellow action. Expanded: Why I spoke, approve with Face ID, look, not this one.
+The app is not open; that is the point.
+_Avoid_: notification (that is the invitee's), push, banner
+
+**Not this one**:
+Declining a proposal and saying why: the place, the dates, or the price. The place
+is struck off the watch and the companion keeps watching the rest.
+_Avoid_: dismiss, reject, snooze
+
+**Deadline rule**:
+The morning, N days before departure, when the companion stops waiting and brings
+the best there is, with a recommendation the passenger can refuse, a cap to raise,
+or the option to keep waiting.
+_Avoid_: timeout, expiry, fallback
+
+### The demo
+
+**Scene**:
+One screen of either journey, reachable from the panel beside the phone. Scenes
+exist because a phone cannot show a different morning or a different person's
+phone on its own.
+_Avoid_: step, page, slide
+
+**Journey**:
+One of the two end-to-end stories the prototype must carry: the cold start (speak
+the trip, book, build a group) and the warm start (the companion moves first).
+_Avoid_: flow, funnel, path
