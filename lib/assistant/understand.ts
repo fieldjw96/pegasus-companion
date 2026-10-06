@@ -202,6 +202,7 @@ export function extract(prompt: string): Extracted {
       : null;
   if (nights === null && /\b(a|one)\s+week\b/.test(text)) nights = 7;
   if (nights === null && /\btwo\s+weeks\b|\bfortnight\b/.test(text)) nights = 14;
+  if (nights === null && /\blong weekend\b/.test(text)) nights = 3;
   if (nights === null && /\bweekend\b/.test(text)) nights = 2;
 
   const mates = text.match(
@@ -448,7 +449,11 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
       said.seating !== null
         ? "You said so."
         : cold
-          ? `${departs} departure. Grab the window and sleep; the seats next to you are shown to your mates when they book.`
+          ? `${departs} departure. Grab the window and sleep${
+              said.companions !== null && said.companions > 0
+                ? "; the seats next to you are shown to your mates when they book"
+                : ""
+            }.`
           : `Seat ${profile.id === "emre" ? "3A" : "by the window"}, as on every trip so far.`,
       cold,
     ),

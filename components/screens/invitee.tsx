@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useNav } from "@/components/phone-nav";
+import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
+import { traceFor } from "@/lib/agent/trace";
 import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
 import { Avatar, Mark, Says } from "@/components/ui/avatar";
 import { LockCard, LockScreen } from "@/components/ui/lock-screen";
@@ -80,9 +82,10 @@ function noticeText(me: string, city: string, organiser: TripDraft, seat: string
 
 /** Archie's lock screen: a push in Will's name. */
 export function ArchiePushScreen() {
-  const router = useRouter();
-  const { me, city, organiser, seat } = useInvitee("archie");
+  const router = useNav();
+  const { me, city, organiser, seat, state } = useInvitee("archie");
   const notice = noticeText(me, city, organiser, seat);
+  const ready = useAgentRun("invite:archie:arrive", () => traceFor("/invite/archie", state));
   return (
     <LockScreen
       date={FREEZE.bookedLong}
@@ -90,46 +93,48 @@ export function ArchiePushScreen() {
       bottom={150}
       onTap={() => router.push("/invite/archie/ticket")}
     >
-      <button
-        type="button"
-        onClick={() => router.push("/invite/archie/ticket")}
-        className="w-full text-left"
-        aria-label="Open the notification"
-      >
-        <LockCard
-          label="Notification from Pegasus"
-          radius={24}
-          className="!flex-row items-start gap-3 bg-white/95 !p-3.5"
+      {ready && (
+        <button
+          type="button"
+          onClick={() => router.push("/invite/archie/ticket")}
+          className="w-full text-left"
+          aria-label="Open the notification"
         >
-          <AppIcon size={38} />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="flex items-baseline justify-between gap-2">
-              <span className="text-[13px] leading-[18px] font-extrabold tracking-[0.04em]">
-                PEGASUS
+          <LockCard
+            label="Notification from Pegasus"
+            radius={24}
+            className="!flex-row items-start gap-3 bg-white/95 !p-3.5"
+          >
+            <AppIcon size={38} />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="text-[13px] leading-[18px] font-extrabold tracking-[0.04em]">
+                  PEGASUS
+                </span>
+                <span className="text-[13px] leading-[18px] text-pg-ink">now</span>
               </span>
-              <span className="text-[13px] leading-[18px] text-pg-ink">now</span>
+              <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
+                <strong className="font-extrabold">{notice.lead}</strong>
+                {notice.rest}
+              </span>
+              <span className="mt-1.5 flex flex-col gap-0.5 text-[13px] leading-[18px] text-pg-ink">
+                <Row
+                  label="Flights"
+                  value={`${notice.span}, from ${firstName(me)}`}
+                  tag="from"
+                />
+                <Row label="Passport, payment" value="remembered" tag="profile" />
+                <Row label={`SAVER + seat ${seat ?? ""}`} value="predicted" tag="predicted" />
+                <Row label="Hot meal, Pegasus Café" value="remembered" tag="profile" />
+              </span>
+              <span className="mt-2 text-[14px] font-extrabold text-pg-orange">
+                Book in one tap
+              </span>
             </span>
-            <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
-              <strong className="font-extrabold">{notice.lead}</strong>
-              {notice.rest}
-            </span>
-            <span className="mt-1.5 flex flex-col gap-0.5 text-[13px] leading-[18px] text-pg-ink">
-              <Row
-                label="Flights"
-                value={`${notice.span}, from ${firstName(me)}`}
-                tag="from"
-              />
-              <Row label="Passport, payment" value="remembered" tag="profile" />
-              <Row label={`SAVER + seat ${seat ?? ""}`} value="predicted" tag="predicted" />
-              <Row label="Hot meal, Pegasus Café" value="remembered" tag="profile" />
-            </span>
-            <span className="mt-2 text-[14px] font-extrabold text-pg-orange">
-              Book in one tap
-            </span>
-          </span>
-          <Avatar size={44} className="mt-5" />
-        </LockCard>
-      </button>
+            <Avatar size={44} className="mt-5" />
+          </LockCard>
+        </button>
+      )}
     </LockScreen>
   );
 }
@@ -159,9 +164,10 @@ function Row({
 
 /** Tom's WhatsApp: an invite from Will that opens the trip, pre-filled. */
 export function TomWhatsAppScreen() {
-  const router = useRouter();
-  const { me, city, organiser, seat } = useInvitee("tom");
+  const router = useNav();
+  const { me, city, organiser, seat, state } = useInvitee("tom");
   const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
+  const ready = useAgentRun("invite:tom:arrive", () => traceFor("/invite/tom", state));
   return (
     <div className="flex h-full flex-col bg-[#EFE7DD] text-pg-navy">
       <div className="flex shrink-0 items-center gap-3 bg-[#075E54] px-4 pt-12 pb-3 text-white">
@@ -178,34 +184,37 @@ export function TomWhatsAppScreen() {
         <div className="mx-auto mb-4 w-fit rounded-md bg-white/70 px-3 py-1 text-[12px] font-semibold text-pg-ink">
           {FREEZE.bookedLong}
         </div>
-        <div className="max-w-[300px] rounded-2xl rounded-tl-sm bg-white p-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
-          <button
-            type="button"
-            onClick={() => router.push("/invite/tom/ticket")}
-            className="block w-full overflow-hidden rounded-xl bg-pg-surface text-left"
-          >
-            <span className="flex items-center gap-2 bg-pg-yellow px-3 py-2">
-              <AppIcon size={22} />
-              <span className="text-[12px] font-extrabold tracking-[0.06em]">PEGASUS</span>
-            </span>
-            <span className="flex flex-col gap-0.5 px-3 py-2.5">
-              <span className="text-[15px] leading-5 font-extrabold">
-                {firstName(me)} invited you to {city} ✈︎
+        {ready && (
+          <div className="rise max-w-[300px] rounded-2xl rounded-tl-sm bg-white p-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
+            <button
+              type="button"
+              onClick={() => router.push("/invite/tom/ticket")}
+              className="block w-full overflow-hidden rounded-xl bg-pg-surface text-left"
+            >
+              <span className="flex items-center gap-2 bg-pg-yellow px-3 py-2">
+                <AppIcon size={22} />
+                <span className="text-[12px] font-extrabold tracking-[0.06em]">PEGASUS</span>
               </span>
-              <span className="text-[13px] leading-[18px] text-pg-ink">
-                {span} · seat {seat} saved next to {firstName(me) === "Will" ? "him" : "them"}
+              <span className="flex flex-col gap-0.5 px-3 py-2.5">
+                <span className="text-[15px] leading-5 font-extrabold">
+                  {firstName(me)} invited you to {city} ✈︎
+                </span>
+                <span className="text-[13px] leading-[18px] text-pg-ink">
+                  {span} · seat {seat} saved next to{" "}
+                  {firstName(me) === "Will" ? "him" : "them"}
+                </span>
+                <span className="mt-1 text-[13px] font-extrabold text-pg-orange">
+                  Join {firstName(me)}&rsquo;s trip on Pegasus
+                </span>
               </span>
-              <span className="mt-1 text-[13px] font-extrabold text-pg-orange">
-                Join {firstName(me)}&rsquo;s trip on Pegasus
-              </span>
-            </span>
-          </button>
-          <p className="px-2 pt-2 pb-1 text-[15px] leading-5">
-            Lads. Booked it. Your seat&rsquo;s held next to mine, fare&rsquo;s frozen till
-            Thursday 🎈
-          </p>
-          <span className="block pr-2 pb-1 text-right text-[11px] text-pg-ink">18:51</span>
-        </div>
+            </button>
+            <p className="px-2 pt-2 pb-1 text-[15px] leading-5">
+              Lads. Booked it. Your seat&rsquo;s held next to mine, fare&rsquo;s frozen till
+              Thursday 🎈
+            </p>
+            <span className="block pr-2 pb-1 text-right text-[11px] text-pg-ink">18:51</span>
+          </div>
+        )}
         <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
           Opens the app, or the web if it isn&rsquo;t installed. A new direct customer Pegasus
           didn&rsquo;t have.
@@ -224,8 +233,8 @@ export function TomWhatsAppScreen() {
 }
 
 export function InviteeTicketScreen({ id }: { id: FriendId }) {
-  const router = useRouter();
-  const { me, friend, draft, seat, extras, itinerary } = useInvitee(id);
+  const router = useNav();
+  const { me, friend, draft, seat, extras, itinerary, state } = useInvitee(id);
   const [local, setLocal] = useState<TripDraft | null>(null);
   const [sheet, setSheet] = useState(false);
   const shown = local ?? draft;
@@ -234,6 +243,18 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
   const price = withLines(breakdown(shown), extras);
   const away = nights(shown);
   const first = firstName(me);
+  const ready = useAgentRun(`invite:${id}:ticket`, () =>
+    traceFor(`/invite/${id}/ticket`, state),
+  );
+
+  if (!ready) {
+    return (
+      <Thinking
+        label={`Building your booking from ${first}'s…`}
+        header={<AppHeader user={friend.name} withAvatar />}
+      />
+    );
+  }
 
   return (
     <AppShell
@@ -345,9 +366,17 @@ function extraRowsFor(friend: Friend): ExtraRow[] {
 }
 
 export function InviteeCheckout({ id }: { id: FriendId }) {
-  const { update, draft, seat, extras, friend } = useInvitee(id);
+  const { update, draft, seat, extras, friend, state } = useInvitee(id);
   return (
     <CheckoutScreen
+      thinking={{
+        key: `invite:${id}:checkout:${state.declined}`,
+        trace: () => traceFor(`/invite/${id}/checkout`, state),
+        label:
+          friend.remembered === null
+            ? "Nothing on file. Keeping the seat…"
+            : "Filling the form…",
+      }}
       draft={draft}
       names={[friend.name]}
       owner={friend.name}
@@ -392,6 +421,11 @@ export function InviteeConfirmation({ id }: { id: FriendId }) {
       draft={draft}
       owner={friend.name}
       extraLines={extras}
+      thinking={{
+        key: `invite:${id}:confirmation:${position}`,
+        trace: () => traceFor(`/invite/${id}/confirmation`, state),
+        label: "Booking, and telling the squad…",
+      }}
       says={
         <>
           {firstName(me)}&rsquo;s flights, your fare, your seat. You said nothing and changed
@@ -470,9 +504,10 @@ function ordinal(n: number): string {
 
 /** Tom stalls: a nudge in Will's name, and a rescue when his card fails. */
 export function TomStallsScreen() {
-  const router = useRouter();
-  const { me, seat } = useInvitee("tom");
+  const router = useNav();
+  const { me, seat, state } = useInvitee("tom");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
+  const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
   return (
     <LockScreen
       date="Thursday 5 March"
@@ -480,19 +515,21 @@ export function TomStallsScreen() {
       bottom={130}
       onTap={() => router.push("/invite/tom/checkout")}
     >
-      <div className="flex flex-col gap-2.5">
-        <Notice
-          onTap={() => router.push("/invite/tom/checkout")}
-          lead={`${firstName(me)} and ${archie} are waiting on you.`}
-          rest={` Your booking's ready: just tap pay. Your frozen fare ends today at ${FREEZE.until.split(", ")[1]}.`}
-        />
-        <Notice
-          onTap={() => router.push("/invite/tom/checkout")}
-          lead="Card declined?"
-          rest={` Try Apple Pay. ${seat} is still next to them.`}
-          when="2m ago"
-        />
-      </div>
+      {ready && (
+        <div className="flex flex-col gap-2.5">
+          <Notice
+            onTap={() => router.push("/invite/tom/checkout")}
+            lead={`${firstName(me)} and ${archie} are waiting on you.`}
+            rest={` Your booking's ready: just tap pay. Your frozen fare ends today at ${FREEZE.until.split(", ")[1]}.`}
+          />
+          <Notice
+            onTap={() => router.push("/invite/tom/checkout")}
+            lead="Card declined?"
+            rest={` Try Apple Pay. ${seat} is still next to them.`}
+            when="2m ago"
+          />
+        </div>
+      )}
     </LockScreen>
   );
 }

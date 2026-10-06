@@ -7,6 +7,9 @@ import {
 import { itineraryFor, type Itinerary } from "@/lib/assistant/itinerary";
 import { breakdown, naivePath, priceOf, SEAT_PRICE } from "@/lib/assistant/price";
 import { extract } from "@/lib/assistant/understand";
+import { suggest } from "@/lib/assistant/discover";
+import { firstOpen, pitches } from "./first-open";
+import { sceneFor } from "./scenes";
 import {
   BREAKFAST,
   FREEZE,
@@ -97,6 +100,9 @@ export type Trace = {
   when: string;
   steps: Step[];
 };
+
+/** A trace with the scene it belongs to, for the panel's heading. */
+export type TitledTrace = Trace & { title: string };
 
 /** The slice of the demo's state the trace reads. Structurally the journey state. */
 export type TraceState = {
@@ -195,15 +201,24 @@ function heardSteps(w: Will): Step[] {
     );
   }
   if (heard.destination !== null) facts.push(`To: ${cityOf(heard.destination)}`);
+  if (heard.departDate !== null) facts.push(`Out: ${shortDate(heard.departDate)}`);
+  if (heard.returnDate !== null && heard.nights === null) {
+    facts.push(`Back: ${shortDate(heard.returnDate)}`);
+  }
   if (heard.nights !== null) facts.push(`Nights: ${heard.nights}`);
   if (heard.tripType !== null) {
     facts.push(`Trip: ${heard.tripType === "backpacking" ? "backpacking" : "city break"}`);
   }
+  if (heard.checkedBag === true) facts.push("Bag: checked");
+  if (heard.checkedBag === false || (heard.cabinBag === true && heard.checkedBag === null)) {
+    facts.push("Bag: hand luggage");
+  }
   if (heard.seating !== null) facts.push(`Seat: ${heard.seating}`);
   const missing: string[] = [];
   if (heard.origin === null) missing.push("where from");
-  if (heard.departDate === null) missing.push("which days");
-  if (heard.checkedBag === null) missing.push("bags");
+  if (heard.departDate === null && heard.month === null) missing.push("which days");
+  if (heard.departDate === null && heard.month !== null) missing.push("which week");
+  if (heard.checkedBag === null && heard.cabinBag === null) missing.push("bags");
   if (heard.seating === null) missing.push("seats");
   return [
     step("Trip", "read", "Heard the sentence", `"${w.prompt}"`, facts),
@@ -307,8 +322,15 @@ function thumbsStep(state: TraceState, w: Will): Step | null {
   return null;
 }
 
-/** Home before anything has been said: the companion knows a little and says nothing. */
-function greetingTrace(): Trace {
+/**
+ * Home before anything has been said: three trips from what the phone and the
+ * sign-up give away, with every input named so it is clear how little was used.
+ */
+export function suggestTrace(today?: string): Trace {
+  const s = firstOpen(today);
+  const picks = pitches(s);
+  const nearest = s.device.nearest.map((c) => AIRPORTS[c].name).join(" and ");
+  const weekend = `${shortDate(s.calendar.freeWeekend.from)} to ${shortDate(s.calendar.freeWeekend.to)}`;
   return {
     who: "Will's phone",
     when: "Home, first open",
@@ -316,14 +338,62 @@ function greetingTrace(): Trace {
       step(
         "Trip",
         "read",
-        "Opened cold",
-        `No bookings, no profile. The phone says ${WILL.homeCity}, so ${AIRPORTS[WILL.homeAirport as AirportCode]?.name ?? WILL.homeAirport} is the likely airport; that's all I have.`,
+        "Read the sign-up",
+        `${s.signup.firstName}, ${s.signup.ageBand}, ${s.signup.bookings} bookings. Nothing remembered, so nothing to rebuild. I start from the phone.`,
+        [`Name: ${s.signup.firstName}`, `Age: ${s.signup.ageBand}`, `History: none`],
       ),
       step(
-        "Moments",
+        "Trip",
+        "read",
+        "Asked the phone where it is",
+        `Locale ${s.device.locale}, time zone ${s.device.timeZone}, location ${s.device.city}. Nearest airports ${nearest}. Pegasus flies from ${AIRPORTS[s.network.from].name}, so that's the origin until he says otherwise.`,
+        [
+          `Locale: ${s.device.locale}`,
+          `Location: ${s.device.city}`,
+          `From: ${s.network.from}`,
+        ],
+      ),
+      step(
+        "Trip",
+        "read",
+        "Looked at the weather widget",
+        `${s.weather.tempC}°C and ${s.weather.sky} in ${s.device.city} today, ${shortDate(s.today)}. Warm is a pitch, not a guess.`,
+        [`${s.weather.tempC}°C`, s.weather.sky],
+      ),
+      step(
+        "Trip",
+        "read",
+        "Checked the calendar",
+        s.calendar.granted
+          ? `Permission granted. The next weekend with nothing in it is ${weekend}: a Friday to a Monday.`
+          : "Permission not granted. I'll pitch dates without it.",
+        [`Free: ${weekend}`],
+      ),
+      step(
+        "Trip",
+        "think",
+        `What flies from ${AIRPORTS[s.network.from].name}`,
+        `Direct to ${s.network.direct.map((c) => AIRPORTS[c].city).join(", ")}, and the rest of Türkiye through ${AIRPORTS[s.network.via].city}. Fares from the same inventory the ticket uses.`,
+        picks.map((p) => `${AIRPORTS[p.code].city}: from ${formatFare(p.from)} return`),
+      ),
+      step(
+        "Trip",
+        "think",
+        "What people like him book",
+        `${s.cohort.label}, in aggregate: ${s.cohort.ranked.map((c) => AIRPORTS[c].city).join(", then ")}. Not his data; Pegasus's.`,
+      ),
+      step(
+        "Trip",
         "quiet",
-        "Nothing to bring up",
-        "No history means no moment to predict. A companion that speaks on first open is a pop-up.",
+        "Ruled out anything that needs a plan",
+        "Balloons, a wedding, a week with mates: those come from him, not from a weather widget. Nothing long-haul on a first open either.",
+      ),
+      step(
+        "Trip",
+        "act",
+        "Picked three",
+        `Warm, because of the rain. Istanbul, because the weekend is free and it's the direct flight. ${AIRPORTS.ADB.city}, because it's the cheapest city on the network that month. Each is a sentence he can tap or ignore.`,
+        picks.map((p) => p.title),
       ),
       step(
         "Offer",
@@ -332,17 +402,85 @@ function greetingTrace(): Trace {
         "There is no trip yet. Bags and seats are decided from the trip, not before it.",
       ),
       step(
+        "Moments",
+        "quiet",
+        "Nothing to bring up",
+        "No history means no moment to predict. A companion that speaks on first open is a pop-up.",
+      ),
+      step(
         "Trip",
         "wait",
         "Waiting on the sentence",
-        "One sentence, typed or spoken, and I answer with a ticket rather than with text.",
+        "Typed or spoken. I answer with a ticket, not with text.",
       ),
     ],
   };
 }
 
+/** A sentence with no place in it: destinations, not flights, each with its reason. */
+function discoveryTrace(state: TraceState): Trace {
+  const w = will(state);
+  const said = extract(w.prompt);
+  const when = said.departDate ?? shift(new Date().toISOString().slice(0, 10), 21);
+  const picks = suggest(said, WILL, when, WILL.homeAirport);
+  return {
+    who: "Will's phone",
+    when: "Home, after the sentence",
+    steps: [
+      step("Trip", "read", "Heard the sentence", `"${w.prompt}"`, [
+        ...said.vibes.map((v) => `Vibe: ${v}`),
+        ...(said.budget === null ? [] : [`Budget: £${said.budget}`]),
+        ...(said.month === null ? [] : [`Month: ${MONTH_NAMES[said.month] ?? ""}`]),
+      ]),
+      step(
+        "Trip",
+        "think",
+        "No place named",
+        "So the answer is places, not flights. A list of departure times would answer a question he didn't ask.",
+      ),
+      step(
+        "Trip",
+        "think",
+        "Scored the network",
+        `Every destination against ${said.vibes.length > 0 ? said.vibes.join(", ") : "what a first-timer usually wants"}${said.budget === null ? "" : `, then anything over £${said.budget} dropped, not demoted`}. Fares from the inventory for ${shortDate(when)}.`,
+        picks.map((p) => `${p.city}: from ${formatFare(p.from)}`),
+      ),
+      step(
+        "Trip",
+        "act",
+        `Offered ${picks.length}`,
+        picks.map((p) => `${p.city}: ${p.because}`).join(" "),
+      ),
+      step(
+        "Trip",
+        "wait",
+        "Waiting on a tap",
+        "One place, and the trip builds from the same sentence.",
+      ),
+    ],
+  };
+}
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
 function homeTrace(state: TraceState): Trace {
-  if (state.prompt === null && state.draft === null) return greetingTrace();
+  if (state.prompt === null && state.draft === null) return suggestTrace();
+  if (state.draft === null && state.prompt !== null && extract(state.prompt).discovery) {
+    return discoveryTrace(state);
+  }
   const w = will(state);
   const steps = [...heardSteps(w), ...builtSteps(w)];
   const thumbs = thumbsStep(state, w);
@@ -1153,7 +1291,7 @@ function lookTrace(state: TraceState): Trace {
         "Trip",
         "read",
         '"Not quite: return date"',
-        `Moved the return to ${shortDate(state.emre.corrected)}. The birthday is on the ${weekdayName(MOMENT.occasion)}, so he stays. Next year I propose that first; the thumbs told me exactly which field was wrong.`,
+        `Moved the return to ${shortDate(e.draft.returnDate.value ?? e.draft.departDate.value)}. The birthday is on the ${weekdayName(MOMENT.occasion)}, so he stays. Next year I propose that first; the thumbs told me exactly which field was wrong.`,
       ),
     );
   } else {
@@ -1419,8 +1557,16 @@ function stopTrace(state: TraceState): Trace {
 
 /* ------------------------------------------------------------------ */
 
-/** The trace for a route, from the demo's state. Unknown routes get the home trace. */
-export function traceFor(pathname: string, state: TraceState): Trace {
+/** The trace for a route, from the demo's state, titled after its scene. */
+export function traceFor(pathname: string, state: TraceState): TitledTrace {
+  const found = sceneFor(pathname);
+  return {
+    title: found === null ? "This screen" : found.scene.title,
+    ...untitled(pathname, state),
+  };
+}
+
+function untitled(pathname: string, state: TraceState): Trace {
   const dates = momentDates();
   switch (pathname) {
     case "/":

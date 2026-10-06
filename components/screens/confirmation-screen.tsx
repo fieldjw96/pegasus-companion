@@ -1,10 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { BottomNav } from "@/components/ui/app-shell";
 import { Says } from "@/components/ui/avatar";
 import { DestinationPhoto } from "@/components/ui/destination-photo";
 import { Wordmark } from "@/components/ui/primitives";
+import type { Trace } from "@/lib/agent/trace";
 import type { TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { breakdown, withLines, type PriceLine } from "@/lib/assistant/price";
@@ -22,6 +24,7 @@ export function ConfirmationScreen({
   headline,
   says,
   children,
+  thinking,
 }: {
   draft: TripDraft;
   owner?: string;
@@ -33,12 +36,17 @@ export function ConfirmationScreen({
   says: ReactNode;
   /** Anything else: the group card, the seat, the group progress. */
   children?: ReactNode;
+  /** The agents' run before the confirmation shows. */
+  thinking?: { key: string; trace: () => Trace; label: string };
 }) {
+  const ready = useAgentRun(thinking?.key ?? null, thinking?.trace ?? NO_TRACE);
   const itinerary = itineraryFor(draft, owner);
   const total = withLines(breakdown(draft), extraLines).total;
   const city =
     AIRPORTS[draft.destination.value as keyof typeof AIRPORTS]?.city ??
     draft.destination.value;
+
+  if (!ready) return <Thinking label={thinking?.label ?? "Booking…"} header={null} />;
 
   return (
     <div className="relative flex h-full flex-col bg-pg-surface text-pg-navy">
@@ -117,3 +125,5 @@ export function ConfirmationScreen({
     </div>
   );
 }
+
+const NO_TRACE = (): Trace => ({ who: "", when: "", steps: [] });

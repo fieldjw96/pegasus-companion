@@ -6,6 +6,7 @@ import { Initials, PlusIcon, PrimaryButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
 import { Thumbs } from "./home-screen";
+import { traceFor } from "@/lib/agent/trace";
 import { countBySource } from "@/lib/assistant/draft";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { formatFare } from "@/lib/journey/flights";
@@ -30,7 +31,7 @@ function useWill() {
 }
 
 export function WillCheckout() {
-  const { draft, names, update } = useWill();
+  const { draft, names, state, update } = useWill();
   return (
     <CheckoutScreen
       draft={draft}
@@ -40,6 +41,11 @@ export function WillCheckout() {
       backHref="/"
       nextHref="/confirmation"
       onPay={() => update({ draft, booked: true })}
+      thinking={{
+        key: "checkout:will",
+        trace: () => traceFor("/checkout", state),
+        label: "Checking the bag and the seat…",
+      }}
     />
   );
 }
@@ -58,6 +64,11 @@ export function WillConfirmation() {
       draft={draft}
       owner={names[0]}
       headline={`You're going, ${firstName(names[0] ?? "")}`}
+      thinking={{
+        key: `confirmation:will:${state.frozen}`,
+        trace: () => traceFor("/confirmation", state),
+        label: "Booking…",
+      }}
       says={
         <>
           {first !== null && (

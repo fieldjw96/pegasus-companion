@@ -161,6 +161,21 @@ screen on the phone, one step at a time, computed from the same calls the screen
 made. A step is read, thought, did, held back or waiting. Held back is a step.
 _Avoid_: log, debug panel, chain of thought
 
+**Run**:
+A trace arriving live. A screen asks for one, the steps stream onto the panel,
+and the phone shows its result when the last step lands. One run per phone.
+_Avoid_: loading state, spinner
+
+**Second phone**:
+The phone that appears on the left when the story moves to Archie's, Tom's or
+Dad's device, and goes away when their part is done.
+_Avoid_: modal, popup, aside
+
+**Time strip**:
+The row under the main phone that jumps its clock to a later moment, because a
+phone cannot move its own.
+_Avoid_: timeline, scrubber
+
 **Journey**:
 One of the two end-to-end stories the prototype carries: the lads go to
 Cappadocia (cold start) and home for Mum's birthday (warm start).

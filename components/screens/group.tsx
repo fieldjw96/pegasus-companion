@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useNav } from "@/components/phone-nav";
+import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
+import { traceFor } from "@/lib/agent/trace";
 import { AppHeader, AppShell, BottomNav, StatusBar } from "@/components/ui/app-shell";
 import { Avatar, Says } from "@/components/ui/avatar";
 import {
@@ -52,7 +54,7 @@ function useOrganiser() {
 }
 
 export function AddPeopleScreen() {
-  const router = useRouter();
+  const router = useNav();
   const { state, update, groupName, draft, me } = useOrganiser();
   const [picked, setPicked] = useState<string[]>(
     state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name),
@@ -61,12 +63,15 @@ export function AddPeopleScreen() {
   const seats = added
     .map((f) => seatBeside(draft, f, me))
     .filter((s): s is string => s !== null);
+  const ready = useAgentRun("group:people", () => traceFor("/group/people", state));
 
   function toggle(name: string): void {
     setPicked((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
     );
   }
+
+  if (!ready) return <Thinking label="Checking who Pegasus knows…" header={null} />;
 
   return (
     <div className="relative flex h-full flex-col bg-pg-surface text-pg-navy">
@@ -224,9 +229,14 @@ function words(n: number): string {
 }
 
 export function ReviewSendScreen() {
-  const router = useRouter();
+  const router = useNav();
   const { state, update, draft, me } = useOrganiser();
   const invited = state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name);
+  const ready = useAgentRun(`group:review:${invited.join(",")}`, () =>
+    traceFor("/group/review", state),
+  );
+
+  if (!ready) return <Thinking label="Building their bookings…" header={null} />;
 
   return (
     <div className="relative flex h-full flex-col bg-pg-surface text-pg-navy">
@@ -300,13 +310,24 @@ export function ReviewSendScreen() {
         <PrimaryButton
           size="lg"
           onClick={() => {
-            update({ invited, frozen: true });
+            // The invites land on the friends' phones: the first one appears beside this one.
+            const first = friendByName(invited[0] ?? "");
+            update({
+              invited,
+              frozen: true,
+              aside:
+                first === null
+                  ? null
+                  : first.account
+                    ? { who: "archie", route: "/invite/archie" }
+                    : { who: "tom", route: "/invite/tom" },
+            });
             router.push("/group");
           }}
         >
           Send invites
         </PrimaryButton>
-        <SecondaryButton href="/group/people" className="w-full">
+        <SecondaryButton onClick={() => router.push("/group/people")} className="w-full">
           Edit people
         </SecondaryButton>
       </div>
@@ -316,8 +337,7 @@ export function ReviewSendScreen() {
 }
 
 export function GroupStatusScreen() {
-  const router = useRouter();
-  const { state, groupName, me, itinerary, draft } = useOrganiser();
+  const { state, update, groupName, me, itinerary, draft } = useOrganiser();
   const invited = state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name);
   const members = groupMembers(
     me,
@@ -327,9 +347,23 @@ export function GroupStatusScreen() {
   );
   const booked = members.filter((m) => m.status === "booked").length;
   const complete = booked === members.length;
-  const waiting = members.find((m) => m.status !== "booked");
+  // One nudge, to the last straggler, once everyone else is in. Not a chase.
+  const waiting =
+    booked === members.length - 1 ? members.find((m) => m.status !== "booked") : undefined;
   const [breakfast, setBreakfast] = useState(false);
   const early = itinerary.out?.flight.departs ?? "06:10";
+  const ready = useAgentRun(`group:status:${booked}:${state.frozen}`, () =>
+    traceFor("/group", state),
+  );
+
+  if (!ready) {
+    return (
+      <Thinking
+        label={complete ? "Everyone's in. One thing for all three…" : "Counting the squad…"}
+        header={<AppHeader user={me} />}
+      />
+    );
+  }
 
   return (
     <AppShell header={<AppHeader user={me} />} active="My Flights" bodyClassName="pt-4 pb-6">
@@ -443,7 +477,10 @@ export function GroupStatusScreen() {
                 {FREEZE.untilShort}. Want me to nudge{" "}
                 {friendByName(waiting.name)?.pronoun.object ?? "them"} in your name?
               </p>
-              <PrimaryButton size="sm" onClick={() => router.push("/invite/tom/stalls")}>
+              <PrimaryButton
+                size="sm"
+                onClick={() => update({ aside: { who: "tom", route: "/invite/tom/stalls" } })}
+              >
                 Nudge {firstName(waiting.name)}
               </PrimaryButton>
             </div>

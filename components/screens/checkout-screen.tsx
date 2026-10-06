@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useNav } from "@/components/phone-nav";
+import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { StatusBar, BottomNav } from "@/components/ui/app-shell";
 import { BackArrow, PrimaryButton, TextButton } from "@/components/ui/primitives";
+import type { Trace } from "@/lib/agent/trace";
 import type { TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { breakdown, withLines, type PriceLine } from "@/lib/assistant/price";
@@ -34,6 +36,7 @@ export function CheckoutScreen({
   onPay,
   owner,
   cta = "Pay",
+  thinking,
 }: {
   draft: TripDraft;
   names: string[];
@@ -50,9 +53,12 @@ export function CheckoutScreen({
   onPay: () => void;
   owner?: string;
   cta?: string;
+  /** The agents' run before the basket shows. */
+  thinking?: { key: string; trace: () => Trace; label: string };
 }) {
-  const router = useRouter();
+  const router = useNav();
   const [declined, setDeclined] = useState(false);
+  const ready = useAgentRun(thinking?.key ?? null, thinking?.trace ?? NO_TRACE);
   const price = withLines(breakdown(draft), extraLines);
   const itinerary = itineraryFor(draft, owner);
   const city = cityOf(draft.destination.value);
@@ -65,11 +71,16 @@ export function CheckoutScreen({
     .map((code) => AIRPORTS[code as keyof typeof AIRPORTS]?.city ?? code)
     .filter((c, i, all) => i === 0 || c !== all[i - 1]);
 
+  if (!ready) return <Thinking label={thinking?.label ?? "Checking…"} header={null} />;
+
   return (
     <div className="relative flex h-full flex-col bg-pg-surface text-pg-navy">
       <StatusBar />
       <main className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-4">
-        <TextButton href={backHref} className="gap-2 text-[15px] text-pg-navy">
+        <TextButton
+          onClick={() => router.push(backHref)}
+          className="gap-2 text-[15px] text-pg-navy"
+        >
           <BackArrow />
           Back to the trip
         </TextButton>
@@ -173,6 +184,8 @@ export function CheckoutScreen({
     </div>
   );
 }
+
+const NO_TRACE = (): Trace => ({ who: "", when: "", steps: [] });
 
 function Line({ k, v, last = false }: { k: string; v: string; last?: boolean }) {
   return (

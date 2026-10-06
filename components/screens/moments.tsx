@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
 import { AppHeader, AppShell, StatusBar } from "@/components/ui/app-shell";
+import { traceFor } from "@/lib/agent/trace";
 import { Avatar, Says } from "@/components/ui/avatar";
 import { LockCard, LockScreen } from "@/components/ui/lock-screen";
 import {
@@ -86,6 +88,27 @@ export function MyFlightsScreen({
   const momentState = useMomentState();
   const dates = momentDates();
   const [picked, setPicked] = useState<"year" | "never" | null>(null);
+  const ready = useAgentRun(
+    `flights:${mode}:${state.moment.set}:${momentState.declined}:${momentState.never}:${momentState.booked}`,
+    () =>
+      traceFor(
+        mode === "quiet"
+          ? "/moment/quiet"
+          : mode === "decline"
+            ? "/moment/not-this-year"
+            : "/flights",
+        state,
+      ),
+  );
+
+  if (!ready) {
+    return (
+      <Thinking
+        label={mode === "quiet" ? "Checking this morning…" : "Looking at your past trips…"}
+        header={<AppHeader user={EMRE.travellers[0]?.name} />}
+      />
+    );
+  }
 
   if (!state.moment.set && mode === "normal") {
     return (
@@ -304,7 +327,7 @@ export function MyFlightsScreen({
       </section>
       {mode === "normal" && (
         <p className="mt-4 px-1 text-[13px] leading-[18px] text-pg-ink">
-          Every morning at 06:40. Use the scenes panel to jump to a morning.
+          Every morning at 06:40. The strip under the phone jumps to a morning.
         </p>
       )}
     </AppShell>
@@ -325,6 +348,9 @@ export function MomentSheetScreen() {
   const week = Array.from({ length: 7 }, (_, i) => shift(MOMENT.out, i - 1));
   const draft = emreDraft();
   const total = priceOf(draft);
+  const ready = useAgentRun("flights:moment", () => traceFor("/flights/moment", state));
+
+  if (!ready) return <Thinking label="Reading last June…" header={null} />;
 
   return (
     <div className="relative flex h-full flex-col bg-[#7E868F] text-pg-navy">
@@ -588,10 +614,14 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
   const itinerary = itineraryFor(draft, EMRE.travellers[0]?.name);
   const total = priceOf(draft);
   const silent = morning.verdict === "silent" && stage !== "booked";
+  const ready = useAgentRun(
+    `moment:${late ? "reminder" : "nudge"}:${stage === "booked"}:${silent}`,
+    () => traceFor(late ? "/moment/reminder" : "/moment/nudge", state),
+  );
 
   useEffect(() => {
-    if (silent) router.replace("/moment/quiet");
-  }, [silent, router]);
+    if (silent && ready) router.replace("/moment/quiet");
+  }, [silent, ready, router]);
 
   useEffect(() => {
     if (stage !== "faceid") return;
@@ -607,7 +637,15 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
-  if (silent) return null;
+  if (silent) {
+    // The gates held: the phone stays dark while the panel shows why, then
+    // the morning moves to My Flights, where the quiet is counted.
+    return (
+      <LockScreen date={longDate(date)} time="08:30">
+        {null}
+      </LockScreen>
+    );
+  }
 
   const expanded = stage === "expanded";
   const head = (
@@ -622,49 +660,51 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
   if (stage === "booked") {
     return (
       <LockScreen date={longDate(date)} time="08:30">
-        <LockCard label="Pegasus Live Activity, booked">
-          {head}
-          <div className="mt-3.5 flex items-center gap-3">
-            <span
-              aria-hidden
-              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-pg-yellow"
-              style={{ boxShadow: "inset 0 -3px 0 #E5A70C" }}
-            >
-              <svg width="26" height="26" viewBox="0 0 20 20">
-                <path
-                  d="M4.5 10.5l3.5 3.5 7.5-8"
-                  fill="none"
-                  stroke="#1F2A37"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-[22px] leading-7 font-extrabold tracking-[-0.01em]">
-                Booked ·{" "}
-                <span className="display tracking-[0.06em]">{itinerary.reference}</span>
+        {ready && (
+          <LockCard label="Pegasus Live Activity, booked">
+            {head}
+            <div className="mt-3.5 flex items-center gap-3">
+              <span
+                aria-hidden
+                className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-pg-yellow"
+                style={{ boxShadow: "inset 0 -3px 0 #E5A70C" }}
+              >
+                <svg width="26" height="26" viewBox="0 0 20 20">
+                  <path
+                    d="M4.5 10.5l3.5 3.5 7.5-8"
+                    fill="none"
+                    stroke="#1F2A37"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </span>
-              <span className="tabular text-[14px] leading-5 font-semibold">
-                Trabzon {dateSpan(draft.departDate.value, draft.returnDate.value)} ·{" "}
-                {money(total)} GBP · {itinerary.out?.seats[0]}
-              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-[22px] leading-7 font-extrabold tracking-[-0.01em]">
+                  Booked ·{" "}
+                  <span className="display tracking-[0.06em]">{itinerary.reference}</span>
+                </span>
+                <span className="tabular text-[14px] leading-5 font-semibold">
+                  Trabzon {dateSpan(draft.departDate.value, draft.returnDate.value)} ·{" "}
+                  {money(total)} GBP · {itinerary.out?.seats[0]}
+                </span>
+              </div>
             </div>
-          </div>
-          <p
-            className="mt-3.5 border-t border-pg-line pt-3 text-[14px] leading-5"
-            style={{ textWrap: "pretty" }}
-          >
-            <Link href="/emre/confirmation" className="font-bold">
-              Tap for your ticket.
-            </Link>{" "}
-            Taking presents?{" "}
-            <Link href="/emre" className="font-bold text-pg-orange">
-              Room for them is one tap.
-            </Link>
-          </p>
-        </LockCard>
+            <p
+              className="mt-3.5 border-t border-pg-line pt-3 text-[14px] leading-5"
+              style={{ textWrap: "pretty" }}
+            >
+              <Link href="/emre/confirmation" className="font-bold">
+                Tap for your ticket.
+              </Link>{" "}
+              Taking presents?{" "}
+              <Link href="/emre" className="font-bold text-pg-orange">
+                Room for them is one tap.
+              </Link>
+            </p>
+          </LockCard>
+        )}
       </LockScreen>
     );
   }
@@ -676,81 +716,85 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
       dim={expanded}
       bottom={expanded ? 34 : 116}
     >
-      <LockCard label={expanded ? "Pegasus Live Activity, expanded" : "Pegasus Live Activity"}>
-        {head}
-        <div className="mt-3.5 flex items-center gap-3">
-          <Avatar size={52} />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-[16px] leading-[22px] font-extrabold">{title}</span>
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="flex items-baseline gap-1.5">
-                <span className="display text-[24px] leading-7 font-extrabold">
-                  {money(total)}
+      {ready && (
+        <LockCard
+          label={expanded ? "Pegasus Live Activity, expanded" : "Pegasus Live Activity"}
+        >
+          {head}
+          <div className="mt-3.5 flex items-center gap-3">
+            <Avatar size={52} />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[16px] leading-[22px] font-extrabold">{title}</span>
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="flex items-baseline gap-1.5">
+                  <span className="display text-[24px] leading-7 font-extrabold">
+                    {money(total)}
+                  </span>
+                  <span className="text-[13px] font-bold">GBP</span>
                 </span>
-                <span className="text-[13px] font-bold">GBP</span>
+                <span className="h-[22px] rounded-full bg-pg-surface px-[9px] text-[12px] leading-[22px] font-semibold whitespace-nowrap">
+                  your usual
+                </span>
               </span>
-              <span className="h-[22px] rounded-full bg-pg-surface px-[9px] text-[12px] leading-[22px] font-semibold whitespace-nowrap">
-                your usual
-              </span>
-            </span>
+            </div>
           </div>
-        </div>
-        <p className="mt-3 text-[15px] leading-5 font-extrabold">
-          {late ? "Still not booked. Fares are up." : `Your usual Friday flight to Trabzon?`}
-        </p>
+          <p className="mt-3 text-[15px] leading-5 font-extrabold">
+            {late ? "Still not booked. Fares are up." : `Your usual Friday flight to Trabzon?`}
+          </p>
 
-        {expanded && (
-          <>
-            <Speech title="Why I spoke" text={morning.why} />
-            <p className="mt-3 flex items-start gap-2 px-1 text-[13px] leading-[18px] font-semibold text-pg-ink">
-              <span className="mt-px">
-                <PassIcon />
-              </span>
-              <span>
-                {itinerary.out?.flight.flightNo} {itinerary.out?.flight.departs}{" "}
-                {weekdayName(draft.departDate.value).slice(0, 3)} · back{" "}
-                {weekdayName(draft.returnDate.value ?? "").slice(0, 3)}{" "}
-                {itinerary.back?.flight.flightNo} · seat {itinerary.out?.seats[0]} · SAVER.
-              </span>
-            </p>
-            <PrimaryButton className="mt-3.5 w-full" onClick={() => setStage("faceid")}>
-              <FaceIdIcon />
-              Approve (Face ID)
-            </PrimaryButton>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <SecondaryButton href="/moment/look">Look</SecondaryButton>
-              <SecondaryButton href="/moment/not-this-year">Not this year</SecondaryButton>
-            </div>
-          </>
-        )}
-
-        {!expanded && (
-          <>
-            <div className="mt-3.5 grid grid-cols-2 gap-2">
-              <PrimaryButton
-                className="h-12 w-full px-0 text-[16px]"
-                onClick={() => setStage("faceid")}
-              >
-                Yes, plan it
+          {expanded && (
+            <>
+              <Speech title="Why I spoke" text={morning.why} />
+              <p className="mt-3 flex items-start gap-2 px-1 text-[13px] leading-[18px] font-semibold text-pg-ink">
+                <span className="mt-px">
+                  <PassIcon />
+                </span>
+                <span>
+                  {itinerary.out?.flight.flightNo} {itinerary.out?.flight.departs}{" "}
+                  {weekdayName(draft.departDate.value).slice(0, 3)} · back{" "}
+                  {weekdayName(draft.returnDate.value ?? "").slice(0, 3)}{" "}
+                  {itinerary.back?.flight.flightNo} · seat {itinerary.out?.seats[0]} · SAVER.
+                </span>
+              </p>
+              <PrimaryButton className="mt-3.5 w-full" onClick={() => setStage("faceid")}>
+                <FaceIdIcon />
+                Approve (Face ID)
               </PrimaryButton>
-              <SecondaryButton href="/moment/look" className="w-full">
-                Look
-              </SecondaryButton>
-            </div>
-            <button
-              type="button"
-              onClick={() => setStage("expanded")}
-              aria-expanded={false}
-              className="mt-2.5 flex items-center justify-center gap-1 text-[12px] leading-4 font-bold text-pg-ink"
-            >
-              Why I spoke
-              <ChevronDown size={12} />
-            </button>
-          </>
-        )}
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <SecondaryButton href="/moment/look">Look</SecondaryButton>
+                <SecondaryButton href="/moment/not-this-year">Not this year</SecondaryButton>
+              </div>
+            </>
+          )}
 
-        {stage === "faceid" && <FaceId />}
-      </LockCard>
+          {!expanded && (
+            <>
+              <div className="mt-3.5 grid grid-cols-2 gap-2">
+                <PrimaryButton
+                  className="h-12 w-full px-0 text-[16px]"
+                  onClick={() => setStage("faceid")}
+                >
+                  Yes, plan it
+                </PrimaryButton>
+                <SecondaryButton href="/moment/look" className="w-full">
+                  Look
+                </SecondaryButton>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStage("expanded")}
+                aria-expanded={false}
+                className="mt-2.5 flex items-center justify-center gap-1 text-[12px] leading-4 font-bold text-pg-ink"
+              >
+                Why I spoke
+                <ChevronDown size={12} />
+              </button>
+            </>
+          )}
+
+          {stage === "faceid" && <FaceId />}
+        </LockCard>
+      )}
     </LockScreen>
   );
 }

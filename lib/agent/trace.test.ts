@@ -41,10 +41,21 @@ describe("the agent trace", () => {
     }
   });
 
-  it("waits for the sentence before it has anything to say", () => {
+  it("pitches three trips on a first open, from named inputs, none of them Cappadocia", () => {
     const first = traceFor("/", COLD);
+    expect(first.title).toBe("A wish becomes a week");
+    expect(first.steps.filter((s) => s.kind === "read")).toHaveLength(4);
+    const picked = first.steps.find((s) => s.did === "Picked three");
+    expect(picked?.facts).toHaveLength(3);
+    expect(picked?.facts?.join(" ")).not.toContain("Cappadocia");
+    expect(first.steps.filter((s) => s.kind === "quiet").length).toBeGreaterThanOrEqual(3);
     expect(first.steps[first.steps.length - 1]?.kind).toBe("wait");
-    expect(first.steps.filter((s) => s.kind === "quiet")).toHaveLength(2);
+  });
+
+  it("answers a sentence with no place in it with places", () => {
+    const found = traceFor("/", { ...COLD, prompt: "Somewhere warm in October, under £600" });
+    expect(found.steps.some((s) => s.did === "No place named")).toBe(true);
+    expect(found.steps.find((s) => s.did.startsWith("Offered"))?.thought).toContain("Antalya");
   });
 
   it("prices Will's week to the same penny as the ticket", () => {

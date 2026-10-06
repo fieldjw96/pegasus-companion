@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { PhoneFrame } from "@/components/phone-frame";
 import { JourneyProvider } from "@/components/journey-provider";
+import { CompanionPhone } from "@/components/companion-phone";
+import { TimeStrip } from "@/components/time-strip";
 import { Scenes } from "@/components/scenes";
 
 export const metadata: Metadata = {
@@ -15,12 +17,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {/*
-          Every screen renders inside the phone frame, and the scenes panel sits
-          beside it. The provider holds what the passenger has done so far, so a
+          Every screen renders inside the main phone. A second phone appears on
+          the left when the story moves to someone else's device, the time strip
+          under the phone moves its clock, and the presenter's panel sits on the
+          right. The provider holds what the passengers have done so far, so a
           ticket built on the home screen is the ticket the checkout prints.
         */}
         <JourneyProvider>
-          <PhoneFrame aside={<Scenes />}>{children}</PhoneFrame>
+          <PhoneFrame before={<CompanionPhone />} below={<TimeStrip />} aside={<Scenes />}>
+            {children}
+          </PhoneFrame>
         </JourneyProvider>
       </body>
     </html>

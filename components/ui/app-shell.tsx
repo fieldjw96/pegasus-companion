@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar } from "./avatar";
 import { Wordmark } from "./primitives";
+import { useLocalNav } from "@/components/phone-nav";
 
 /**
  * The chrome every in-app screen shares: status bar, header, scrolling body,
@@ -112,12 +113,46 @@ const TABS = [
   { label: "More", href: "/", icon: MoreIcon },
 ] as const;
 
-/** The five-tab bar. Only Home and My Flights route anywhere in this mock. */
+/**
+ * The five-tab bar. Only Home and My Flights route anywhere in this mock, and
+ * only on the main phone: on the second phone the tabs are drawn, not wired,
+ * because that phone has one story to tell.
+ */
 export function BottomNav({ active }: { active?: string }) {
   const pathname = usePathname();
+  const local = useLocalNav();
   const current =
     active ??
     (pathname.startsWith("/flights") || pathname.startsWith("/group") ? "My Flights" : "Home");
+  if (local !== null) {
+    return (
+      <nav
+        aria-label="Main"
+        className="flex shrink-0 border-t border-pg-line bg-white px-1 pb-[22px]"
+      >
+        {TABS.map((tab) => {
+          const on = tab.label === current;
+          const Icon = tab.icon;
+          return (
+            <span
+              key={tab.label}
+              className={`flex min-h-[60px] flex-1 flex-col items-center gap-[5px] ${
+                on ? "text-pg-navy" : "text-pg-ink"
+              }`}
+            >
+              <span
+                className={`mb-[3px] h-[3px] w-7 rounded-b-[3px] ${on ? "bg-pg-orange" : ""}`}
+              />
+              <Icon />
+              <span className={`text-[11px] ${on ? "font-bold" : "font-semibold"}`}>
+                {tab.label}
+              </span>
+            </span>
+          );
+        })}
+      </nav>
+    );
+  }
   return (
     <nav
       aria-label="Main"

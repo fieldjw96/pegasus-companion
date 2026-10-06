@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useNav } from "@/components/phone-nav";
+import { useAgentRun } from "@/components/agent-provider";
 import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
 import { Avatar, Mark, Says, ThinkingAvatar } from "@/components/ui/avatar";
 import { DestinationPhoto } from "@/components/ui/destination-photo";
@@ -13,6 +14,8 @@ import { Ticket, cityOf } from "./ticket";
 import { Suggestions } from "./suggestions";
 import { buildDraft, extract, stopsFor } from "@/lib/assistant/understand";
 import { suggest, type Suggestion } from "@/lib/assistant/discover";
+import { firstOpen, pitches } from "@/lib/agent/first-open";
+import { traceFor } from "@/lib/agent/trace";
 import { countBySource, type TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor, nights } from "@/lib/assistant/itinerary";
 import { breakdown, naivePath, withLines, type PriceLine } from "@/lib/assistant/price";
@@ -23,7 +26,6 @@ import { GIFTS, MOMENT } from "@/lib/moments/moments";
 import {
   EMRE,
   WILL,
-  WILL_PROMPT,
   dateSpan,
   dayLongMonth,
   emreDraft,
@@ -47,30 +49,45 @@ import {
  * already rebuilt, and the first question is whether it got it right.
  */
 
-const TRY: { code: string; title: string; prompt: string }[] = [
-  { code: "ASR", title: "Cappadocia", prompt: WILL_PROMPT },
-  {
-    code: "AYT",
-    title: "Somewhere warm",
-    prompt: "Somewhere warm in October, under £600, nothing too long",
-  },
-  {
-    code: "BER",
-    title: "Berlin",
-    prompt: "Two nights in Berlin next month, hand luggage only",
-  },
-];
-
 type Phase = "idle" | "thinking" | "discovery" | "trip";
 
 export function HomeScreen({ persona }: { persona: Persona }) {
-  const router = useRouter();
+  const router = useNav();
   const { state, update } = useJourney();
   const profile = persona === "emre" ? EMRE : WILL;
   const draft = persona === "emre" ? (state.emre.draft ?? emreDraft()) : state.draft;
-  const [beat, setBeat] = useState<"thinking" | "discovery" | null>(null);
-  const phase: Phase = beat ?? (draft === null ? "idle" : "trip");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const discovery = persona === "will" && state.prompt !== null && draft === null;
+
+  /*
+   * The agents run before anything shows. On a first open, the Trip agent
+   * works out three trips from what the phone gives away; after a sentence,
+   * it builds the trip. The phone shows the result when the run finishes.
+   */
+  const firstOpenDone = useAgentRun(
+    persona === "will" && state.prompt === null && draft === null ? "home:first-open" : null,
+    () => traceFor("/", state),
+  );
+  const tripKey =
+    persona === "emre"
+      ? `home:emre:${state.emre.corrected ?? ""}`
+      : discovery
+        ? `home:discovery:${state.prompt}`
+        : draft !== null
+          ? `home:trip:${state.prompt ?? ""}:${draft.stops.value.length}`
+          : null;
+  const tripDone = useAgentRun(tripKey, () =>
+    traceFor(persona === "emre" ? "/moment/look" : "/", state),
+  );
+  const picks = useMemo(() => pitches(firstOpen()), []);
+  const phase: Phase =
+    persona === "will" && state.prompt === null && draft === null
+      ? "idle"
+      : !tripDone
+        ? "thinking"
+        : discovery
+          ? "discovery"
+          : "trip";
   const [seatSheet, setSeatSheet] = useState(false);
   const [thumbsDown, setThumbsDown] = useState(false);
   const greeting = useSyncExternalStore(
@@ -91,49 +108,51 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   }
 
   function run(text: string): void {
-    update({ prompt: text, thumbs: null });
-    setBeat("thinking");
     setThumbsDown(false);
-    window.setTimeout(() => {
-      const said = extract(text);
-      if (said.discovery) {
-        const when =
-          said.departDate ??
-          (() => {
-            const d = new Date();
-            d.setDate(d.getDate() + 21);
-            return d.toISOString().slice(0, 10);
-          })();
-        setSuggestions(suggest(said, profile, when, profile.homeAirport));
-        setDraft(null);
-        setBeat("discovery");
-        return;
-      }
-      setDraft(buildDraft(text, profile));
-      if (persona === "will") update({ booked: false });
-      setSuggestions([]);
-      setBeat(null);
-    }, 900);
+    const said = extract(text);
+    if (said.discovery) {
+      const when =
+        said.departDate ??
+        (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + 21);
+          return d.toISOString().slice(0, 10);
+        })();
+      setSuggestions(suggest(said, profile, when, profile.homeAirport));
+      update({ prompt: text, thumbs: null, draft: null });
+      return;
+    }
+    setSuggestions([]);
+    if (persona === "emre") {
+      update((prev) => ({
+        prompt: text,
+        emre: { ...prev.emre, draft: buildDraft(text, profile) },
+      }));
+    } else {
+      update({ prompt: text, thumbs: null, draft: buildDraft(text, profile), booked: false });
+    }
   }
 
   function choose(code: string): void {
-    setDraft(buildDraft(`${state.prompt ?? ""} to ${code}`, profile));
     setSuggestions([]);
-    setBeat(null);
+    setDraft(buildDraft(`${state.prompt ?? ""} to ${code}`, profile));
   }
 
   function reset(): void {
+    setSuggestions([]);
     setDraft(null);
     update({ prompt: null, booked: false, thumbs: null });
-    setSuggestions([]);
-    setBeat(null);
   }
 
   if (phase === "idle") {
     return (
       <AppShell bodyClassName="pt-2 pb-8">
         <div className="flex flex-col items-center gap-3">
-          <Avatar size={120} className="drop-shadow-[0_10px_18px_rgba(229,167,12,0.28)]" />
+          {firstOpenDone ? (
+            <Avatar size={120} className="drop-shadow-[0_10px_18px_rgba(229,167,12,0.28)]" />
+          ) : (
+            <ThinkingAvatar size={120} />
+          )}
           <span className="flex h-[26px] items-center gap-1.5 rounded-full bg-white px-3 text-[11px] font-bold tracking-[0.08em] shadow-[0_1px_2px_rgba(31,42,55,0.06)]">
             <Sparkle />
             YOUR AI COMPANION
@@ -158,31 +177,46 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         </p>
 
         <div className="mt-7 flex flex-col gap-3">
-          <h2 className="caps px-1">Try</h2>
-          {TRY.map((item) => (
-            <button
-              key={item.code}
-              type="button"
-              onClick={() => run(item.prompt)}
-              className="pg-card relative block h-28 w-full overflow-hidden text-left"
-            >
-              <DestinationPhoto code={item.code} className="absolute inset-0" scrim={false} />
-              <span
-                aria-hidden
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(180deg, rgba(31,42,55,0.05) 0%, rgba(31,42,55,0.78) 100%)",
-                }}
-              />
-              <span className="absolute inset-x-[18px] bottom-3.5 flex flex-col gap-0.5 text-white">
-                <span className="text-[20px] leading-6 font-extrabold tracking-[-0.01em]">
-                  {item.title}
-                </span>
-                <span className="text-[13px] leading-[18px] font-medium">{item.prompt}</span>
-              </span>
-            </button>
-          ))}
+          <h2 className="caps px-1">{firstOpenDone ? "For you" : "Thinking about where…"}</h2>
+          {firstOpenDone
+            ? picks.map((item) => (
+                <button
+                  key={item.code}
+                  type="button"
+                  onClick={() => run(item.prompt)}
+                  className="pg-card rise relative block h-28 w-full overflow-hidden text-left"
+                >
+                  <DestinationPhoto
+                    code={item.code}
+                    className="absolute inset-0"
+                    scrim={false}
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, rgba(31,42,55,0.05) 0%, rgba(31,42,55,0.78) 100%)",
+                    }}
+                  />
+                  <span className="absolute inset-x-[18px] bottom-3.5 flex flex-col gap-0.5 text-white">
+                    <span className="text-[20px] leading-6 font-extrabold tracking-[-0.01em]">
+                      {item.title}
+                    </span>
+                    <span className="text-[13px] leading-[18px] font-medium">
+                      {item.prompt}
+                    </span>
+                  </span>
+                </button>
+              ))
+            : [0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  aria-hidden
+                  className="pg-card block h-28 w-full animate-pulse bg-white/70"
+                  style={{ animationDelay: `${i * 150}ms` }}
+                />
+              ))}
         </div>
       </AppShell>
     );
@@ -235,11 +269,17 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   if (phase === "thinking") {
     return (
       <AppShell header={<AppHeader user={names[0]} withAvatar />}>
-        {youSaid}
+        {persona === "will" ? youSaid : null}
         <div role="status" className="flex flex-col items-center gap-7 pt-20 pb-10">
           <ThinkingAvatar />
           <p className="text-center text-[17px] leading-6 font-semibold">
-            {profile.coldStart ? "Building your week…" : "Rebuilding your usual…"}
+            {profile.coldStart
+              ? discovery
+                ? "Looking at the network…"
+                : (extract(state.prompt ?? "").nights ?? 0) >= 5
+                  ? "Building your week…"
+                  : "Building your trip…"
+              : "Rebuilding your usual…"}
           </p>
         </div>
       </AppShell>

@@ -44,6 +44,11 @@ export type JourneyState = {
     approved: boolean;
     spoken: number;
   };
+  /**
+   * The second phone, when the story is on someone else's device: whose it
+   * is and which screen it shows. Null when the main phone is the only one.
+   */
+  aside: { who: "archie" | "tom" | "dad"; route: string } | null;
 };
 
 const INITIAL: JourneyState = {
@@ -58,6 +63,7 @@ const INITIAL: JourneyState = {
   declined: false,
   emre: { draft: null, booked: false, corrected: null, gifts: false, surprise: true },
   moment: { set: false, declined: false, never: false, approved: false, spoken: 0 },
+  aside: null,
 };
 
 const KEY = "pegasus-companion-journey-v2";

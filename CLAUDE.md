@@ -40,7 +40,15 @@ the work behind the screen, Scenes jumps between beats.
 **The Agent view narrates from the same calls the screen made.** `lib/agent/trace.ts`
 builds every step from `lib/`; it never carries a figure of its own. A step that
 stays quiet is shown as held back, because restraint nobody can see reads as no
-restraint at all.
+restraint at all. The steps stream in live (`components/agent-provider.tsx`) and
+the phone waits for the last one before it shows the result: a screen that needs
+the agents' work asks for a run with `useAgentRun` and renders `Thinking` until
+it is done. Do not show a result the run has not reached.
+
+**Both journeys run by tapping inside the phones.** A beat on someone else's
+device opens the second phone (`components/companion-phone.tsx`); a beat on a
+later day is on the time strip under the main phone. Screens navigate with
+`useNav()`, never `next/navigation` directly, so they work in either phone.
 
 **Every screen must open cold.** There is no server state. A screen opened
 directly falls back to the persona's starting trip (Will's week, Emre's usual), so

@@ -4,6 +4,7 @@ import { useJourney } from "@/components/journey-provider";
 import { PrimaryButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
+import { traceFor } from "@/lib/agent/trace";
 import { countBySource } from "@/lib/assistant/draft";
 import type { PriceLine } from "@/lib/assistant/price";
 import { GIFTS } from "@/lib/moments/moments";
@@ -40,7 +41,7 @@ function useEmre() {
 }
 
 export function EmreCheckout() {
-  const { draft, names, gifts, update } = useEmre();
+  const { draft, names, gifts, state, update } = useEmre();
   return (
     <CheckoutScreen
       draft={draft}
@@ -51,6 +52,11 @@ export function EmreCheckout() {
       backHref="/emre"
       nextHref="/emre/confirmation"
       cta="Confirm"
+      thinking={{
+        key: `checkout:emre:${state.emre.gifts}`,
+        trace: () => traceFor("/emre/checkout", state),
+        label: "Checking the passport…",
+      }}
       note={
         <>
           <strong className="font-extrabold">Heads up:</strong> your passport expires in
@@ -76,6 +82,11 @@ export function EmreConfirmation() {
       draft={draft}
       owner={names[0]}
       extraLines={gifts}
+      thinking={{
+        key: `confirmation:emre:${state.emre.surprise}`,
+        trace: () => traceFor("/emre/confirmation", state),
+        label: "Booking…",
+      }}
       says={
         <>
           Your usual,{" "}
@@ -114,7 +125,10 @@ export function EmreConfirmation() {
             />
           </button>
         </div>
-        <PrimaryButton href="/moment/dad" className="mt-1 w-full">
+        <PrimaryButton
+          className="mt-1 w-full"
+          onClick={() => update({ aside: { who: "dad", route: "/moment/dad" } })}
+        >
           See what Dad gets
         </PrimaryButton>
       </section>
