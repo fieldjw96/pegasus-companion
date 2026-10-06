@@ -21,9 +21,10 @@ export type JourneyState = {
   booked: boolean;
   /** "Did we get your trip right?" */
   thumbs: "up" | "down" | null;
-  /** Who was invited, by name, once the fare was frozen. */
+  /** Who the trip was sent to, by name. */
   invited: string[];
-  frozen: boolean;
+  /** The invites have gone out. */
+  sent: boolean;
   /** Invitees who have paid, with the seat they took. */
   inviteesBooked: Record<string, string | null>;
   /** Tom's card was declined once. */
@@ -58,7 +59,7 @@ const INITIAL: JourneyState = {
   booked: false,
   thumbs: null,
   invited: [],
-  frozen: false,
+  sent: false,
   inviteesBooked: {},
   declined: false,
   emre: { draft: null, booked: false, corrected: null, gifts: false, surprise: true },
@@ -66,7 +67,7 @@ const INITIAL: JourneyState = {
   aside: null,
 };
 
-const KEY = "pegasus-companion-journey-v2";
+const KEY = "pegasus-companion-journey-v3";
 
 type Journey = {
   state: JourneyState;

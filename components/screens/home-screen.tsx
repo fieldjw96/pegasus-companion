@@ -372,8 +372,8 @@ export function HomeScreen({ persona }: { persona: Persona }) {
           </ol>
           <p className="text-[13px] leading-[18px] text-pg-ink">
             Why {MONTH_NAMES[Number(draft.departDate.value.slice(5, 7)) - 1]}: balloons fly
-            most mornings, before peak fares. Your mates book their own, with the seats beside
-            you held.
+            most mornings, before peak fares. Your mates book their own; the seats beside you
+            are free for them.
           </p>
         </div>
       )}

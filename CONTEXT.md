@@ -24,8 +24,8 @@ acts only where the predicted need is high, and stays quiet where it is low.
 _Avoid_: upsell engine, recommender
 
 **Group agent**:
-Turns one booking into a group: freezes the fare, invites, pre-fills each
-friend's booking in the organiser's name, and nudges the stragglers.
+Turns one booking into a group: suggests who to send it to, pre-fills each
+friend's booking in the organiser's name, and nudges the last straggler once.
 _Avoid_: sharing, referral
 
 **Moments agent**:
@@ -79,8 +79,8 @@ _Avoid_: rating, survey, feedback form
 ### The group
 
 **Organiser**:
-The passenger who booked first and had the companion freeze the fare for others.
-Sees names, status and seat only; never anybody else's fare. Will.
+The passenger who booked first and sent the trip on. Sees names, status and
+seat only; never anybody else's fare. Will.
 _Avoid_: host, leader, admin
 
 **Invitee**:
@@ -89,11 +89,11 @@ from what Pegasus knows about them and sends a push in the organiser's name.
 Without it, a WhatsApp link opens the same booking on the web. Archie and Tom.
 _Avoid_: guest, member
 
-**Price Freeze**:
-A product Pegasus sells today: the organiser pays a small fee per friend and the
-fare is held for 48 hours while they book. The clock is shown everywhere it
-matters.
-_Avoid_: hold, reservation, lock
+**Suggested friends**:
+The two people the companion proposes sending the trip to, from the phone's
+contacts with permission, each with the reason. The organiser unticks or sends
+to nobody; it is never assumed who a mate is.
+_Avoid_: invite list, share sheet
 
 **Squad**:
 The group, once it exists: a card in My Flights that fills in as people book, a
@@ -102,8 +102,9 @@ once they have.
 _Avoid_: party, booking group
 
 **Seat beside**:
-The seat held for a friend next to the organiser's. Computed off the organiser's
-block, offered once, priced per leg.
+The seat next to the organiser's, offered to a friend in the organiser's name.
+Computed off the organiser's block, offered once, priced per leg. Never held or
+frozen: an offer, not a reservation.
 _Avoid_: upsell, add-on
 
 ### The moment

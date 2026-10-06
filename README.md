@@ -64,26 +64,30 @@ Will, 26, London. A cold start: no history, no profile.
    Pegasus's network, picks the week, prices it, and prints a ticket. What it
    heard is shown as chips; everything it guessed carries a dotted underline and
    a reason. One tap says "actually: a city break" and the route re-ranks.
-2. **The bag, sold at booking.** From "backpacking" it puts SAVER on the ticket
-   with the reason: a 40L pack won't fit under the seat, and the bag costs less
-   inside the fare than at the airport.
-3. **Nab the window.** The seat sheet gives a reason to buy: the 06:10, the
-   window, and the two seats beside him shown to his mates when they book.
-4. **Lock the price, invite the lads.** From the confirmation, Price Freeze holds
-   today's fare for Archie and Tom and sends the invites. Thumbs feed the agents.
-5. **Archie has the app.** A push in Will's name opens a booking already built:
-   flights from Will, fare and seat predicted, passport, payment and his usual
-   hot meal remembered. He checks and pays.
-6. **Tom doesn't.** A WhatsApp from Will opens the same booking on the web and
+   The bag and the seat are decided here too: from "backpacking" it puts SAVER
+   on the ticket (a 40L pack won't fit under the seat, and the bag costs less
+   inside the fare than at the airport), and the seat sheet gives a reason to
+   take the window on a 06:10.
+2. **Nothing to type.** Checkout fills the passport from his Wallet and pays with
+   Apple Pay. The Offer agent adds nothing at the till: insurance, a car and the
+   lounge don't fit a backpacker, so they aren't there.
+3. **Send it to your friends?** The sentence said mates, not who. The
+   confirmation asks whether to send the trip on and suggests two people from
+   his contacts. Each gets it in Will's name, with the seat next to his offered
+   at 7 GBP a leg. Nothing is frozen or held.
+4. **Archie has the app.** A push in Will's name leads with the seat and opens a
+   booking already built: flights from Will, fare and seat predicted, passport,
+   payment and his usual hot meal remembered. He checks and pays.
+5. **Tom doesn't.** A WhatsApp from Will opens the same booking on the web and
    brings him into the app.
-7. **The waiting window.** A lock-screen tracker shows who has booked and how
-   long the frozen fare has left, and sells extras to the ones already in.
-8. **Tom stalls.** A nudge in Will's name, and a rescue when his card is
-   declined.
-9. **Squad complete.** All three booked, seats together, one group offer that
-   makes sense for three: breakfast for the 06:10.
-10. **Checked in for them**, **the next trip** (a new route offered first to the
-    group), and the unhappy path of a cancelled flight.
+6. **The waiting window.** A lock-screen tracker shows who has booked and sells
+   extras to the ones already in.
+7. **Tom stalls.** When everyone else is in, one nudge in Will's name, and a
+   rescue when his card is declined.
+8. **Squad complete.** All three booked, seats together, one group offer that
+   makes sense for three: breakfast for the 06:10, to the organiser only.
+9. **Checked in for them**, **the next trip** (a new route offered first to the
+   group), and the unhappy path of a cancelled flight.
 
 ### Journey 2 · Home for Mum's birthday
 
@@ -119,7 +123,7 @@ trademark.
 ```
 app/                       One route per screen. Server components rendering client islands.
   page.tsx                 Will's home: greeting, thinking, the week as a ticket.
-  checkout/ confirmation/  Will's checkout and confirmation (Freeze and invite).
+  checkout/ confirmation/  Will's checkout and confirmation (send it to your friends).
   group/                   Organiser side: who's coming, review, squad status.
   invite/archie/ tom/      Invitee side: push or WhatsApp, ticket, checkout, confirmation, stalls.
   squad/                   Lock-screen moments: waiting window, check-in, next trip, cancelled.
@@ -140,7 +144,7 @@ lib/
   journey/flights.ts       Deterministic mock inventory. No network.
   journey/script.ts        The demo's routes, pinned, so every screen prints the same numbers.
   assistant/               Sentence → trip: understand, draft (provenance), price, itinerary.
-  group/group.ts           Friends, Price Freeze, the invitee's booking, the seat beside.
+  group/group.ts           Friends and why they're suggested, the invitee's booking, the seat beside.
   moments/moments.ts       Mum's birthday: the usual trip, the nudge rule, the three gates.
   agent/trace.ts           What each agent read, thought and did on every screen, computed.
   agent/first-open.ts      The first open: the device and sign-up signals, and the three pitches.

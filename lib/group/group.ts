@@ -6,10 +6,12 @@ import { SQUAD, ownerOf } from "@/lib/journey/script";
 /**
  * Group booking.
  *
- * Will books once. The companion freezes today's fare for the mates he named
- * and builds each of them their own booking in his name: the flights from
- * Will, the rest from whatever Pegasus already knows about them. They pay their
- * own way, and nobody sees anybody else's fare.
+ * Will books once. The sentence said mates, not who, so the companion asks
+ * whether to send the trip on and suggests two people from his contacts. Each
+ * gets a nudge in Will's name with the seat next to his offered, and a booking
+ * already built: the flights from Will, the rest from whatever Pegasus knows
+ * about them. They pay their own way, and nobody sees anybody else's fare.
+ * Nothing is frozen or held: the seat beside is an offer, not a reservation.
  *
  * Two kinds of invitee: Archie has the app, so his booking is built from his
  * saved preferences and arrives as a push. Tom does not, so a WhatsApp link
@@ -22,6 +24,8 @@ export type Friend = {
   /** How the invite reaches them. */
   channel: "push" | "whatsapp";
   pronoun: { subject: string; object: string; possessive: string };
+  /** Why the companion suggests them, from the phone's contacts with permission. */
+  because: string;
   /** What Pegasus already knows, when there is an account. */
   remembered: { passport: string; payment: string; meal: string | null } | null;
 };
@@ -32,6 +36,7 @@ export const FRIENDS: Friend[] = [
     account: true,
     channel: "push",
     pronoun: { subject: "he", object: "him", possessive: "his" },
+    because: "Top of your recent calls, and on Pegasus already.",
     remembered: {
       passport: "GBR 508812294 · valid to Jun 2029",
       payment: "Card ending 8841",
@@ -43,6 +48,7 @@ export const FRIENDS: Friend[] = [
     account: false,
     channel: "whatsapp",
     pronoun: { subject: "he", object: "him", possessive: "his" },
+    because: "In the group chat you message most. No app, so a WhatsApp link.",
     remembered: null,
   },
 ];
@@ -55,18 +61,10 @@ export function firstName(name: string): string {
   return name.split(" ")[0] ?? name;
 }
 
-/**
- * Price Freeze: Pegasus sells it today. The organiser pays a small fee per
- * friend and the fare is held for 48 hours while they book.
- */
-export const FREEZE = {
-  bookedAt: "Tue 3 Mar, 18:30",
-  bookedLong: "Tuesday 3 March",
-  until: "Thu 5 Mar, 18:30",
-  untilShort: "Thu 18:30",
-  remaining: "22h 16m",
-  hours: 48,
-  feePerFriend: 3.5,
+/** When Will booked and the invites went out. */
+export const INVITE = {
+  sentAt: "Tue 3 Mar, 18:30",
+  sentLong: "Tuesday 3 March",
 } as const;
 
 /** Pegasus Café's hot meal, as remembered on Archie's bookings. */
@@ -141,7 +139,7 @@ export function buildInviteeDraft(
   };
 }
 
-/** The seat held for a friend: the next letter along from the organiser's. */
+/** The seat offered to a friend: the next letter along from the organiser's, if free. */
 export function seatBeside(
   organiser: TripDraft,
   friend: Friend,

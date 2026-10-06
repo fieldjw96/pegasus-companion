@@ -8,7 +8,7 @@ import { AppIcon, Initials, PrimaryButton, SecondaryButton } from "@/components/
 import { Notice } from "./invitee";
 import { traceFor } from "@/lib/agent/trace";
 import { itineraryFor } from "@/lib/assistant/itinerary";
-import { FREEZE, FRIENDS, firstName } from "@/lib/group/group";
+import { FRIENDS, firstName } from "@/lib/group/group";
 import { momentDates } from "@/lib/moments/moments";
 import { EMRE, WILL, emreDraft, longDate, shift, willDraft } from "@/lib/demo/personas";
 import { cityOf } from "./ticket";
@@ -19,7 +19,7 @@ import { cityOf } from "./ticket";
  * arrives when it matters and says the one thing worth saying.
  */
 
-/** The waiting window: who's booked, how long the frozen fare has left. */
+/** The waiting window: who's booked, and an extra for the ones who have. */
 export function WaitingWindowScreen() {
   const { state } = useJourney();
   const draft = state.draft ?? willDraft();
@@ -60,9 +60,6 @@ export function WaitingWindowScreen() {
                   {firstName(n)} {booked.includes(n) ? "✓" : "…"}
                 </span>
               ))}
-              <span className="text-pg-ink">
-                · fare frozen for {FREEZE.remaining.split(" ")[0]}
-              </span>
             </p>
           </LockCard>
           <Notice
@@ -80,16 +77,25 @@ export function WaitingWindowScreen() {
 export function CheckInScreen() {
   const { state } = useJourney();
   const draft = state.draft ?? willDraft();
-  const tom = firstName(FRIENDS[1]?.name ?? "Tom");
+  const tom = FRIENDS[1]?.name ?? "Tom Baker";
   const seat = "14C";
-  const ready = useAgentRun("squad:check-in", () => traceFor("/squad/check-in", state));
+  // Whether Tom took the seat next to Will when he booked. If not, this is the
+  // last chance to put him there before check-in seats him at random.
+  const tomSeated = (state.inviteesBooked[tom] ?? null) !== null;
+  const ready = useAgentRun(`squad:check-in:${tomSeated}`, () =>
+    traceFor("/squad/check-in", state),
+  );
   return (
     <LockScreen date={longDate(shift(draft.departDate.value, -2))} time="05:30" bottom={120}>
       {ready && (
         <div className="flex flex-col gap-2.5">
           <Notice
             lead="Check-in opens tomorrow."
-            rest={` ${tom} hasn't got a seat yet, so he'll be placed randomly. Move him to ${seat} next to you?`}
+            rest={
+              tomSeated
+                ? " You're sat together: 14A, 14B and 14C. I'll check all three of you in the moment it opens."
+                : ` ${firstName(tom)} hasn't got a seat yet, so he'll be placed randomly. Move him to ${seat} next to you?`
+            }
           />
           <Notice
             lead="You're all checked in ✓"
@@ -119,7 +125,7 @@ export function SquadCancelledScreen() {
       {ready && (
         <Notice
           lead={`${first?.flight.departs ?? "06:10"} cancelled.`}
-          rest={` All 3 of you are on the 13:30, seats 21A–C together. Anyone following the flight has been told.`}
+          rest={` All 3 of you are on the 13:30, seats 21A–C together. Archie and Tom have been told the same second.`}
         />
       )}
     </LockScreen>

@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { useNav } from "@/components/phone-nav";
 import { useJourney } from "@/components/journey-provider";
-import { Initials, PlusIcon, PrimaryButton } from "@/components/ui/primitives";
+import { Says } from "@/components/ui/avatar";
+import { Initials, PrimaryButton, TextButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
-import { Thumbs } from "./home-screen";
 import { traceFor } from "@/lib/agent/trace";
 import { countBySource } from "@/lib/assistant/draft";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { formatFare } from "@/lib/journey/flights";
-import { FREEZE, FRIENDS, firstName } from "@/lib/group/group";
+import { SQUAD } from "@/lib/journey/script";
+import { FRIENDS, firstName, friendByName, seatBeside } from "@/lib/group/group";
 import { WILL, willDraft, shortDate } from "@/lib/demo/personas";
 
 /**
@@ -19,9 +21,10 @@ import { WILL, willDraft, shortDate } from "@/lib/demo/personas";
  * Both fall back to the week the opening sentence builds when opened cold, so
  * a presenter can start the demo at either screen and see the same ticket.
  *
- * The confirmation is where the group starts. Today Will would screenshot his
- * booking into WhatsApp and his friends would search days later at a higher
- * fare. Here he freezes today's fare for them and sends the invite in one tap.
+ * The confirmation is where the group starts. The sentence said mates, not
+ * who, so the companion asks whether to send the trip on and suggests two
+ * people from his contacts. Each gets a nudge in Will's name with the seat
+ * next to his offered. Nothing is frozen or held.
  */
 function useWill() {
   const { state, update } = useJourney();
@@ -44,28 +47,37 @@ export function WillCheckout() {
       thinking={{
         key: "checkout:will",
         trace: () => traceFor("/checkout", state),
-        label: "Checking the bag and the seat…",
+        label: "Filling in the form…",
       }}
     />
   );
 }
 
 export function WillConfirmation() {
+  const router = useNav();
   const { draft, names, state, update } = useWill();
+  const me = names[0] ?? "Will Parker";
   const counts = countBySource(draft);
-  const itinerary = itineraryFor(draft, names[0]);
-  const [thumbsDown, setThumbsDown] = useState(false);
-  const mates = FRIENDS.map((f) => firstName(f.name));
-  const invited = state.invited.length > 0;
+  const itinerary = itineraryFor(draft, me);
   const first = itinerary.out;
+  const [picked, setPicked] = useState<string[]>(
+    state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name),
+  );
+  const chosen = FRIENDS.filter((f) => picked.includes(f.name));
+
+  function toggle(name: string): void {
+    setPicked((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
+  }
 
   return (
     <ConfirmationScreen
       draft={draft}
-      owner={names[0]}
-      headline={`You're going, ${firstName(names[0] ?? "")}`}
+      owner={me}
+      headline={`You're going, ${firstName(me)}`}
       thinking={{
-        key: `confirmation:will:${state.frozen}`,
+        key: `confirmation:will:${state.sent}`,
         trace: () => traceFor("/confirmation", state),
         label: "Booking…",
       }}
@@ -83,57 +95,97 @@ export function WillConfirmation() {
       }
     >
       <section
-        aria-label="Freeze and invite"
-        className="pg-card mt-6 flex flex-col gap-2.5 p-5"
+        aria-label="Send to your friends"
+        className="pg-card mt-6 flex flex-col gap-3 p-5"
       >
-        <div className="flex items-center gap-3">
-          <div aria-hidden className="flex items-center">
-            <Initials name={names[0] ?? "Will"} size={36} className="ring-[3px] ring-white" />
-            {FRIENDS.map((f) => (
-              <span
-                key={f.name}
-                className="-ml-2.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-pg-navy bg-pg-surface ring-[3px] ring-white"
-              >
-                <Initials name={f.name} size={28} tone="surface" />
-              </span>
-            ))}
-            <span className="-ml-2.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-pg-line bg-pg-surface ring-[3px] ring-white">
-              <PlusIcon size={16} />
-            </span>
-          </div>
-          <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
-            Freeze this fare for {mates.join(" and ")}?
-          </h2>
-        </div>
+        <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
+          Send this to your friends?
+        </h2>
         <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-          Prices on this flight are rising. I can hold today&rsquo;s fare for {FREEZE.hours}{" "}
-          hours, keep {first?.seats[0] === undefined ? "the seats" : "14B and 14C"} beside you,
-          and build each of them their own booking in your name. They pay their own way.
+          You said mates. Each gets your trip in your name, with the seat next to yours
+          offered, and books their own. Nobody sees what you paid.
         </p>
-        <p className="text-[13px] leading-[18px] text-pg-ink">
-          Price Freeze, {formatFare(FREEZE.feePerFriend)} GBP a friend. Pegasus sells it today.
-        </p>
-        <PrimaryButton href={invited ? "/group" : "/group/people"} className="mt-1.5 w-full">
-          {invited ? "See the squad" : "Freeze and invite"}
-        </PrimaryButton>
+        {state.sent ? (
+          <>
+            <p className="text-[14px] font-bold">
+              Sent to {state.invited.map(firstName).join(" and ")}.
+            </p>
+            <TextButton onClick={() => router.push("/group")} className="min-h-0">
+              See the squad
+            </TextButton>
+          </>
+        ) : (
+          <>
+            <h3 className="caps mt-1">Suggested from your contacts</h3>
+            <div className="flex flex-col gap-2">
+              {FRIENDS.map((friend) => {
+                const on = picked.includes(friend.name);
+                const seat = seatBeside(draft, friend, me);
+                return (
+                  <button
+                    key={friend.name}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggle(friend.name)}
+                    className={`flex items-center gap-3 rounded-[14px] px-3.5 py-3 text-left ${
+                      on ? "bg-pg-surface shadow-[inset_0_0_0_2px_#1F2A37]" : "bg-pg-surface"
+                    }`}
+                  >
+                    <Initials name={friend.name} tone={on ? "navy" : "surface"} />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="text-[15px] leading-5 font-bold">{friend.name}</span>
+                      <span className="text-[13px] leading-[18px] text-pg-ink">
+                        {friend.because}
+                        {seat === null ? "" : ` Seat ${seat} is free next to you.`}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                        on ? "bg-pg-navy text-white" : "bg-white text-pg-ink"
+                      }`}
+                    >
+                      {on ? "✓" : "+"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <PrimaryButton
+              className="mt-1 w-full"
+              disabled={chosen.length === 0}
+              onClick={() => {
+                const invited = chosen.map((f) => f.name);
+                const lead = friendByName(invited[0] ?? "");
+                update({
+                  invited,
+                  sent: true,
+                  aside:
+                    lead === null
+                      ? null
+                      : lead.account
+                        ? { who: "archie", route: "/invite/archie" }
+                        : { who: "tom", route: "/invite/tom" },
+                });
+                router.push("/group");
+              }}
+            >
+              {chosen.length === 0
+                ? "Pick someone"
+                : `Send to ${chosen.map((f) => firstName(f.name)).join(" and ")}`}
+            </PrimaryButton>
+            <p className="text-[12px] leading-[18px] text-pg-ink">
+              Seats next to you cost {formatFare(SQUAD.seatPricePerLeg)} a leg. They decide.
+            </p>
+          </>
+        )}
       </section>
-      <Thumbs
-        question="Did we get your trip right?"
-        value={state.thumbs}
-        onPick={(v) => {
-          update({ thumbs: v });
-          setThumbsDown(v === "down");
-        }}
-        open={thumbsDown}
-        options={[
-          { label: "The route", onPick: () => setThumbsDown(false) },
-          { label: "The bag", onPick: () => setThumbsDown(false) },
-          { label: "The seat", onPick: () => setThumbsDown(false) },
-        ]}
-        reply={
-          state.thumbs === "down" && !thumbsDown ? "Noted. That feeds the next guess." : null
-        }
-      />
+      {!state.sent && (
+        <Says className="mt-4">
+          Two names from your contacts, with permission. Untick anyone, or send to nobody; I
+          won&rsquo;t ask again.
+        </Says>
+      )}
     </ConfirmationScreen>
   );
 }

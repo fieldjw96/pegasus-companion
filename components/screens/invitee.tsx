@@ -22,8 +22,7 @@ import { formatFare } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
 import { dateSpan, shortDate, WILL, willDraft } from "@/lib/demo/personas";
 import {
-  BREAKFAST,
-  FREEZE,
+  INVITE,
   FRIENDS,
   buildInviteeDraft,
   firstName,
@@ -75,7 +74,7 @@ function useInvitee(id: FriendId) {
 function noticeText(me: string, city: string, organiser: TripDraft, seat: string | null) {
   return {
     lead: `${firstName(me)}'s booked ${city}.`,
-    rest: ` ${seat ?? "A seat"} next to ${firstName(me) === "Will" ? "him" : "them"} is yours. Fare frozen until ${FREEZE.untilShort}.`,
+    rest: ` ${seat ?? "A seat"} next to ${firstName(me) === "Will" ? "him" : "them"} is free: ${formatFare(SQUAD.seatPricePerLeg)} a leg. Your booking's built; just check it.`,
     span: dateSpan(organiser.departDate.value, organiser.returnDate.value),
   };
 }
@@ -88,7 +87,7 @@ export function ArchiePushScreen() {
   const ready = useAgentRun("invite:archie:arrive", () => traceFor("/invite/archie", state));
   return (
     <LockScreen
-      date={FREEZE.bookedLong}
+      date={INVITE.sentLong}
       time="18:42"
       bottom={150}
       onTap={() => router.push("/invite/archie/ticket")}
@@ -182,7 +181,7 @@ export function TomWhatsAppScreen() {
       </div>
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pt-6">
         <div className="mx-auto mb-4 w-fit rounded-md bg-white/70 px-3 py-1 text-[12px] font-semibold text-pg-ink">
-          {FREEZE.bookedLong}
+          {INVITE.sentLong}
         </div>
         {ready && (
           <div className="rise max-w-[300px] rounded-2xl rounded-tl-sm bg-white p-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
@@ -209,8 +208,7 @@ export function TomWhatsAppScreen() {
               </span>
             </button>
             <p className="px-2 pt-2 pb-1 text-[15px] leading-5">
-              Lads. Booked it. Your seat&rsquo;s held next to mine, fare&rsquo;s frozen till
-              Thursday 🎈
+              Lads. Booked it. Seat next to mine&rsquo;s free if you&rsquo;re quick 🎈
             </p>
             <span className="block pr-2 pb-1 text-right text-[11px] text-pg-ink">18:51</span>
           </div>
@@ -295,7 +293,7 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
             perLeg={SQUAD.seatPricePerLeg}
             legs={itinerary.legs.length}
             included={shown.seating.value !== "none"}
-            says={`${first} is in ${itinerary.out?.seats[0] ?? "14A"}. ${seat} is held for you on every leg; it's the one time it's worth paying for a seat.`}
+            says={`${first} is in ${itinerary.out?.seats[0] ?? "14A"}. ${seat} is free on every leg; it's the one time it's worth paying for a seat.`}
             cta={
               shown.seating.value === "none"
                 ? `Take ${seat} · +${formatFare(SQUAD.seatPricePerLeg * itinerary.legs.length)} GBP`
@@ -420,8 +418,6 @@ export function InviteeConfirmation({ id }: { id: FriendId }) {
   const total = invited.length + 1;
   const position = bookedNames.length;
   const complete = position === total;
-  const [breakfast, setBreakfast] = useState(false);
-  const early = itinerary.out?.flight.departs ?? "06:10";
   const everyone = [me, ...invited];
 
   return (
@@ -467,24 +463,9 @@ export function InviteeConfirmation({ id }: { id: FriendId }) {
                 .join(" · ")}
               , together.
             </p>
-            <div className="flex items-start gap-3 rounded-[14px] bg-pg-surface p-3.5">
-              <Avatar size={36} />
-              <div className="flex flex-col gap-2">
-                <p className="text-[15px] leading-[22px] font-extrabold">
-                  Breakfast for the squad?
-                </p>
-                <p className="text-[14px] leading-5 text-pg-ink">
-                  {total} hot breakfasts from Pegasus Café for the {early}.
-                </p>
-                {breakfast ? (
-                  <p className="text-[14px] font-bold">Added for all {total}.</p>
-                ) : (
-                  <PrimaryButton size="sm" onClick={() => setBreakfast(true)}>
-                    Add for all {total} · {formatFare(BREAKFAST.each * total)} GBP
-                  </PrimaryButton>
-                )}
-              </div>
-            </div>
+            <p className="text-[14px] leading-5 text-pg-ink">
+              {firstName(me)} gets one offer for the three of you. Nothing more lands here.
+            </p>
           </>
         ) : (
           <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
@@ -493,8 +474,7 @@ export function InviteeConfirmation({ id }: { id: FriendId }) {
               .filter((n) => !bookedNames.includes(n))
               .map(firstName)
               .join(" and ")}{" "}
-            {total - position === 1 ? "hasn't" : "haven't"} yet — the frozen fare ends{" "}
-            {FREEZE.untilShort}.
+            {total - position === 1 ? "hasn't" : "haven't"} yet.
           </p>
         )}
       </div>
@@ -513,7 +493,7 @@ function ordinal(n: number): string {
 /** Tom stalls: a nudge in Will's name, and a rescue when his card fails. */
 export function TomStallsScreen() {
   const router = useNav();
-  const { me, seat, state } = useInvitee("tom");
+  const { me, seat, state, itinerary } = useInvitee("tom");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
   const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
   return (
@@ -528,12 +508,12 @@ export function TomStallsScreen() {
           <Notice
             onTap={() => router.push("/invite/tom/checkout")}
             lead={`${firstName(me)} and ${archie} are waiting on you.`}
-            rest={` Your booking's ready: just tap pay. Your frozen fare ends today at ${FREEZE.until.split(", ")[1]}.`}
+            rest={` Your booking's ready: just tap pay. The 06:10 is down to ${itinerary.out?.flight.seatsLeft ?? 9} seats.`}
           />
           <Notice
             onTap={() => router.push("/invite/tom/checkout")}
             lead="Card declined?"
-            rest={` Try Apple Pay. ${seat} is still next to them.`}
+            rest={` Try Apple Pay. ${seat} is still free next to them.`}
             when="2m ago"
           />
         </div>

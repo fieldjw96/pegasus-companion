@@ -116,7 +116,7 @@ export function SeatSheet({
         </div>
         <p className="text-[14px] leading-5 font-semibold">
           {seats.some((s) => s.held)
-            ? "Dashed seats are held for your mates."
+            ? "Dashed seats are the ones your mates will be offered."
             : `${row}${you} is free on every leg.`}
         </p>
       </div>

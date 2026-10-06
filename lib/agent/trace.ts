@@ -5,14 +5,14 @@ import {
   type TripDraft,
 } from "@/lib/assistant/draft";
 import { itineraryFor, type Itinerary } from "@/lib/assistant/itinerary";
-import { breakdown, naivePath, priceOf, SEAT_PRICE } from "@/lib/assistant/price";
+import { breakdown, naivePath, priceOf } from "@/lib/assistant/price";
 import { extract } from "@/lib/assistant/understand";
 import { suggest } from "@/lib/assistant/discover";
 import { firstOpen, pitches } from "./first-open";
 import { sceneFor } from "./scenes";
 import {
   BREAKFAST,
-  FREEZE,
+  INVITE,
   FRIENDS,
   MEAL_PRICE,
   buildInviteeDraft,
@@ -111,7 +111,7 @@ export type TraceState = {
   booked: boolean;
   thumbs: "up" | "down" | null;
   invited: string[];
-  frozen: boolean;
+  sent: boolean;
   inviteesBooked: Record<string, string | null>;
   declined: boolean;
   emre: {
@@ -500,40 +500,29 @@ function homeTrace(state: TraceState): Trace {
 function checkoutTrace(state: TraceState): Trace {
   const w = will(state);
   const price = breakdown(w.draft);
-  const naive = naivePath(w.draft);
-  const seatLine = price.lines.find((l) => l.label === "Seat selection");
-  const legs = w.itinerary.legs.length;
+  const free = [SQUAD.seats.archie, SQUAD.seats.tom];
   return {
     who: "Will's phone",
     when: "Checkout",
     steps: [
       step(
-        "Offer",
-        "think",
-        "Sold the bag at booking",
-        naive === null
-          ? w.draft.package.why
-          : `${w.draft.package.why} Inside the fare the bag is ${gbp(naive.saved)} cheaper than the funnel's way, so this is the moment to sell it, not at the airport.`,
+        "Trip",
+        "read",
+        "Filled the form nobody sees",
+        `Passport ${WILL.onFile.passport}, ${WILL.onFile.from.toLowerCase()}. Paying with ${WILL.onFile.payment}. Nothing to type; a wrong guess costs one tap.`,
+        [WILL.onFile.passport, WILL.onFile.payment],
       ),
       step(
         "Offer",
-        "think",
-        "Priced the window",
-        seatLine === undefined
-          ? "This fare includes seat selection, so the window costs nothing extra."
-          : `${formatFare(SEAT_PRICE)} a leg over ${legs} legs is ${gbp(seatLine.amount)}. Worth it on a ${w.itinerary.out?.flight.departs ?? "06:10"}; I say why on the seat sheet rather than just adding it.`,
+        "quiet",
+        "Nothing to add at the till",
+        `The bag and the seat were decided on the ticket. Insurance, a car, the lounge: none fits a backpacker on a ${w.itinerary.out?.flight.departs ?? "06:10"}, so none is here. A checkout with four upsells is the funnel I replaced.`,
       ),
       step(
         "Group",
         "think",
-        "Holding the seats beside",
-        `"With 2 mates" means ${SQUAD.seats.archie} and ${SQUAD.seats.tom} stay held next to ${w.itinerary.out?.seats[0] ?? "14A"} until the mates book. Will pays for his seat only.`,
-      ),
-      step(
-        "Trip",
-        "read",
-        "Filled the form nobody sees",
-        `Passport ${WILL.onFile.passport}, ${WILL.onFile.from.toLowerCase()}. Paying with ${WILL.onFile.payment}. Nothing to type.`,
+        "Noted the mates",
+        `The sentence said mates. ${free.join(" and ")} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free right now; I'll offer them to whoever he sends this to. Nothing is held: an offer, not a reservation.`,
       ),
       state.booked
         ? step(
@@ -555,14 +544,15 @@ function checkoutTrace(state: TraceState): Trace {
 function inviteePlan(friend: Friend, w: Will): string {
   const seat = seatBeside(w.draft, friend, w.me);
   return friend.account
-    ? `${firstName(friend.name)} has the app: a push in Will's name, booking already built from what Pegasus knows about him, seat ${seat ?? "beside Will"}.`
-    : `${firstName(friend.name)} doesn't have the app: a WhatsApp from Will's number, the same booking on the web, seat ${seat ?? "beside Will"}.`;
+    ? `${firstName(friend.name)} has the app: a push in Will's name, his booking already built, ${seat ?? "the seat beside"} offered at ${formatFare(SQUAD.seatPricePerLeg)} a leg.`
+    : `${firstName(friend.name)} doesn't have the app: a WhatsApp from Will's number, the same booking on the web, ${seat ?? "the seat beside"} offered the same way.`;
 }
 
 function confirmationTrace(state: TraceState): Trace {
   const w = will(state);
-  const friends = w.invited.map((n) => friendByName(n)).filter((f): f is Friend => f !== null);
-  const fee = FREEZE.feePerFriend * friends.length;
+  const friends = state.sent
+    ? w.invited.map((n) => friendByName(n)).filter((f): f is Friend => f !== null)
+    : FRIENDS;
   const steps: Step[] = [
     step(
       "Trip",
@@ -573,14 +563,21 @@ function confirmationTrace(state: TraceState): Trace {
     step(
       "Group",
       "think",
-      "Noticed the mates aren't booked",
-      `The sentence said "with 2 mates" and only one person has paid. Fares move; the mates will dither. Pegasus sells Price Freeze today, so I offer it here rather than making Will find it.`,
+      "Heard mates, not names",
+      `"With 2 mates" says there are others. It doesn't say who, and I don't guess who a friend is. So I ask whether to send the trip on, and suggest.`,
     ),
     step(
       "Group",
+      "read",
+      "Looked at his contacts, with permission",
+      `Two people stand out: ${FRIENDS.map((f) => `${firstName(f.name)}, ${f.because.toLowerCase()}`).join(" ")}`,
+      FRIENDS.map((f) => `${firstName(f.name)}: ${f.account ? "has the app" : "no app"}`),
+    ),
+    step(
+      "Offer",
       "think",
-      "Priced the freeze",
-      `${formatFare(FREEZE.feePerFriend)} a friend × ${friends.length} = ${gbp(fee)}, holding today's fare for ${FREEZE.hours} hours, until ${FREEZE.until}.`,
+      "Made the seat the nudge",
+      `${SQUAD.seats.archie} and ${SQUAD.seats.tom} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free. That's the line each friend gets, in Will's name: the seat beside him, ${formatFare(SQUAD.seatPricePerLeg)} a leg, if they're quick. Nothing is frozen; the fare is today's fare.`,
     ),
     step(
       "Group",
@@ -588,93 +585,21 @@ function confirmationTrace(state: TraceState): Trace {
       "Picked each friend's channel",
       friends.map((f) => inviteePlan(f, w)).join(" "),
     ),
-    state.frozen
+    state.sent
       ? step(
           "Group",
           "act",
-          "Froze the fare and sent the invites",
-          `Two bookings built in Will's name. The clock reads ${FREEZE.remaining}.`,
+          `Sent to ${w.invited.map(firstName).join(" and ")}`,
+          "A booking built for each, in Will's name. They pay their own way; nobody sees anybody else's fare.",
         )
-      : step("Group", "wait", "Waiting on Will", `One tap: Freeze and invite, ${gbp(fee)}.`),
+      : step(
+          "Group",
+          "wait",
+          "Waiting on Will",
+          "Untick anyone, or send to nobody. If he sends to nobody, I don't ask again.",
+        ),
   ];
-  const thumbs = thumbsStep(state, w);
-  if (thumbs !== null) steps.push(thumbs);
   return { who: "Will's phone", when: "Confirmation", steps };
-}
-
-function peopleTrace(state: TraceState): Trace {
-  const w = will(state);
-  return {
-    who: "Will's phone",
-    when: "Who's coming?",
-    steps: [
-      step(
-        "Group",
-        "read",
-        "Counted the party",
-        `"With 2 mates": ${w.draft.party.value.adults} seat paid for, 2 more to invite.`,
-      ),
-      step(
-        "Group",
-        "think",
-        "Checked who Pegasus knows",
-        FRIENDS.map(
-          (f) =>
-            `${firstName(f.name)}: ${f.account ? "has an account, so push" : "no account, so WhatsApp"}`,
-        ).join(". ") + ".",
-      ),
-      step(
-        "Group",
-        "think",
-        "Kept the seats beside",
-        `${SQUAD.seats.archie} and ${SQUAD.seats.tom} held next to ${w.itinerary.out?.seats[0] ?? "14A"} until ${FREEZE.untilShort}.`,
-      ),
-      step("Group", "wait", "Waiting on names", "Will picks. I never guess who a mate is."),
-    ],
-  };
-}
-
-function reviewTrace(state: TraceState): Trace {
-  const w = will(state);
-  const friends = w.invited.map((n) => friendByName(n)).filter((f): f is Friend => f !== null);
-  const facts = friends.map((f) => {
-    const d = buildInviteeDraft(w.draft, f, w.me);
-    const c = countBySource(d);
-    return `${firstName(f.name)}: ${c.shared} from Will, ${c.profile} remembered, ${c.predicted} predicted`;
-  });
-  return {
-    who: "Will's phone",
-    when: "Review and send",
-    steps: [
-      step(
-        "Group",
-        "think",
-        "Built each friend a booking",
-        "Flights and dates from Will's booking, tagged with his initials. The fare and seat predicted from Will's reasons, which apply to the whole squad. Anything Pegasus remembers about the friend, remembered.",
-        facts,
-      ),
-      step(
-        "Group",
-        "think",
-        "Decided what each person sees",
-        "Will sees names, status and seats. Nobody sees anybody else's fare.",
-      ),
-      step(
-        "Group",
-        "think",
-        "Totted up the freeze",
-        `${gbp(FREEZE.feePerFriend * friends.length)} for ${friends.length}, fare held until ${FREEZE.until}.`,
-      ),
-      state.frozen
-        ? step(
-            "Group",
-            "act",
-            "Sent",
-            `${friends.map((f) => `${firstName(f.name)} by ${f.channel === "push" ? "push" : "WhatsApp"}`).join(", ")}. In Will's name, not Pegasus's.`,
-          )
-        : step("Group", "wait", "Waiting on Will", "Send is his tap."),
-    ],
-  };
 }
 
 function inviteeTrace(
@@ -718,12 +643,17 @@ function inviteeTrace(
             "Chose WhatsApp",
             `${first} has no account. A link from Will's number opens the same booking on the web, and the app comes after, not before.`,
           ),
-      built,
+      step(
+        "Offer",
+        "think",
+        "Led with the seat",
+        `${seat ?? "The seat"} next to Will is free: that's the first line, at ${formatFare(SQUAD.seatPricePerLeg)} a leg. A mate's seat sells itself; a fare doesn't.`,
+      ),
       step(
         "Moments",
         "think",
         "Timed it",
-        `Sent the moment Will froze the fare, with the clock showing: ${FREEZE.remaining} left.`,
+        `Sent the minute Will booked, ${INVITE.sentAt}, while the trip is the thing he's talking about.`,
       ),
       step(
         "Group",
@@ -762,7 +692,7 @@ function inviteeTrace(
             "Trip",
             "read",
             "Nothing on file",
-            "Passport at check-in, card typed once. The seat stays held while he does.",
+            "Passport at check-in, card typed once. The seat beside is still free while he does.",
           )
         : step(
             "Trip",
@@ -776,7 +706,7 @@ function inviteeTrace(
               "Offer",
               "act",
               "Rescued a declined card",
-              `Card declined. I offer Apple Pay on the next line and keep ${seat ?? "the seat"} held. A dead end here loses the whole squad.`,
+              `Card declined. I offer Apple Pay on the next line and say ${seat ?? "the seat"} is still free. A dead end here loses the whole squad.`,
             ),
           ]
         : []),
@@ -842,6 +772,7 @@ function inviteeTrace(
 function stallsTrace(state: TraceState): Trace {
   const w = will(state);
   const tom = FRIENDS[1]!;
+  const left = w.itinerary.out?.flight.seatsLeft ?? 9;
   return {
     who: "Tom's phone, then Will's",
     when: "The next day",
@@ -849,8 +780,8 @@ function stallsTrace(state: TraceState): Trace {
       step(
         "Moments",
         "read",
-        "Watched the clock",
-        `Tom opened the link and didn't pay. ${FREEZE.remaining} left on the frozen fare.`,
+        "Watched the flight, not a clock",
+        `Tom opened the link and didn't pay. The ${w.itinerary.out?.flight.departs ?? "06:10"} is down to ${left} seats, so the reason to nudge is real.`,
       ),
       step(
         "Moments",
@@ -862,13 +793,13 @@ function stallsTrace(state: TraceState): Trace {
         "Moments",
         "quiet",
         "One nudge, not three",
-        "If Tom ignores it, the fare simply expires at the time shown. I don't chase.",
+        "If Tom ignores it, nothing else arrives. I don't chase.",
       ),
       step(
         "Offer",
         "act",
         "Planned the rescue",
-        `If his card declines, Apple Pay on the next line and ${seatBeside(w.draft, tom, w.me) ?? "his seat"} still held. The offer is the way out, not another ask.`,
+        `If his card declines, Apple Pay on the next line and ${seatBeside(w.draft, tom, w.me) ?? "his seat"} still free. The offer is the way out, not another ask.`,
       ),
     ],
   };
@@ -892,7 +823,7 @@ function waitingTrace(state: TraceState): Trace {
         "Group",
         "act",
         "Kept a Live Activity up",
-        `${booked.length} of ${members.length} booked, fare frozen for ${FREEZE.remaining}. It updates itself; nobody has to open the app to know.`,
+        `${booked.length} of ${members.length} booked. It updates itself; nobody has to open the app to know.`,
         members.map((m) => `${firstName(m.name)}: ${m.status}`),
       ),
       step(
@@ -950,14 +881,14 @@ function squadTrace(state: TraceState): Trace {
               .map((m) => firstName(m.name))
               .join(" and ")}. An offer to a half-booked squad is three separate upsells.`,
           ),
-      ...(state.frozen
+      ...(state.sent
         ? []
         : [
             step(
               "Group",
-              "think",
-              "Freeze not taken yet",
-              `The fare isn't held. The card offers it: ${gbp(FREEZE.feePerFriend * (members.length - 1))} for ${FREEZE.hours} hours.`,
+              "quiet",
+              "Not sent yet",
+              "Will hasn't sent the trip on. The squad card waits; nothing goes to anyone he didn't name.",
             ),
           ]),
     ],
@@ -977,12 +908,19 @@ function checkInTrace(state: TraceState): Trace {
         "Counted down to check-in",
         `Check-in for the ${out?.flight.departs ?? "06:10"} on ${shortDate(w.draft.departDate.value)} opens 24 hours before. The day before that is the last chance to fix seats.`,
       ),
-      step(
-        "Group",
-        "read",
-        "Noticed Tom has no seat",
-        `He skipped seat selection, so he'd be placed randomly. ${SQUAD.seats.tom} next to ${out?.seats[0] ?? "14A"} is still free, so I ask Will, not Tom.`,
-      ),
+      (state.inviteesBooked[FRIENDS[1]?.name ?? ""] ?? null) !== null
+        ? step(
+            "Group",
+            "read",
+            "Checked the seats",
+            `All three took the seats beside each other when they booked: ${out?.seats[0] ?? "14A"}, ${SQUAD.seats.archie}, ${SQUAD.seats.tom}. Nothing to fix.`,
+          )
+        : step(
+            "Group",
+            "read",
+            "Noticed Tom has no seat",
+            `He skipped seat selection, so he'd be placed randomly. ${SQUAD.seats.tom} next to ${out?.seats[0] ?? "14A"} is still free, so I ask Will, not Tom.`,
+          ),
       step(
         "Moments",
         "act",
@@ -1053,8 +991,8 @@ function squadCancelledTrace(state: TraceState): Trace {
       step(
         "Moments",
         "act",
-        "Told the followers",
-        "Anyone following the flight got the new time. Nobody got an apology without a plan.",
+        "Told Archie and Tom the same second",
+        "Three phones, one message each, with the new flight already in it. Nobody got an apology without a plan.",
       ),
     ],
   };
@@ -1285,6 +1223,21 @@ function lookTrace(state: TraceState): Trace {
         : `Flagged ${flagged.map((k) => FIELD_LABELS[k].toLowerCase()).join(", ")} with the Look tag: the one thing I'm guessing at.`,
     ),
   ];
+  steps.push(
+    state.emre.gifts
+      ? step(
+          "Offer",
+          "act",
+          "Presents added",
+          `${GIFTS.extraWeight.label} and ${GIFTS.delight.label}: ${gbp(GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg)} on top of the fare.`,
+        )
+      : step(
+          "Offer",
+          "think",
+          "Built extras around the occasion",
+          `It's a birthday, so the question is presents, not bags. ${GIFTS.extraWeight.label} at ${gbp(GIFTS.extraWeight.perLeg)} on the way out, and ${GIFTS.delight.label} at ${gbp(GIFTS.delight.perLeg)}. Offered once; ignored, it isn't repeated.`,
+        ),
+  );
   if (state.emre.corrected !== null) {
     steps.push(
       step(
@@ -1309,43 +1262,35 @@ function lookTrace(state: TraceState): Trace {
 
 function emreCheckoutTrace(state: TraceState): Trace {
   const e = emre(state);
-  const gifts = GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg;
+  const gifts = state.emre.gifts ? GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg : 0;
+  const total = priceOf(e.draft) + gifts;
   return {
     who: "Emre's phone",
     when: "Checkout",
     steps: [
       step(
-        "Offer",
-        "think",
-        "Built extras around the occasion",
-        `It's a birthday, so the question is presents, not bags. ${GIFTS.extraWeight.label} at ${gbp(GIFTS.extraWeight.perLeg)} on the way out only, and ${GIFTS.delight.label} at ${gbp(GIFTS.delight.perLeg)}.`,
-        [`Gifts: ${gbp(gifts)}`, `Fare: ${gbp(priceOf(e.draft))}`],
-      ),
-      step(
-        "Offer",
-        "quiet",
-        "Not repeated",
-        "Ignored once, an add-on is not offered again on this trip.",
-      ),
-      step(
         "Trip",
         "read",
         "Checked the passport before payment",
         `${EMRE.onFile.passport}, ${EMRE.onFile.from.toLowerCase()}. Fine for June and a domestic flight; not for the September trip on file. So I say so here, with time to renew, not at the gate.`,
+        [EMRE.onFile.passport],
       ),
       step("Trip", "read", "Payment on file", `${EMRE.onFile.payment}. Nothing to type.`),
+      step(
+        "Offer",
+        "quiet",
+        "Nothing to add at the till",
+        state.emre.gifts
+          ? "The presents are in. Nothing else fits a weekend home."
+          : "He left the presents. Not asked again, here or anywhere.",
+      ),
       state.emre.booked
-        ? step(
-            "Trip",
-            "act",
-            `Booked ${e.itinerary.reference}`,
-            `${gbp(priceOf(e.draft) + (state.emre.gifts ? gifts : 0))} paid.`,
-          )
+        ? step("Trip", "act", `Booked ${e.itinerary.reference}`, `${gbp(total)} paid.`)
         : step(
             "Trip",
             "wait",
             "Waiting on Emre to pay",
-            `${gbp(priceOf(e.draft) + (state.emre.gifts ? gifts : 0))}, the figure on the ticket.`,
+            `${gbp(total)}, the figure on the ticket.`,
           ),
     ],
   };
@@ -1575,10 +1520,6 @@ function untitled(pathname: string, state: TraceState): Trace {
       return checkoutTrace(state);
     case "/confirmation":
       return confirmationTrace(state);
-    case "/group/people":
-      return peopleTrace(state);
-    case "/group/review":
-      return reviewTrace(state);
     case "/group":
       return squadTrace(state);
     case "/invite/archie":
