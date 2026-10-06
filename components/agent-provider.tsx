@@ -117,6 +117,20 @@ function start(key: string, lane: Lane, trace: Trace & { title?: string }): void
   }
 }
 
+/** A phone was put away: its runs are over, whatever step they were on. */
+function retireLane(lane: Lane): void {
+  const gone = snapshot.active.filter((r) => r.lane === lane);
+  if (gone.length === 0) return;
+  gone.forEach((r) => clearTimer(r.id));
+  emit({
+    active: snapshot.active.filter((r) => r.lane !== lane),
+    history: [
+      ...gone.map((r) => ({ ...r, revealed: r.steps.length, done: true })),
+      ...snapshot.history,
+    ].slice(0, 8),
+  });
+}
+
 /** Show everything at once: the presenter is in a hurry. */
 function finish(): void {
   snapshot.active.forEach((r) => clearTimer(r.id));
@@ -137,13 +151,17 @@ function reset(): void {
 
 const EMPTY: AgentState = { active: [], history: [] };
 
-export function useAgents(): AgentState & { finish: () => void; reset: () => void } {
+export function useAgents(): AgentState & {
+  finish: () => void;
+  reset: () => void;
+  retireLane: (lane: Lane) => void;
+} {
   const state = useSyncExternalStore(
     subscribe,
     () => snapshot,
     () => EMPTY,
   );
-  return { ...state, finish, reset };
+  return { ...state, finish, reset, retireLane };
 }
 
 function isDone(key: string): boolean {

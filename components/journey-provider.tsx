@@ -37,6 +37,10 @@ export type JourneyState = {
     corrected: string | null;
     gifts: boolean;
     surprise: boolean;
+    /** Next year's nudge was taken: the usual is rebuilt a year on. */
+    nextYear: boolean;
+    /** Whether the presents were taken last year. Left once, they are not offered again. */
+    giftsLastYear: boolean;
   };
   moment: {
     set: boolean;
@@ -62,8 +66,17 @@ const INITIAL: JourneyState = {
   sent: false,
   inviteesBooked: {},
   declined: false,
-  emre: { draft: null, booked: false, corrected: null, gifts: false, surprise: true },
-  moment: { set: false, declined: false, never: false, approved: false, spoken: 0 },
+  emre: {
+    draft: null,
+    booked: false,
+    corrected: null,
+    gifts: false,
+    surprise: true,
+    nextYear: false,
+    giftsLastYear: false,
+  },
+  // The companion learned the moment itself, from last June: it is set from the start.
+  moment: { set: true, declined: false, never: false, approved: false, spoken: 0 },
   aside: null,
 };
 

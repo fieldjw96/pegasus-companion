@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Thinking, useAgentRun } from "@/components/agent-provider";
@@ -13,7 +13,6 @@ import {
   AppIcon,
   ChevronDown,
   CloseIcon,
-  FaceIdIcon,
   Initials,
   PassIcon,
   PlusIcon,
@@ -24,7 +23,6 @@ import {
   TextButton,
 } from "@/components/ui/primitives";
 import { Sheet } from "@/components/ui/sheet";
-import { HomeScreen } from "./home-screen";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { priceOf } from "@/lib/assistant/price";
 import { AIRPORTS, formatFare } from "@/lib/journey/flights";
@@ -594,15 +592,16 @@ function Reason({ children }: { children: React.ReactNode }) {
  * one yellow action. Expanded: Why I spoke, approve with Face ID, look, not
  * this year.
  */
-type Stage = "compact" | "expanded" | "faceid" | "booked";
+type Stage = "compact" | "expanded" | "booked";
 
-export function NudgeScreen({ late = false }: { late?: boolean }) {
+export function NudgeScreen() {
   const router = useRouter();
   const { state, update } = useJourney();
   const momentState = useMomentState();
   const dates = momentDates();
-  const date = late ? dates.reminder : dates.nudge;
-  const [stage, setStage] = useState<Stage>(state.moment.approved ? "booked" : "compact");
+  const date = dates.nudge;
+  const stage: Stage = state.moment.approved ? "booked" : "compact";
+  const [expanded, setExpanded] = useState(false);
   const history = mornings(MOMENT, shift(date, -1), { ...momentState, booked: false });
   const spokenBefore = history.filter((m) => m.verdict !== "silent").length;
   const morning = checkMorning(MOMENT, date, {
@@ -614,40 +613,10 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
   const itinerary = itineraryFor(draft, EMRE.travellers[0]?.name);
   const total = priceOf(draft);
   const silent = morning.verdict === "silent" && stage !== "booked";
-  const ready = useAgentRun(
-    `moment:${late ? "reminder" : "nudge"}:${stage === "booked"}:${silent}`,
-    () => traceFor(late ? "/moment/reminder" : "/moment/nudge", state),
+  const ready = useAgentRun(`moment:nudge:${stage}:${silent}`, () =>
+    traceFor("/moment/nudge", state),
   );
 
-  useEffect(() => {
-    if (silent && ready) router.replace("/moment/quiet");
-  }, [silent, ready, router]);
-
-  useEffect(() => {
-    if (stage !== "faceid") return;
-    const t = window.setTimeout(() => {
-      update((prev) => ({
-        emre: { ...prev.emre, draft, booked: true },
-        moment: { ...prev.moment, set: true, approved: true, spoken: spokenBefore + 1 },
-      }));
-      setStage("booked");
-    }, 1400);
-    return () => window.clearTimeout(t);
-    // The draft is deterministic; only the stage matters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage]);
-
-  if (silent) {
-    // The gates held: the phone stays dark while the panel shows why, then
-    // the morning moves to My Flights, where the quiet is counted.
-    return (
-      <LockScreen date={longDate(date)} time="08:30">
-        {null}
-      </LockScreen>
-    );
-  }
-
-  const expanded = stage === "expanded";
   const head = (
     <div className="flex items-center gap-2">
       <AppIcon />
@@ -656,6 +625,21 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
     </div>
   );
   const title = `${MOMENT.title} · ${dayMonth(MOMENT.occasion)}`;
+
+  if (silent) {
+    // The gates held: the phone stays dark while the panel shows why.
+    return (
+      <LockScreen date={longDate(date)} time="08:30">
+        {ready && (
+          <p className="px-3 text-center text-[13px] leading-[18px] text-white/60">
+            {morning.quiet === "Told never to suggest this."
+              ? "Nothing. Emre said don’t suggest again, and it holds."
+              : "Nothing. Emre said not this year, and it holds until next April."}
+          </p>
+        )}
+      </LockScreen>
+    );
+  }
 
   if (stage === "booked") {
     return (
@@ -697,10 +681,6 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
             >
               <Link href="/emre/confirmation" className="font-bold">
                 Tap for your ticket.
-              </Link>{" "}
-              Taking presents?{" "}
-              <Link href="/emre" className="font-bold text-pg-orange">
-                Room for them is one tap.
               </Link>
             </p>
           </LockCard>
@@ -710,16 +690,9 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
   }
 
   return (
-    <LockScreen
-      date={longDate(date)}
-      time={late ? "08:30" : "08:30"}
-      dim={expanded}
-      bottom={expanded ? 34 : 116}
-    >
+    <LockScreen date={longDate(date)} time="08:30" dim={expanded} bottom={expanded ? 34 : 116}>
       {ready && (
-        <LockCard
-          label={expanded ? "Pegasus Live Activity, expanded" : "Pegasus Live Activity"}
-        >
+        <LockCard label={expanded ? "Pegasus notification, expanded" : "Pegasus notification"}>
           {head}
           <div className="mt-3.5 flex items-center gap-3">
             <Avatar size={52} />
@@ -738,8 +711,12 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
               </span>
             </div>
           </div>
-          <p className="mt-3 text-[15px] leading-5 font-extrabold">
-            {late ? "Still not booked. Fares are up." : `Your usual Friday flight to Trabzon?`}
+          <p
+            className="mt-3 text-[15px] leading-5 font-extrabold"
+            style={{ textWrap: "pretty" }}
+          >
+            Mum&rsquo;s birthday is {dayLongMonth(MOMENT.occasion)}. Your usual Friday flight
+            to Trabzon?
           </p>
 
           {expanded && (
@@ -756,43 +733,40 @@ export function NudgeScreen({ late = false }: { late?: boolean }) {
                   {itinerary.back?.flight.flightNo} · seat {itinerary.out?.seats[0]} · SAVER.
                 </span>
               </p>
-              <PrimaryButton className="mt-3.5 w-full" onClick={() => setStage("faceid")}>
-                <FaceIdIcon />
-                Approve (Face ID)
-              </PrimaryButton>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <SecondaryButton href="/moment/look">Look</SecondaryButton>
-                <SecondaryButton href="/moment/not-this-year">Not this year</SecondaryButton>
-              </div>
             </>
           )}
 
+          <div className="mt-3.5 grid grid-cols-2 gap-2">
+            <PrimaryButton
+              className="h-12 w-full px-0 text-[16px]"
+              onClick={() => {
+                update((prev) => ({
+                  emre: { ...prev.emre, draft: prev.emre.draft ?? emreDraft() },
+                  moment: {
+                    ...prev.moment,
+                    spoken: Math.max(prev.moment.spoken, spokenBefore + 1),
+                  },
+                }));
+                router.push("/emre");
+              }}
+            >
+              Yes, plan it
+            </PrimaryButton>
+            <SecondaryButton href="/moment/not-this-year" className="w-full">
+              Not this year
+            </SecondaryButton>
+          </div>
           {!expanded && (
-            <>
-              <div className="mt-3.5 grid grid-cols-2 gap-2">
-                <PrimaryButton
-                  className="h-12 w-full px-0 text-[16px]"
-                  onClick={() => setStage("faceid")}
-                >
-                  Yes, plan it
-                </PrimaryButton>
-                <SecondaryButton href="/moment/look" className="w-full">
-                  Look
-                </SecondaryButton>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStage("expanded")}
-                aria-expanded={false}
-                className="mt-2.5 flex items-center justify-center gap-1 text-[12px] leading-4 font-bold text-pg-ink"
-              >
-                Why I spoke
-                <ChevronDown size={12} />
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              aria-expanded={false}
+              className="mt-2.5 flex w-full items-center justify-center gap-1 text-[12px] leading-4 font-bold text-pg-ink"
+            >
+              Why I spoke
+              <ChevronDown size={12} />
+            </button>
           )}
-
-          {stage === "faceid" && <FaceId />}
         </LockCard>
       )}
     </LockScreen>
@@ -837,50 +811,4 @@ function emphasise(sentence: string): React.ReactNode {
       <span key={i}>{part}</span>
     ),
   );
-}
-
-/** Face ID resolving to a tick, on system timing. */
-function FaceId() {
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    const t = window.setTimeout(() => setDone(true), 800);
-    return () => window.clearTimeout(t);
-  }, []);
-  return (
-    <div
-      role="status"
-      aria-label={done ? "Face ID recognised" : "Face ID"}
-      className="fade absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[28px] bg-white/92"
-    >
-      <span className="flex h-[88px] w-[88px] items-center justify-center rounded-[26px] bg-pg-navy text-white">
-        {done ? (
-          <svg width="44" height="44" viewBox="0 0 20 20" aria-hidden>
-            <path
-              d="M4.5 10.5l3.5 3.5 7.5-8"
-              fill="none"
-              stroke="#FDB913"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : (
-          <FaceIdIcon size={48} />
-        )}
-      </span>
-      <span className="text-[15px] font-bold">{done ? "Booked" : "Face ID"}</span>
-    </div>
-  );
-}
-
-/** "Look": Emre's usual trip on the home screen, with the one question that matters. */
-export function LookScreen() {
-  const { state, update, ready } = useJourney();
-  useEffect(() => {
-    if (ready && state.emre.draft === null) {
-      update((prev) => ({ emre: { ...prev.emre, draft: emreDraft() }, persona: "emre" }));
-    }
-  }, [ready, state.emre.draft, update]);
-  if (!ready || state.emre.draft === null) return null;
-  return <HomeScreen persona="emre" />;
 }

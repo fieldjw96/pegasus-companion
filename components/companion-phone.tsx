@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { useAgents } from "./agent-provider";
 import { useJourney, type JourneyState } from "./journey-provider";
 import { Device } from "./phone-frame";
 import { NavProvider, type Nav } from "./phone-nav";
@@ -56,6 +57,8 @@ function screenFor(route: string): ReactNode {
       return <TomStallsScreen />;
     case "/moment/dad":
       return <DadFollowsScreen />;
+    case "/moment/dad/cancelled":
+      return <DadFollowsScreen cancelled />;
     case "/moment/stop":
       return <DadStopScreen />;
     default:
@@ -67,13 +70,20 @@ function screenFor(route: string): ReactNode {
 export function asideFor(route: string): Aside | null {
   if (route.startsWith("/invite/archie")) return { who: "archie", route };
   if (route.startsWith("/invite/tom")) return { who: "tom", route };
-  if (route === "/moment/dad" || route === "/moment/stop") return { who: "dad", route };
+  if (route.startsWith("/moment/dad") || route === "/moment/stop")
+    return { who: "dad", route };
   return null;
 }
 
 export function CompanionPhone() {
   const { state, update } = useJourney();
+  const { retireLane } = useAgents();
   const aside = state.aside;
+  const open = aside !== null;
+  // When the phone goes away, so does its place on the panel.
+  useEffect(() => {
+    if (!open) retireLane("aside");
+  }, [open, retireLane]);
   const nav = useMemo<Nav>(
     () => ({
       push: (href) => update({ aside: asideFor(href) }),

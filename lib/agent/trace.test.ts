@@ -18,8 +18,16 @@ const COLD: TraceState = {
   sent: false,
   inviteesBooked: {},
   declined: false,
-  emre: { draft: null, booked: false, corrected: null, gifts: false, surprise: true },
-  moment: { set: false, declined: false, never: false, approved: false, spoken: 0 },
+  emre: {
+    draft: null,
+    booked: false,
+    corrected: null,
+    gifts: false,
+    surprise: true,
+    nextYear: false,
+    giftsLastYear: false,
+  },
+  moment: { set: true, declined: false, never: false, approved: false, spoken: 0 },
 };
 
 const text = (path: string, state: TraceState = COLD) =>
@@ -69,12 +77,26 @@ describe("the agent trace", () => {
     expect(home.steps.map((s) => s.agent)).toContain("Offer");
   });
 
-  it("explains a quiet morning with the gate that held", () => {
-    const quiet = traceFor("/moment/quiet", COLD);
-    const gates = quiet.steps.filter((s) => s.did.startsWith("Gate"));
-    expect(gates).toHaveLength(3);
-    expect(gates[0]?.kind).toBe("quiet");
-    expect(quiet.steps[quiet.steps.length - 1]?.thought).toContain("Not the moment");
+  it("does not offer the presents next year when he left them last year", () => {
+    const ignored = {
+      ...COLD,
+      emre: { ...COLD.emre, booked: true, nextYear: true, giftsLastYear: false },
+    };
+    const offer = traceFor("/emre", ignored).steps.find((s) => s.agent === "Offer");
+    expect(offer?.kind).toBe("quiet");
+    const taken = {
+      ...COLD,
+      emre: { ...COLD.emre, booked: true, nextYear: true, giftsLastYear: true },
+    };
+    expect(traceFor("/emre", taken).steps.find((s) => s.agent === "Offer")?.kind).toBe(
+      "think",
+    );
+  });
+
+  it("tells Dad about a cancellation the same second", () => {
+    const dad = traceFor("/moment/dad/cancelled", COLD);
+    expect(dad.title).toBe("Unhappy path: the flight is cancelled");
+    expect(dad.steps[dad.steps.length - 1]?.thought).toContain("Mum still hears nothing");
   });
 
   it("carries Why I spoke onto the nudge, word for word", () => {
@@ -98,10 +120,10 @@ describe("the agent trace", () => {
 
   it("speaks next year when nothing was said against it", () => {
     const again = traceFor("/moment/next-year", COLD);
-    expect(again.steps[again.steps.length - 1]?.kind).toBe("act");
-    expect(again.steps[again.steps.length - 1]?.facts?.[0]).toBe(
-      `Budget 1 of ${MOMENT.interruptionBudget}`,
-    );
+    const asked = again.steps.find((s) => s.kind === "act");
+    expect(asked?.did).toBe("Asked, once");
+    expect(asked?.facts?.[0]).toBe(`Budget 1 of ${MOMENT.interruptionBudget}`);
+    expect(again.steps[again.steps.length - 1]?.agent).toBe("Offer");
   });
 
   it("reads the demo's state: the squad fills in as people book", () => {

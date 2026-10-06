@@ -78,36 +78,31 @@ export const ACTS: Act[] = [
     journey: "Emre, 34, Istanbul. Warm start: he's flown it before.",
     scenes: [
       {
-        href: "/flights",
-        title: "Trips I'm watching",
-        note: "Tap Mum's birthday",
-        agent: "Moments",
-      },
-      { href: "/flights/moment", title: "What I remembered" },
-      { href: "/moment/quiet", title: "A morning where nothing happened", note: "Restraint" },
-      {
         href: "/moment/nudge",
         title: "Two months out",
-        note: "14 April, Why I spoke, Face ID",
+        note: "14 April, a push, Why I spoke",
         agent: "Moments",
       },
       {
-        href: "/moment/look",
+        href: "/emre",
         title: "One tap, his usual",
-        note: "Thumbs: not quite, return date. Room for presents",
+        note: "Return date options, thumbs, room for presents",
         agent: "Trip",
       },
       { href: "/emre/checkout", title: "The passport, before payment", agent: "Trip" },
-      { href: "/emre/confirmation", title: "Dad's in on the surprise" },
-      { href: "/moment/dad", title: "Dad's phone" },
-      { href: "/moment/cancelled", title: "Unhappy path: the flight is cancelled" },
+      { href: "/emre/confirmation", title: "Dad's in on the surprise", agent: "Moments" },
+      { href: "/moment/dad", title: "Dad's phone", note: "Follow the flight, or STOP" },
       {
-        href: "/moment/reminder",
-        title: "Late May",
-        note: "A reminder if unbooked, silence if booked",
+        href: "/moment/cancelled",
+        title: "Unhappy path: the flight is cancelled",
+        note: "Rebooked first, Dad told the same second",
       },
       { href: "/moment/not-this-year", title: "Not this year / never", note: "Opt-outs" },
-      { href: "/moment/next-year", title: "Next year" },
+      {
+        href: "/moment/next-year",
+        title: "Next year",
+        note: "Same again; what he left is not offered",
+      },
       { href: "/moment/stop", title: "Dad wants out" },
     ],
   },
@@ -120,7 +115,7 @@ const ALIASES: Record<string, string> = {
   "/invite/tom/ticket": "/invite/tom",
   "/invite/tom/checkout": "/invite/tom",
   "/invite/tom/confirmation": "/invite/tom",
-  "/emre": "/moment/look",
+  "/moment/dad/cancelled": "/moment/cancelled",
 };
 
 /** The scene a route belongs to, for the panel's heading. */

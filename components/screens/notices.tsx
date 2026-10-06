@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useNav } from "@/components/phone-nav";
 import { useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
@@ -8,8 +9,10 @@ import { AppIcon, Initials, PrimaryButton, SecondaryButton } from "@/components/
 import { Notice } from "./invitee";
 import { traceFor } from "@/lib/agent/trace";
 import { itineraryFor } from "@/lib/assistant/itinerary";
+import { inventory } from "@/lib/journey/flights";
+import { HOME } from "@/lib/journey/script";
 import { FRIENDS, firstName } from "@/lib/group/group";
-import { momentDates } from "@/lib/moments/moments";
+import { MOMENT, momentDates, nextYearMoment, usualTrip } from "@/lib/moments/moments";
 import { EMRE, WILL, emreDraft, longDate, shift, willDraft } from "@/lib/demo/personas";
 import { cityOf } from "./ticket";
 
@@ -186,17 +189,24 @@ export function NextTripScreen() {
 }
 
 /** Dad's phone: Emre lands. Mum doesn't know yet. */
-export function DadFollowsScreen() {
+export function DadFollowsScreen({ cancelled = false }: { cancelled?: boolean }) {
   const router = useNav();
   const { state } = useJourney();
   const draft = state.emre.draft ?? emreDraft();
   const itinerary = itineraryFor(draft, EMRE.travellers[0]?.name);
   const arrives = itinerary.out?.flight.arrives ?? "20:50";
-  const ready = useAgentRun(`dad:follows:${state.emre.surprise}`, () =>
-    traceFor("/moment/dad", state),
+  const later = inventory(HOME.origin, HOME.destination, draft.departDate.value).find(
+    (f) => f.departs === HOME.later,
+  );
+  const ready = useAgentRun(`dad:${cancelled ? "cancelled" : "follows"}`, () =>
+    traceFor(cancelled ? "/moment/dad/cancelled" : "/moment/dad", state),
   );
   return (
-    <LockScreen date={longDate(draft.departDate.value)} time={arrives} bottom={150}>
+    <LockScreen
+      date={longDate(draft.departDate.value)}
+      time={cancelled ? "17:03" : arrives}
+      bottom={150}
+    >
       {ready && (
         <LockCard label="Message from Pegasus" radius={24} className="bg-white/95 !p-3.5">
           <div className="flex items-start gap-3">
@@ -210,9 +220,11 @@ export function DadFollowsScreen() {
               </span>
               <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
                 <strong className="font-extrabold">
-                  Emre lands in Trabzon at {arrives} {state.emre.surprise ? "🤫" : ""}
+                  {cancelled
+                    ? `Emre's ${itinerary.out?.flight.departs ?? "19:05"} is cancelled. He's on the ${later?.departs ?? HOME.later}, landing ${later?.arrives ?? "23:00"} 🤫`
+                    : `Emre lands in Trabzon at ${arrives} 🤫`}
                 </strong>{" "}
-                {state.emre.surprise ? "Mum doesn’t know yet." : "Mum’s been told too."}
+                Mum {cancelled ? "still " : ""}doesn&rsquo;t know{cancelled ? "." : " yet."}
               </span>
               <span className="mt-1 text-[14px] font-extrabold text-pg-orange">
                 Follow the flight
@@ -243,10 +255,14 @@ export function DadFollowsScreen() {
 
 /** Emre's 19:05 is cancelled. Rebooked first, told second, and Dad told too. */
 export function EmreCancelledScreen() {
-  const { state } = useJourney();
+  const { state, update } = useJourney();
   const draft = state.emre.draft ?? emreDraft();
   const seat = itineraryFor(draft, EMRE.travellers[0]?.name).out?.seats[0] ?? "3A";
   const ready = useAgentRun("emre:cancelled", () => traceFor("/moment/cancelled", state));
+  // Dad is told the same second: his phone appears beside Emre's.
+  useEffect(() => {
+    if (ready) update({ aside: { who: "dad", route: "/moment/dad/cancelled" } });
+  }, [ready, update]);
   return (
     <LockScreen date={longDate(draft.departDate.value)} time="17:02" bottom={150}>
       {ready && (
@@ -298,7 +314,10 @@ export function NextYearScreen() {
                 <strong className="font-extrabold">
                   Same again for Mum&rsquo;s birthday?
                 </strong>{" "}
-                Last year&rsquo;s plan: the Friday 19:05, SAVER, 3A, back the day after.
+                Last year&rsquo;s plan: the Friday 19:05, SAVER, 3A
+                {state.emre.corrected === null
+                  ? ", back the Sunday."
+                  : ", back after the birthday."}
               </span>
             </span>
           </div>
@@ -306,7 +325,35 @@ export function NextYearScreen() {
             <PrimaryButton
               size="sm"
               className="w-full px-0 text-[14px]"
-              onClick={() => router.push("/moment/nudge")}
+              onClick={() => {
+                // The usual, a year on. The return he corrected last year is where it
+                // starts; the presents he left last year are not offered again.
+                const next = nextYearMoment(MOMENT);
+                const usual = usualTrip(EMRE, next);
+                update((prev) => ({
+                  emre: {
+                    ...prev.emre,
+                    draft:
+                      prev.emre.corrected === null
+                        ? usual
+                        : {
+                            ...usual,
+                            returnDate: {
+                              value: shift(next.occasion, 1),
+                              source: "profile",
+                              why: "You stayed for the birthday last year, so I start there.",
+                            },
+                          },
+                    booked: false,
+                    corrected: null,
+                    giftsLastYear: prev.emre.gifts,
+                    gifts: false,
+                    nextYear: true,
+                  },
+                  moment: { ...prev.moment, approved: false },
+                }));
+                router.push("/emre");
+              }}
             >
               Yes, plan it
             </PrimaryButton>

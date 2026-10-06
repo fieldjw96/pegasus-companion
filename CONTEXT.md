@@ -116,13 +116,14 @@ _Avoid_: alert, saved search, watch
 
 **Usual trip**:
 The trip rebuilt from last time: flights, seat, bundle, with an all-in price up
-front. The one thing it guesses, it flags.
+front. The one thing it cannot know, the return date, it offers as two options.
+A year on, it starts from the option he took and leaves out the extras he left.
 _Avoid_: default, template
 
 **Nudge**:
 The companion speaking two months out, on the lock screen, with Why I spoke. One
-tap approves the usual. "Look" opens the ticket. "Not this year" keeps it quiet
-until next April.
+tap opens the usual, with the return date as a choice. "Not this year" keeps it
+quiet until next April.
 _Avoid_: reminder, push, campaign
 
 **The three gates**:

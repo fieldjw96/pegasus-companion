@@ -120,6 +120,8 @@ export type TraceState = {
     corrected: string | null;
     gifts: boolean;
     surprise: boolean;
+    nextYear: boolean;
+    giftsLastYear: boolean;
   };
   moment: {
     set: boolean;
@@ -1181,7 +1183,7 @@ function morningTrace(state: TraceState, date: string, who: string): Trace {
         "Trip",
         "think",
         "Had the usual ready",
-        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} ${e.itinerary.out?.flight.departs ?? "19:05"}, ${FARE_RULES[e.draft.package.value].label}, seat ${e.itinerary.out?.seats[0] ?? HOME.seat}, ${gbp(priceOf(e.draft))} all in. One tap with Face ID; "Look" if he wants to see it first.`,
+        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} ${e.itinerary.out?.flight.departs ?? "19:05"}, ${FARE_RULES[e.draft.package.value].label}, seat ${e.itinerary.out?.seats[0] ?? HOME.seat}, ${gbp(priceOf(e.draft))} all in. One tap opens it, with the return date as a choice rather than a guess.`,
       ),
       step(
         "Offer",
@@ -1195,7 +1197,7 @@ function morningTrace(state: TraceState, date: string, who: string): Trace {
             "Moments",
             "wait",
             "Waiting on Emre",
-            `Yes, Look, or Not this year. Silence counts as no: budget now ${spokenBefore + 1} of ${MOMENT.interruptionBudget}.`,
+            `Yes, or Not this year. Silence counts as no: budget now ${spokenBefore + 1} of ${MOMENT.interruptionBudget}.`,
           ),
     );
   }
@@ -1210,7 +1212,7 @@ function lookTrace(state: TraceState): Trace {
     step(
       "Trip",
       "think",
-      "Rebuilt last June's trip",
+      state.emre.nextYear ? "Rebuilt last year's trip" : "Rebuilt last June's trip",
       `${counts.profile} fields remembered, ${counts.predicted} predicted. ${e.draft.returnDate.why}`,
       legFacts(e.itinerary),
     ),
@@ -1224,19 +1226,26 @@ function lookTrace(state: TraceState): Trace {
     ),
   ];
   steps.push(
-    state.emre.gifts
+    state.emre.nextYear && !state.emre.giftsLastYear
       ? step(
           "Offer",
-          "act",
-          "Presents added",
-          `${GIFTS.extraWeight.label} and ${GIFTS.delight.label}: ${gbp(GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg)} on top of the fare.`,
+          "quiet",
+          "Presents not offered",
+          "He left them last year. An add-on ignored once is not repeated; repeating it is what makes the next suggestion easy to ignore.",
         )
-      : step(
-          "Offer",
-          "think",
-          "Built extras around the occasion",
-          `It's a birthday, so the question is presents, not bags. ${GIFTS.extraWeight.label} at ${gbp(GIFTS.extraWeight.perLeg)} on the way out, and ${GIFTS.delight.label} at ${gbp(GIFTS.delight.perLeg)}. Offered once; ignored, it isn't repeated.`,
-        ),
+      : state.emre.gifts
+        ? step(
+            "Offer",
+            "act",
+            "Presents added",
+            `${GIFTS.extraWeight.label} and ${GIFTS.delight.label}: ${gbp(GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg)} on top of the fare.`,
+          )
+        : step(
+            "Offer",
+            "think",
+            "Built extras around the occasion",
+            `It's a birthday, so the question is presents, not bags. ${GIFTS.extraWeight.label} at ${gbp(GIFTS.extraWeight.perLeg)} on the way out, and ${GIFTS.delight.label} at ${gbp(GIFTS.delight.perLeg)}. Offered once; ignored, it isn't repeated.`,
+          ),
   );
   if (state.emre.corrected !== null) {
     steps.push(
@@ -1313,21 +1322,14 @@ function emreConfirmationTrace(state: TraceState): Trace {
         "Moments",
         "think",
         "Asked who should know",
-        "It's Mum's birthday and he's flying in. Someone at that end should know he lands; Mum shouldn't, if it's a surprise.",
+        "It's Mum's birthday and he's flying in. Someone at that end should know he lands; Mum shouldn't, or it isn't a surprise.",
       ),
-      state.emre.surprise
-        ? step(
-            "Moments",
-            "act",
-            "Surprise mode on",
-            `Dad gets the landing time (${lands}) and can follow the flight. Mum gets nothing, from any message, until Emre walks in. Every message after honours it.`,
-          )
-        : step(
-            "Moments",
-            "act",
-            "Surprise mode off",
-            `Mum and Dad can both follow. Landing ${lands}.`,
-          ),
+      step(
+        "Moments",
+        "act",
+        "Dad gets the flight",
+        `The flight and the landing time (${lands}) by SMS, with a follow link. Mum gets nothing from any message, from now until he walks in.`,
+      ),
       step(
         "Group",
         "think",
@@ -1338,9 +1340,38 @@ function emreConfirmationTrace(state: TraceState): Trace {
   };
 }
 
-function dadTrace(state: TraceState): Trace {
+function dadTrace(state: TraceState, cancelled = false): Trace {
   const e = emre(state);
   const lands = e.itinerary.out?.flight.arrives ?? "20:50";
+  const later = inventory(HOME.origin, HOME.destination, e.draft.departDate.value).find(
+    (f) => f.departs === HOME.later,
+  );
+  if (cancelled) {
+    return {
+      who: "Dad's phone",
+      when: `${longDate(e.draft.departDate.value)}, 17:03`,
+      steps: [
+        step(
+          "Moments",
+          "read",
+          "Emre's flight moved",
+          `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} cancelled; ${later?.flightNo ?? "the later flight"} lands ${later?.arrives ?? "23:00"} instead of ${lands}.`,
+        ),
+        step(
+          "Moments",
+          "think",
+          "Dad is at the other end",
+          "He's the one driving to the airport. A landing time that moved two hours is his news as much as Emre's.",
+        ),
+        step(
+          "Moments",
+          "act",
+          "Told him the same second as Emre",
+          "The new landing, nothing else. Mum still hears nothing: the surprise holds through a cancellation.",
+        ),
+      ],
+    };
+  }
   return {
     who: "Dad's phone",
     when: `${longDate(e.draft.departDate.value)}, ${lands}`,
@@ -1348,22 +1379,20 @@ function dadTrace(state: TraceState): Trace {
       step(
         "Moments",
         "read",
-        "Emre landed",
-        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} on the ground at ${lands}.`,
+        "Emre is booked home",
+        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"}, landing ${lands} on ${shortDate(e.draft.departDate.value)}.`,
       ),
       step(
         "Moments",
         "think",
-        "Checked surprise mode",
-        state.emre.surprise
-          ? "On. Dad only. The message says so, so Dad knows not to say anything."
-          : "Off. Both parents can be told.",
+        "Who should know",
+        "It's Mum's birthday and he's flying in. Dad gets the landing time so he's at arrivals; Mum gets nothing from any booking, and the message says so.",
       ),
       step(
         "Moments",
         "act",
         "Sent one message",
-        "The landing, a follow link, and STOP in the same breath. Nobody is on a list they didn't choose.",
+        "The flight, the landing, a follow link, and STOP in the same breath. One tap installs the app: a direct customer Pegasus didn't have.",
       ),
     ],
   };
@@ -1474,6 +1503,23 @@ function nextYearTrace(state: TraceState): Trace {
           [`Budget 1 of ${next.interruptionBudget}`],
         ),
   );
+  if (morning.verdict !== "silent") {
+    steps.push(
+      state.emre.gifts
+        ? step(
+            "Offer",
+            "think",
+            "Presents again, when he opens it",
+            "He took them last year, so they're worth offering once more. Not on the nudge; on the ticket.",
+          )
+        : step(
+            "Offer",
+            "quiet",
+            "No extras this year",
+            "He left the presents last year. Ignored once is not asked again.",
+          ),
+    );
+  }
   return { who: "Emre's lock screen", when: `${longDate(date)}, 08:30`, steps };
 }
 
@@ -1552,13 +1598,8 @@ function untitled(pathname: string, state: TraceState): Trace {
       return flightsTrace(state);
     case "/flights/moment":
       return momentSheetTrace(state);
-    case "/moment/quiet":
-      return morningTrace(state, dates.quiet, "Emre's lock screen");
     case "/moment/nudge":
       return morningTrace(state, dates.nudge, "Emre's lock screen");
-    case "/moment/reminder":
-      return morningTrace(state, dates.reminder, "Emre's lock screen");
-    case "/moment/look":
     case "/emre":
       return lookTrace(state);
     case "/emre/checkout":
@@ -1567,6 +1608,8 @@ function untitled(pathname: string, state: TraceState): Trace {
       return emreConfirmationTrace(state);
     case "/moment/dad":
       return dadTrace(state);
+    case "/moment/dad/cancelled":
+      return dadTrace(state, true);
     case "/moment/cancelled":
       return emreCancelledTrace(state);
     case "/moment/not-this-year":

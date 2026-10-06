@@ -20,9 +20,7 @@ type Jump = { label: string; when: string; href: string };
 function emreJumps(): Jump[] {
   const d = momentDates();
   return [
-    { label: "A quiet morning", when: dayMonth(d.quiet), href: "/moment/quiet" },
     { label: "The nudge", when: `${dayMonth(d.nudge)}, 08:30`, href: "/moment/nudge" },
-    { label: "Reminder", when: dayMonth(d.reminder), href: "/moment/reminder" },
     { label: "Cancelled", when: `${dayMonth(d.travel)}, 17:02`, href: "/moment/cancelled" },
     { label: "Dad's phone", when: `${dayMonth(d.travel)}, 20:50`, href: "/moment/dad" },
     { label: "Next year", when: dayMonth(d.nextYear), href: "/moment/next-year" },

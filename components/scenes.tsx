@@ -85,7 +85,7 @@ export function Scenes() {
             // passengers' state and the agents' history all go back to zero.
             // The reset waits for the start screen to be the one mounted, or
             // the screen being left would run once more into the history.
-            const target = journey === 2 ? "/flights" : "/";
+            const target = journey === 2 ? "/moment/nudge" : "/";
             if (pathname === target) restart(journey);
             else {
               pending.current = journey;

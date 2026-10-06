@@ -93,19 +93,27 @@ Will, 26, London. A cold start: no history, no profile.
 
 Emre, 34, Istanbul. A warm start: he has flown it before.
 
-1. **Two months out.** The companion learned last June's trip and speaks on the
-   lock screen on 14 April, with _Why I spoke_, while he is most likely to book.
+1. **Two months out.** The companion learned last June's trip on its own and
+   speaks on the lock screen on 14 April, with _Why I spoke_, while he is most
+   likely to book: "Mum's birthday is 14 June. Your usual Friday flight to
+   Trabzon?"
 2. **One tap, his usual.** The trip is rebuilt from last year: the Friday 19:05,
-   SAVER, seat 3A, all-in price up front. It guessed the Sunday; it's Mum's
-   birthday, so he stays. "Not quite: return date" fixes it and teaches it.
-3. **Room for presents.** Extras built around the occasion: weight for gifts and
-   Turkish delight from Pegasus Café. The passport is checked before payment.
-4. **Dad's in on the surprise.** Dad follows the flight; Mum finds out when Emre
-   walks in.
-5. **The flight is cancelled.** Rebooked first, told second, Dad told too.
-6. **Next year.** The same nudge, two months out. It stays quiet if told to:
-   "not this year" holds for a year, "don't suggest again" for good, and Dad's
-   STOP leaves him with flight status only.
+   SAVER, seat 3A, all-in price up front. The return date is a choice, not a
+   guess: the Sunday he usually takes, or the day after the birthday. Thumbs
+   say whether it got it right, and teach it.
+3. **Room for presents.** On the same screen, extras built around the occasion:
+   weight for gifts and Turkish delight from Pegasus Café. He takes them or
+   leaves them; left once, they are not offered again.
+4. **The passport, before payment.** It expires in August: fine for this trip,
+   needed for the September flight. Said here, with time to renew.
+5. **Dad's in on the surprise.** Dad's phone appears beside Emre's with the
+   flight and the landing time, a follow link, and one tap to install. Mum gets
+   nothing from any message. Dad can reply STOP and keep flight status only.
+6. **The flight is cancelled.** Rebooked first, told second, and Dad's phone
+   shows the new landing time the same second.
+7. **Next year.** The same nudge, two months out, starting from the return he
+   corrected and leaving out what he left. It stays quiet if told to: "not this
+   year" holds for a year, "don't suggest again" for good.
 
 ## Design
 

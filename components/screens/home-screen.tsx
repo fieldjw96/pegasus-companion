@@ -22,7 +22,7 @@ import { breakdown, naivePath, withLines, type PriceLine } from "@/lib/assistant
 import { AIRPORTS, formatFare } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
 import { FRIENDS, firstName } from "@/lib/group/group";
-import { GIFTS, MOMENT } from "@/lib/moments/moments";
+import { GIFTS, MOMENT, nextYearMoment } from "@/lib/moments/moments";
 import {
   EMRE,
   WILL,
@@ -70,14 +70,14 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   );
   const tripKey =
     persona === "emre"
-      ? `home:emre:${state.emre.corrected ?? ""}`
+      ? `home:emre:${state.emre.nextYear}:${state.emre.corrected ?? ""}:${state.emre.gifts}`
       : discovery
         ? `home:discovery:${state.prompt}`
         : draft !== null
           ? `home:trip:${state.prompt ?? ""}:${draft.stops.value.length}`
           : null;
   const tripDone = useAgentRun(tripKey, () =>
-    traceFor(persona === "emre" ? "/moment/look" : "/", state),
+    traceFor(persona === "emre" ? "/emre" : "/", state),
   );
   const picks = useMemo(() => pitches(firstOpen()), []);
   const phase: Phase =
@@ -430,15 +430,73 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     </>
   );
 
-  const birthday = MOMENT.occasion;
+  const moment = state.emre.nextYear ? nextYearMoment(MOMENT) : MOMENT;
+  const birthday = moment.occasion;
+  const afterBirthday = shift(birthday, 1);
+  const returnOptions = [
+    {
+      value: moment.back,
+      label: `${shortDate(moment.back)} · your usual`,
+      pick: () => {
+        setDraft({
+          ...draft,
+          returnDate: {
+            value: moment.back,
+            source: "predicted",
+            why: "The Sunday, as on your usual weekend.",
+          },
+        });
+        update((prev) => ({ emre: { ...prev.emre, corrected: null } }));
+      },
+    },
+    {
+      value: afterBirthday,
+      label: `${shortDate(afterBirthday)} · after the birthday`,
+      pick: () => {
+        setDraft({
+          ...draft,
+          returnDate: {
+            value: afterBirthday,
+            source: "said",
+            why: "You're staying for the birthday. Next time I'll start here.",
+          },
+        });
+        update((prev) => ({ emre: { ...prev.emre, corrected: "return date" } }));
+        setThumbsDown(false);
+      },
+    },
+  ];
   const emreIntro = (
     <>
       <Says>
         Your usual, rebuilt from last June: the Friday {itinerary.out?.flight.departs}, SAVER,
         seat {itinerary.out?.seats[0]}, back on the {weekdayName(draft.returnDate.value ?? "")}
         . <Mark>All in, {formatFare(price.total)} GBP.</Mark> Mum&rsquo;s birthday is{" "}
-        {dayLongMonth(birthday)}.
+        {dayLongMonth(birthday)}, a {weekdayName(birthday)}.
       </Says>
+      <div className="mt-3 flex flex-col gap-2 px-1">
+        <span className="text-[13px] font-semibold text-pg-ink">Back</span>
+        <div className="flex flex-wrap gap-2">
+          {returnOptions.map((o) => {
+            const on = draft.returnDate.value === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                aria-pressed={on}
+                onClick={o.pick}
+                className={`tabular h-9 rounded-full px-3.5 text-[13px] font-bold ${
+                  on
+                    ? "bg-pg-navy text-white"
+                    : "bg-white shadow-[0_1px_2px_rgba(31,42,55,0.08)]"
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <Thumbs
         question="Did we get it right?"
         value={state.emre.corrected === null ? null : "down"}
@@ -446,22 +504,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         open={thumbsDown}
         prefix="Not quite:"
         options={[
-          {
-            label: "return date",
-            onPick: () => {
-              const back = shift(birthday, 1);
-              setDraft({
-                ...draft,
-                returnDate: {
-                  value: back,
-                  source: "said",
-                  why: `You're staying for the birthday. Next time I'll ask.`,
-                },
-              });
-              update((prev) => ({ emre: { ...prev.emre, corrected: "return date" } }));
-              setThumbsDown(false);
-            },
-          },
+          { label: "return date", onPick: () => returnOptions[1]?.pick() },
           { label: "seat", onPick: () => setThumbsDown(false) },
           { label: "bags", onPick: () => setThumbsDown(false) },
           { label: "flight time", onPick: () => setThumbsDown(false) },
@@ -475,8 +518,10 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     </>
   );
 
+  // Left once, the presents are not offered again: next year the card is silent.
+  const giftsIgnored = state.emre.nextYear && !state.emre.giftsLastYear;
   const giftsOffer =
-    persona === "emre" && !state.emre.gifts ? (
+    persona === "emre" && !state.emre.gifts && !giftsIgnored ? (
       <section aria-label="Room for presents" className="pg-card mt-3 flex flex-col gap-3 p-5">
         <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
           Room for presents?

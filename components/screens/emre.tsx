@@ -83,7 +83,7 @@ export function EmreConfirmation() {
       owner={names[0]}
       extraLines={gifts}
       thinking={{
-        key: `confirmation:emre:${state.emre.surprise}`,
+        key: "confirmation:emre",
         trace: () => traceFor("/emre/confirmation", state),
         label: "Booking…",
       }}
@@ -106,25 +106,9 @@ export function EmreConfirmation() {
           </h2>
         </div>
         <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-          Dad gets live updates by SMS, so he&rsquo;s at arrivals on time. Mum gets nothing
-          from anyone&rsquo;s booking; she finds out when you walk in.
+          Dad gets your flight and the landing time by SMS, so he&rsquo;s at arrivals on time.
+          Mum gets nothing from anyone&rsquo;s booking; she finds out when you walk in.
         </p>
-        <div className="flex items-center justify-between rounded-[14px] bg-pg-surface px-4 py-3">
-          <span className="text-[15px] font-bold">Surprise mode</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={state.emre.surprise}
-            onClick={() =>
-              update((prev) => ({ emre: { ...prev.emre, surprise: !prev.emre.surprise } }))
-            }
-            className={`relative h-7 w-12 rounded-full transition ${state.emre.surprise ? "bg-pg-navy" : "bg-pg-muted"}`}
-          >
-            <span
-              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${state.emre.surprise ? "left-[22px]" : "left-0.5"}`}
-            />
-          </button>
-        </div>
         <PrimaryButton
           className="mt-1 w-full"
           onClick={() => update({ aside: { who: "dad", route: "/moment/dad" } })}
