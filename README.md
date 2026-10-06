@@ -32,10 +32,18 @@ npm run typecheck && npm run lint && npm run format:check && npm run test && npm
 
 ## What you are looking at
 
-The phone is the mock. The **scenes panel** beside it is for the presenter: it
-lists every beat of both journeys and jumps straight to it, because a phone
-cannot show "two days later" or "on Archie's phone" on its own. Every screen
-also works when opened cold; it falls back to the persona's starting trip.
+The phone is the mock. The **presenter's panel** beside it has two views.
+**Agent**, the default, shows the work behind the screen on the phone: which of
+the four agents acted, what it read, what it concluded and what it did, step by
+step, with the figures it used. A step held back is the companion deciding not
+to speak, shown as such. **Scenes** lists every beat of both journeys and jumps
+straight to it, because a phone cannot show "two days later" or "on Archie's
+phone" on its own. Every screen also works when opened cold; it falls back to
+the persona's starting trip.
+
+The Agent view is computed, not written. `lib/agent/trace.ts` builds each step
+from the same calls the screen made, so the panel cannot say one thing while
+the phone shows another; `lib/agent/trace.test.ts` holds it to that.
 
 ### Journey 1 · The lads go to Cappadocia
 
@@ -110,7 +118,7 @@ app/                       One route per screen. Server components rendering cli
   moment/                  Lock-screen mornings: nudge, quiet, look, reminder, opt-outs, Dad.
 components/
   phone-frame.tsx          The device. Every screen renders inside it.
-  scenes.tsx               The presenter's panel.
+  scenes.tsx               The presenter's panel: Agent (the trace) and Scenes (the list).
   journey-provider.tsx     What the passengers have done so far, in session storage.
   ui/                      The design system: avatar, shell, nav, sheet, lock screen, tags.
   screens/                 One file per screen or family of screens.
@@ -120,6 +128,8 @@ lib/
   assistant/               Sentence → trip: understand, draft (provenance), price, itinerary.
   group/group.ts           Friends, Price Freeze, the invitee's booking, the seat beside.
   moments/moments.ts       Mum's birthday: the usual trip, the nudge rule, the three gates.
+  agent/trace.ts           What each agent read, thought and did on every screen, computed.
+  agent/scenes.ts          Every beat of both journeys, with its route.
 ```
 
 **Everything the companion says is arithmetic, in code.** "112.00 GBP cheaper",

@@ -34,7 +34,13 @@ demo runs in, and asserted in its test so every screen agrees.
 **Build to the design canvas, screen for screen.** Figtree and Archivo, self-hosted
 under `public/fonts`. White cards on `#F2F6FA`, yellow for the one primary action
 per screen, orange for text links and the dotted "mine" underline and never as a
-fill. The scenes panel beside the phone is for the presenter, not the passenger.
+fill. The panel beside the phone is for the presenter, not the passenger: Agent shows
+the work behind the screen, Scenes jumps between beats.
+
+**The Agent view narrates from the same calls the screen made.** `lib/agent/trace.ts`
+builds every step from `lib/`; it never carries a figure of its own. A step that
+stays quiet is shown as held back, because restraint nobody can see reads as no
+restraint at all.
 
 **Every screen must open cold.** There is no server state. A screen opened
 directly falls back to the persona's starting trip (Will's week, Emre's usual), so

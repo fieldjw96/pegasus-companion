@@ -155,6 +155,12 @@ exist because a phone cannot show a different morning or a different person's
 phone on its own.
 _Avoid_: step, page, slide
 
+**Trace**:
+The Agent view of the panel: what each agent read, thought and did to reach the
+screen on the phone, one step at a time, computed from the same calls the screen
+made. A step is read, thought, did, held back or waiting. Held back is a step.
+_Avoid_: log, debug panel, chain of thought
+
 **Journey**:
 One of the two end-to-end stories the prototype carries: the lads go to
 Cappadocia (cold start) and home for Mum's birthday (warm start).

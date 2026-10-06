@@ -1,0 +1,1494 @@
+import {
+  countBySource,
+  uncertainFields,
+  FIELD_LABELS,
+  type TripDraft,
+} from "@/lib/assistant/draft";
+import { itineraryFor, type Itinerary } from "@/lib/assistant/itinerary";
+import { breakdown, naivePath, priceOf, SEAT_PRICE } from "@/lib/assistant/price";
+import { extract } from "@/lib/assistant/understand";
+import {
+  BREAKFAST,
+  FREEZE,
+  FRIENDS,
+  MEAL_PRICE,
+  buildInviteeDraft,
+  firstName,
+  friendByName,
+  groupMembers,
+  inviteeExtras,
+  seatBeside,
+  type Friend,
+} from "@/lib/group/group";
+import {
+  AIRPORTS,
+  FARE_RULES,
+  formatFare,
+  inventory,
+  type AirportCode,
+} from "@/lib/journey/flights";
+import { HOME, SQUAD } from "@/lib/journey/script";
+import {
+  GIFTS,
+  MOMENT,
+  checkMorning,
+  momentDates,
+  mornings,
+  nextYearMoment,
+  nudgeDate,
+  reminderDate,
+  watchStart,
+  type Moment,
+  type MomentState,
+} from "@/lib/moments/moments";
+import {
+  EMRE,
+  WILL,
+  WILL_PROMPT,
+  daysBetween,
+  emreDraft,
+  longDate,
+  shift,
+  shortDate,
+  weekdayName,
+  willDraft,
+} from "@/lib/demo/personas";
+
+/**
+ * What the agents read, thought and did to reach the screen on the phone.
+ *
+ * The presenter's panel has two views. Scenes jumps between beats. Agent shows
+ * the work behind the beat on screen: which of the four agents acted, what it
+ * took in, what it concluded and what it did about it, step by step. Nothing
+ * here is narrated separately from the screens: every figure in a step comes
+ * from the same call the screen made, so a trace cannot say one thing while
+ * the phone shows another. A step that stays quiet is a step too; restraint
+ * nobody can see reads as no restraint at all.
+ */
+
+export type AgentName = "Trip" | "Offer" | "Group" | "Moments";
+
+export type StepKind =
+  /** Took something in: a sentence, a profile, a date, a reply. */
+  | "read"
+  /** Worked something out. */
+  | "think"
+  /** Did something the passenger can see. */
+  | "act"
+  /** Decided not to act, and why. */
+  | "quiet"
+  /** Waiting on a person. */
+  | "wait";
+
+export type Step = {
+  agent: AgentName;
+  kind: StepKind;
+  /** What it did, as a short label. */
+  did: string;
+  /** What it was thinking, first person, with the figures a passenger can check. */
+  thought: string;
+  /** Small facts the step rests on. */
+  facts?: string[];
+};
+
+export type Trace = {
+  /** Whose phone, and when. */
+  who: string;
+  when: string;
+  steps: Step[];
+};
+
+/** The slice of the demo's state the trace reads. Structurally the journey state. */
+export type TraceState = {
+  prompt: string | null;
+  draft: TripDraft | null;
+  booked: boolean;
+  thumbs: "up" | "down" | null;
+  invited: string[];
+  frozen: boolean;
+  inviteesBooked: Record<string, string | null>;
+  declined: boolean;
+  emre: {
+    draft: TripDraft | null;
+    booked: boolean;
+    corrected: string | null;
+    gifts: boolean;
+    surprise: boolean;
+  };
+  moment: {
+    set: boolean;
+    declined: boolean;
+    never: boolean;
+    approved: boolean;
+    spoken: number;
+  };
+};
+
+const cityOf = (code: string): string => AIRPORTS[code as AirportCode]?.city ?? code;
+const gbp = (amount: number): string => `${formatFare(amount)} GBP`;
+
+function step(
+  agent: AgentName,
+  kind: StepKind,
+  did: string,
+  thought: string,
+  facts?: string[],
+): Step {
+  return facts === undefined || facts.length === 0
+    ? { agent, kind, did, thought }
+    : { agent, kind, did, thought, facts };
+}
+
+/* ------------------------------------------------------------------ */
+/* Journey 1                                                            */
+/* ------------------------------------------------------------------ */
+
+type Will = {
+  me: string;
+  prompt: string;
+  /** How many mates the sentence named. */
+  companions: number;
+  draft: TripDraft;
+  itinerary: Itinerary;
+  invited: string[];
+};
+
+function will(state: TraceState): Will {
+  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const draft = state.draft ?? willDraft();
+  const prompt = state.prompt ?? WILL_PROMPT;
+  return {
+    me,
+    prompt,
+    companions: extract(prompt).companions ?? 0,
+    draft,
+    itinerary: itineraryFor(draft, me),
+    invited: state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name),
+  };
+}
+
+function legFacts(itinerary: Itinerary): string[] {
+  return itinerary.legs.map(
+    (leg) =>
+      `${leg.from} → ${leg.to} · ${shortDate(leg.date)} · ${leg.flight.flightNo} ${leg.flight.departs}`,
+  );
+}
+
+function routeSentence(draft: TripDraft): string {
+  const stops = draft.stops.value;
+  if (stops.length === 0) {
+    return `${cityOf(draft.origin.value)} to ${cityOf(draft.destination.value)} and back.`;
+  }
+  const legs = stops.map(
+    (s) => `${cityOf(s.code)} for ${s.nights} night${s.nights === 1 ? "" : "s"}`,
+  );
+  return `${cityOf(draft.origin.value)} to ${legs.join(", then ")}, then home from ${cityOf(stops[stops.length - 1]?.code ?? "")}.`;
+}
+
+function heardSteps(w: Will): Step[] {
+  const heard = extract(w.prompt);
+  const facts: string[] = [];
+  if (heard.companions !== null) facts.push(`Travellers: ${heard.companions + 1}`);
+  if (heard.month !== null) {
+    facts.push(
+      `Month: ${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][heard.month]}`,
+    );
+  }
+  if (heard.destination !== null) facts.push(`To: ${cityOf(heard.destination)}`);
+  if (heard.nights !== null) facts.push(`Nights: ${heard.nights}`);
+  if (heard.tripType !== null) {
+    facts.push(`Trip: ${heard.tripType === "backpacking" ? "backpacking" : "city break"}`);
+  }
+  if (heard.seating !== null) facts.push(`Seat: ${heard.seating}`);
+  const missing: string[] = [];
+  if (heard.origin === null) missing.push("where from");
+  if (heard.departDate === null) missing.push("which days");
+  if (heard.checkedBag === null) missing.push("bags");
+  if (heard.seating === null) missing.push("seats");
+  return [
+    step("Trip", "read", "Heard the sentence", `"${w.prompt}"`, facts),
+    step(
+      "Trip",
+      "think",
+      "Listed what wasn't said",
+      missing.length === 0
+        ? "Everything I need is in the sentence."
+        : `Not said: ${missing.join(", ")}. ${WILL.coldStart ? "No history to remember from, so each of those is a prediction and gets a dotted underline." : "I'll fill those from past trips."}`,
+    ),
+  ];
+}
+
+function builtSteps(w: Will): Step[] {
+  const { draft, itinerary } = w;
+  const counts = countBySource(draft);
+  const price = breakdown(draft);
+  const naive = naivePath(draft);
+  const flagged = uncertainFields(draft).map((k) => FIELD_LABELS[k].toLowerCase());
+  const steps: Step[] = [
+    step(
+      "Trip",
+      "think",
+      "Routed it on the network",
+      draft.stops.value.length === 0
+        ? `A simple return: ${routeSentence(draft)}`
+        : `Pegasus doesn't fly ${cityOf(draft.origin.value)} to ${AIRPORTS[draft.destination.value as AirportCode]?.name ?? draft.destination.value} direct. ${draft.stops.why} So: ${routeSentence(draft)}`,
+      legFacts(itinerary),
+    ),
+    step(
+      "Trip",
+      "think",
+      "Picked the dates",
+      `Out ${shortDate(draft.departDate.value)}${draft.returnDate.value === null ? "" : `, back ${shortDate(draft.returnDate.value)}`}. ${draft.departDate.why}`,
+    ),
+    step(
+      "Offer",
+      "think",
+      `Chose ${FARE_RULES[draft.package.value].label}`,
+      draft.package.why,
+      [
+        `Checked bag: ${draft.checkedKg.value === 0 ? "none" : `${draft.checkedKg.value} kg`}`,
+        `Cabin bag: ${draft.cabinBag.value ? "yes" : "underseat only"}`,
+      ],
+    ),
+    step(
+      "Offer",
+      "think",
+      draft.seating.value === "none" ? "Left the seat" : "Chose the seat",
+      draft.seating.why,
+      itinerary.out === null
+        ? undefined
+        : [
+            `${firstName(w.me)}: ${itinerary.out.seats[0] ?? "—"} on every leg`,
+            ...(w.companions > 0
+              ? [`Held beside: ${SQUAD.seats.archie}, ${SQUAD.seats.tom}`]
+              : []),
+          ],
+    ),
+    step(
+      "Trip",
+      "act",
+      `Priced it at ${gbp(price.total)}`,
+      naive === null
+        ? "No cheaper way to buy the same trip, so I make no claim about a saving."
+        : `Bought the funnel's way, LIGHT first and the bag added later, the same trip comes to ${gbp(naive.paid)}. This is ${gbp(naive.saved)} cheaper, and I only say so because I computed both.`,
+      price.lines.map((l) => `${l.label}: ${formatFare(l.amount)} (${l.detail})`),
+    ),
+    step(
+      "Trip",
+      "act",
+      "Printed the ticket",
+      `${counts.said} thing${counts.said === 1 ? "" : "s"} you said, ${counts.predicted} I predicted, each with a dotted underline and a reason.${flagged.length === 0 ? "" : ` Flagged as a guess worth a look: ${flagged.join(", ")}.`}`,
+      [`Reference ${itinerary.reference}`],
+    ),
+  ];
+  return steps;
+}
+
+function thumbsStep(state: TraceState, w: Will): Step | null {
+  if (state.thumbs === "up") {
+    return step(
+      "Trip",
+      "read",
+      "Thumbs up",
+      "The guesses held. Nothing to relearn from this one.",
+    );
+  }
+  if (state.thumbs === "down") {
+    const cityBreak = w.draft.stops.value.length === 2;
+    return step(
+      "Trip",
+      "read",
+      "Thumbs down",
+      cityBreak
+        ? `"Actually: a city break." I dropped the coast, gave Istanbul the nights instead, and switched to ${FARE_RULES[w.draft.package.value].label}. One tap, not a fresh search.`
+        : "Noted which field was wrong. The next prediction for this trip starts from that, not from zero.",
+    );
+  }
+  return null;
+}
+
+/** Home before anything has been said: the companion knows a little and says nothing. */
+function greetingTrace(): Trace {
+  return {
+    who: "Will's phone",
+    when: "Home, first open",
+    steps: [
+      step(
+        "Trip",
+        "read",
+        "Opened cold",
+        `No bookings, no profile. The phone says ${WILL.homeCity}, so ${AIRPORTS[WILL.homeAirport as AirportCode]?.name ?? WILL.homeAirport} is the likely airport; that's all I have.`,
+      ),
+      step(
+        "Moments",
+        "quiet",
+        "Nothing to bring up",
+        "No history means no moment to predict. A companion that speaks on first open is a pop-up.",
+      ),
+      step(
+        "Offer",
+        "quiet",
+        "Nothing to sell",
+        "There is no trip yet. Bags and seats are decided from the trip, not before it.",
+      ),
+      step(
+        "Trip",
+        "wait",
+        "Waiting on the sentence",
+        "One sentence, typed or spoken, and I answer with a ticket rather than with text.",
+      ),
+    ],
+  };
+}
+
+function homeTrace(state: TraceState): Trace {
+  if (state.prompt === null && state.draft === null) return greetingTrace();
+  const w = will(state);
+  const steps = [...heardSteps(w), ...builtSteps(w)];
+  const thumbs = thumbsStep(state, w);
+  if (thumbs !== null) steps.push(thumbs);
+  else
+    steps.push(
+      step(
+        "Trip",
+        "wait",
+        "Waiting on Will",
+        "Did I get it right? One tap either way teaches me.",
+      ),
+    );
+  return { who: "Will's phone", when: "Home, after the sentence", steps };
+}
+
+function checkoutTrace(state: TraceState): Trace {
+  const w = will(state);
+  const price = breakdown(w.draft);
+  const naive = naivePath(w.draft);
+  const seatLine = price.lines.find((l) => l.label === "Seat selection");
+  const legs = w.itinerary.legs.length;
+  return {
+    who: "Will's phone",
+    when: "Checkout",
+    steps: [
+      step(
+        "Offer",
+        "think",
+        "Sold the bag at booking",
+        naive === null
+          ? w.draft.package.why
+          : `${w.draft.package.why} Inside the fare the bag is ${gbp(naive.saved)} cheaper than the funnel's way, so this is the moment to sell it, not at the airport.`,
+      ),
+      step(
+        "Offer",
+        "think",
+        "Priced the window",
+        seatLine === undefined
+          ? "This fare includes seat selection, so the window costs nothing extra."
+          : `${formatFare(SEAT_PRICE)} a leg over ${legs} legs is ${gbp(seatLine.amount)}. Worth it on a ${w.itinerary.out?.flight.departs ?? "06:10"}; I say why on the seat sheet rather than just adding it.`,
+      ),
+      step(
+        "Group",
+        "think",
+        "Holding the seats beside",
+        `"With 2 mates" means ${SQUAD.seats.archie} and ${SQUAD.seats.tom} stay held next to ${w.itinerary.out?.seats[0] ?? "14A"} until the mates book. Will pays for his seat only.`,
+      ),
+      step(
+        "Trip",
+        "read",
+        "Filled the form nobody sees",
+        `Passport ${WILL.onFile.passport.toLowerCase()}, paying with ${WILL.onFile.payment}. Nothing to type.`,
+      ),
+      state.booked
+        ? step(
+            "Trip",
+            "act",
+            `Booked ${w.itinerary.reference}`,
+            `${gbp(price.total)} paid. Now the mates.`,
+          )
+        : step(
+            "Trip",
+            "wait",
+            `Waiting on Will to pay ${gbp(price.total)}`,
+            "One tap. The total is the one on the ticket, to the penny.",
+          ),
+    ],
+  };
+}
+
+function inviteePlan(friend: Friend, w: Will): string {
+  const seat = seatBeside(w.draft, friend, w.me);
+  return friend.account
+    ? `${firstName(friend.name)} has the app: a push in Will's name, booking already built from what Pegasus knows about him, seat ${seat ?? "beside Will"}.`
+    : `${firstName(friend.name)} doesn't have the app: a WhatsApp from Will's number, the same booking on the web, seat ${seat ?? "beside Will"}.`;
+}
+
+function confirmationTrace(state: TraceState): Trace {
+  const w = will(state);
+  const friends = w.invited.map((n) => friendByName(n)).filter((f): f is Friend => f !== null);
+  const fee = FREEZE.feePerFriend * friends.length;
+  const steps: Step[] = [
+    step(
+      "Trip",
+      "act",
+      `Booked ${w.itinerary.reference}`,
+      `Will is going. ${gbp(priceOf(w.draft))}, ${w.itinerary.legs.length} legs, seat ${w.itinerary.out?.seats[0] ?? "14A"}.`,
+    ),
+    step(
+      "Group",
+      "think",
+      "Noticed the mates aren't booked",
+      `The sentence said "with 2 mates" and only one person has paid. Fares move; the mates will dither. Pegasus sells Price Freeze today, so I offer it here rather than making Will find it.`,
+    ),
+    step(
+      "Group",
+      "think",
+      "Priced the freeze",
+      `${formatFare(FREEZE.feePerFriend)} a friend × ${friends.length} = ${gbp(fee)}, holding today's fare for ${FREEZE.hours} hours, until ${FREEZE.until}.`,
+    ),
+    step(
+      "Group",
+      "think",
+      "Picked each friend's channel",
+      friends.map((f) => inviteePlan(f, w)).join(" "),
+    ),
+    state.frozen
+      ? step(
+          "Group",
+          "act",
+          "Froze the fare and sent the invites",
+          `Two bookings built in Will's name. The clock reads ${FREEZE.remaining}.`,
+        )
+      : step("Group", "wait", "Waiting on Will", `One tap: Freeze and invite, ${gbp(fee)}.`),
+  ];
+  const thumbs = thumbsStep(state, w);
+  if (thumbs !== null) steps.push(thumbs);
+  return { who: "Will's phone", when: "Confirmation", steps };
+}
+
+function peopleTrace(state: TraceState): Trace {
+  const w = will(state);
+  return {
+    who: "Will's phone",
+    when: "Who's coming?",
+    steps: [
+      step(
+        "Group",
+        "read",
+        "Counted the party",
+        `"With 2 mates": ${w.draft.party.value.adults} seat paid for, 2 more to invite.`,
+      ),
+      step(
+        "Group",
+        "think",
+        "Checked who Pegasus knows",
+        FRIENDS.map(
+          (f) =>
+            `${firstName(f.name)}: ${f.account ? "has an account, so push" : "no account, so WhatsApp"}`,
+        ).join(". ") + ".",
+      ),
+      step(
+        "Group",
+        "think",
+        "Kept the seats beside",
+        `${SQUAD.seats.archie} and ${SQUAD.seats.tom} held next to ${w.itinerary.out?.seats[0] ?? "14A"} until ${FREEZE.untilShort}.`,
+      ),
+      step("Group", "wait", "Waiting on names", "Will picks. I never guess who a mate is."),
+    ],
+  };
+}
+
+function reviewTrace(state: TraceState): Trace {
+  const w = will(state);
+  const friends = w.invited.map((n) => friendByName(n)).filter((f): f is Friend => f !== null);
+  const facts = friends.map((f) => {
+    const d = buildInviteeDraft(w.draft, f, w.me);
+    const c = countBySource(d);
+    return `${firstName(f.name)}: ${c.shared} from Will, ${c.profile} remembered, ${c.predicted} predicted`;
+  });
+  return {
+    who: "Will's phone",
+    when: "Review and send",
+    steps: [
+      step(
+        "Group",
+        "think",
+        "Built each friend a booking",
+        "Flights and dates from Will's booking, tagged with his initials. The fare and seat predicted from Will's reasons, which apply to the whole squad. Anything Pegasus remembers about the friend, remembered.",
+        facts,
+      ),
+      step(
+        "Group",
+        "think",
+        "Decided what each person sees",
+        "Will sees names, status and seats. Nobody sees anybody else's fare.",
+      ),
+      step(
+        "Group",
+        "think",
+        "Totted up the freeze",
+        `${gbp(FREEZE.feePerFriend * friends.length)} for ${friends.length}, fare held until ${FREEZE.until}.`,
+      ),
+      state.frozen
+        ? step(
+            "Group",
+            "act",
+            "Sent",
+            `${friends.map((f) => `${firstName(f.name)} by ${f.channel === "push" ? "push" : "WhatsApp"}`).join(", ")}. In Will's name, not Pegasus's.`,
+          )
+        : step("Group", "wait", "Waiting on Will", "Send is his tap."),
+    ],
+  };
+}
+
+function inviteeTrace(
+  state: TraceState,
+  id: "archie" | "tom",
+  stage: "arrive" | "ticket" | "checkout" | "confirmation",
+): Trace {
+  const w = will(state);
+  const friend = FRIENDS.find((f) => firstName(f.name).toLowerCase() === id) ?? FRIENDS[0]!;
+  const first = firstName(friend.name);
+  const draft = buildInviteeDraft(w.draft, friend, w.me);
+  const counts = countBySource(draft);
+  const seat = seatBeside(w.draft, friend, w.me);
+  const extras = inviteeExtras(w.draft, friend, w.me);
+  const base = breakdown(draft);
+  const total = base.total + extras.reduce((a, l) => a + l.amount, 0);
+  const itinerary = itineraryFor(draft, friend.name);
+  const booked = friend.name in state.inviteesBooked;
+
+  const built = step(
+    "Group",
+    "think",
+    `Built ${first}'s booking`,
+    `${counts.shared} fields from Will's booking, ${counts.profile} remembered from ${first}'s own, ${counts.predicted} predicted from Will's reasons. Same route, same dates, his own reference.`,
+    [`Reference ${itinerary.reference}`, `Seat ${seat ?? "—"}, next to Will`],
+  );
+
+  const steps: Step[] = [];
+  if (stage === "arrive") {
+    steps.push(
+      friend.account
+        ? step(
+            "Group",
+            "think",
+            "Chose push",
+            `${first} has the app, so the booking opens inside it. The push is signed Will, because a mate asking lands and an airline asking doesn't.`,
+          )
+        : step(
+            "Group",
+            "think",
+            "Chose WhatsApp",
+            `${first} has no account. A link from Will's number opens the same booking on the web, and the app comes after, not before.`,
+          ),
+      built,
+      step(
+        "Moments",
+        "think",
+        "Timed it",
+        `Sent the moment Will froze the fare, with the clock showing: ${FREEZE.remaining} left.`,
+      ),
+      step(
+        "Group",
+        "wait",
+        `Waiting on ${first}`,
+        "He opens it or he doesn't. One nudge later, at most.",
+      ),
+    );
+  }
+  if (stage === "ticket") {
+    steps.push(
+      built,
+      step(
+        "Offer",
+        "think",
+        friend.remembered?.meal ? "Remembered the meal" : "Nothing to remember",
+        friend.remembered?.meal
+          ? `${friend.remembered.meal} on his last bookings: ${formatFare(MEAL_PRICE)} × ${itinerary.legs.length} legs = ${gbp(extras[0]?.amount ?? 0)}, already in the basket and removable in one tap.`
+          : `No history, so no extras. Everything not from Will is predicted and underlined.`,
+      ),
+      step(
+        "Trip",
+        "act",
+        `Priced at ${gbp(total)}`,
+        `${first} pays his own way. Will's fare is not on this screen.`,
+        base.lines.map((l) => `${l.label}: ${formatFare(l.amount)}`),
+      ),
+      step("Group", "wait", `Waiting on ${first}`, "Check it, change anything, pay."),
+    );
+  }
+  if (stage === "checkout") {
+    steps.push(
+      built,
+      friend.remembered === null
+        ? step(
+            "Trip",
+            "read",
+            "Nothing on file",
+            "Passport at check-in, card typed once. The seat stays held while he does.",
+          )
+        : step(
+            "Trip",
+            "read",
+            "Filled the form",
+            `${friend.remembered.passport}; ${friend.remembered.payment}. Nothing to type.`,
+          ),
+      ...(id === "tom" && state.declined
+        ? [
+            step(
+              "Offer",
+              "act",
+              "Rescued a declined card",
+              `Card declined. I offer Apple Pay on the next line and keep ${seat ?? "the seat"} held. A dead end here loses the whole squad.`,
+            ),
+          ]
+        : []),
+      booked
+        ? step("Trip", "act", `Booked ${itinerary.reference}`, `${gbp(total)} paid.`)
+        : step(
+            "Trip",
+            "wait",
+            `Waiting on ${first} to pay ${gbp(total)}`,
+            "His money, his tap.",
+          ),
+    );
+  }
+  if (stage === "confirmation") {
+    const members = groupMembers(w.me, w.itinerary.out?.seats[0] ?? null, w.invited, {
+      ...state.inviteesBooked,
+      [friend.name]: seat,
+    });
+    const done = members.filter((m) => m.status === "booked").length;
+    steps.push(
+      step(
+        "Trip",
+        "act",
+        `Booked ${itinerary.reference}`,
+        `${first} is in, seat ${seat ?? "—"}.`,
+      ),
+      step(
+        "Group",
+        "act",
+        "Updated the squad",
+        `${done} of ${members.length} booked. Will's tracker and the Live Activity say so now, not at the end.`,
+        members.map(
+          (m) => `${firstName(m.name)}: ${m.status}${m.seat === null ? "" : ` · ${m.seat}`}`,
+        ),
+      ),
+      done === members.length
+        ? step(
+            "Offer",
+            "think",
+            "Squad complete",
+            "Now, and not before, one offer for all three.",
+          )
+        : step(
+            "Offer",
+            "quiet",
+            "No offer yet",
+            "Half a squad is not a group. Extras wait until everyone has paid.",
+          ),
+    );
+  }
+  return {
+    who: `${first}'s phone`,
+    when:
+      stage === "arrive"
+        ? friend.account
+          ? "A push"
+          : "A WhatsApp"
+        : stage.charAt(0).toUpperCase() + stage.slice(1),
+    steps,
+  };
+}
+
+function stallsTrace(state: TraceState): Trace {
+  const w = will(state);
+  const tom = FRIENDS[1]!;
+  return {
+    who: "Tom's phone, then Will's",
+    when: "The next day",
+    steps: [
+      step(
+        "Moments",
+        "read",
+        "Watched the clock",
+        `Tom opened the link and didn't pay. ${FREEZE.remaining} left on the frozen fare.`,
+      ),
+      step(
+        "Moments",
+        "think",
+        "Chose who speaks",
+        "A nudge from Pegasus is marketing. The same words from Will are a mate. So Will is asked first whether to nudge, and the nudge carries his name.",
+      ),
+      step(
+        "Moments",
+        "quiet",
+        "One nudge, not three",
+        "If Tom ignores it, the fare simply expires at the time shown. I don't chase.",
+      ),
+      step(
+        "Offer",
+        "act",
+        "Planned the rescue",
+        `If his card declines, Apple Pay on the next line and ${seatBeside(w.draft, tom, w.me) ?? "his seat"} still held. The offer is the way out, not another ask.`,
+      ),
+    ],
+  };
+}
+
+function waitingTrace(state: TraceState): Trace {
+  const w = will(state);
+  const members = groupMembers(w.me, w.itinerary.out?.seats[0] ?? null, w.invited, {
+    ...state.inviteesBooked,
+    ...(FRIENDS[0] !== undefined && !(FRIENDS[0].name in state.inviteesBooked)
+      ? { [FRIENDS[0].name]: SQUAD.seats.archie }
+      : {}),
+  });
+  const booked = members.filter((m) => m.status === "booked");
+  const last = w.draft.stops.value[w.draft.stops.value.length - 1];
+  return {
+    who: "Will's lock screen",
+    when: "The waiting window",
+    steps: [
+      step(
+        "Group",
+        "act",
+        "Kept a Live Activity up",
+        `${booked.length} of ${members.length} booked, fare frozen for ${FREEZE.remaining}. It updates itself; nobody has to open the app to know.`,
+        members.map((m) => `${firstName(m.name)}: ${m.status}`),
+      ),
+      step(
+        "Offer",
+        "think",
+        "Offered extras only to the booked",
+        `${firstName(FRIENDS[0]?.name ?? "Archie")} has paid, so he's asked about 10 kg for souvenirs on the ${last === undefined ? "last" : cityOf(last.code)} leg, cheaper now than at the airport.`,
+      ),
+      step(
+        "Offer",
+        "quiet",
+        "Nothing for Tom",
+        "He hasn't paid. An extra on top of an unpaid fare is noise.",
+      ),
+    ],
+  };
+}
+
+function squadTrace(state: TraceState): Trace {
+  const w = will(state);
+  const members = groupMembers(
+    w.me,
+    w.itinerary.out?.seats[0] ?? null,
+    w.invited,
+    state.inviteesBooked,
+  );
+  const booked = members.filter((m) => m.status === "booked").length;
+  const all = booked === members.length;
+  return {
+    who: "Will's phone",
+    when: "My Flights",
+    steps: [
+      step(
+        "Group",
+        "read",
+        "Counted the squad",
+        `${booked} of ${members.length} booked.`,
+        members.map(
+          (m) => `${firstName(m.name)}: ${m.status}${m.seat === null ? "" : ` · ${m.seat}`}`,
+        ),
+      ),
+      all
+        ? step(
+            "Offer",
+            "think",
+            "One offer for three",
+            `A ${w.itinerary.out?.flight.departs ?? "06:10"} departure and three people sat together: breakfast is the one extra that makes sense for all of them. ${formatFare(BREAKFAST.each)} × ${members.length} = ${gbp(BREAKFAST.each * members.length)}, offered once, to the organiser.`,
+          )
+        : step(
+            "Offer",
+            "quiet",
+            "No group offer yet",
+            `Waiting for ${members
+              .filter((m) => m.status !== "booked")
+              .map((m) => firstName(m.name))
+              .join(" and ")}. An offer to a half-booked squad is three separate upsells.`,
+          ),
+      ...(state.frozen
+        ? []
+        : [
+            step(
+              "Group",
+              "think",
+              "Freeze not taken yet",
+              `The fare isn't held. The card offers it: ${gbp(FREEZE.feePerFriend * (members.length - 1))} for ${FREEZE.hours} hours.`,
+            ),
+          ]),
+    ],
+  };
+}
+
+function checkInTrace(state: TraceState): Trace {
+  const w = will(state);
+  const out = w.itinerary.out;
+  return {
+    who: "Will's lock screen",
+    when: `${longDate(shift(w.draft.departDate.value, -2))}, 05:30`,
+    steps: [
+      step(
+        "Moments",
+        "think",
+        "Counted down to check-in",
+        `Check-in for the ${out?.flight.departs ?? "06:10"} on ${shortDate(w.draft.departDate.value)} opens 24 hours before. The day before that is the last chance to fix seats.`,
+      ),
+      step(
+        "Group",
+        "read",
+        "Noticed Tom has no seat",
+        `He skipped seat selection, so he'd be placed randomly. ${SQUAD.seats.tom} next to ${out?.seats[0] ?? "14A"} is still free, so I ask Will, not Tom.`,
+      ),
+      step(
+        "Moments",
+        "act",
+        "Checked everyone in",
+        `The moment it opened. Gate ${out?.gate ?? SQUAD.gate}, boarding ${out?.boards ?? "05:40"}, passes in the app. Nobody has to remember.`,
+      ),
+    ],
+  };
+}
+
+function nextTripTrace(state: TraceState): Trace {
+  const w = will(state);
+  const when = shift(w.draft.returnDate.value ?? w.draft.departDate.value, 60);
+  return {
+    who: "Will's lock screen",
+    when: longDate(when),
+    steps: [
+      step(
+        "Moments",
+        "read",
+        "A new route opened",
+        "Istanbul to Almaty. Launch news usually goes to a newsletter, where it is deleted.",
+      ),
+      step(
+        "Moments",
+        "think",
+        "Chose who hears first",
+        `A squad that flew together is a better audience than a list. ${daysBetween(w.draft.returnDate.value ?? w.draft.departDate.value, when)} days after they got home, once, with the lads' faces on the card.`,
+      ),
+      step(
+        "Group",
+        "act",
+        "Made it one tap",
+        '"Ask Archie and Tom" opens the squad, not a search. If Will says nothing, the card goes away. No second card.',
+      ),
+    ],
+  };
+}
+
+function squadCancelledTrace(state: TraceState): Trace {
+  const w = will(state);
+  const out = w.itinerary.out;
+  const later = inventory(SQUAD.origin, "SAW", w.draft.departDate.value)[1];
+  return {
+    who: "Will's lock screen",
+    when: `${longDate(w.draft.departDate.value)}, 04:50`,
+    steps: [
+      step(
+        "Trip",
+        "read",
+        `${out?.flight.flightNo ?? "PC 1164"} cancelled`,
+        `The ${out?.flight.departs ?? "06:10"} is off. Three people, one booking each, same onward flight from Istanbul.`,
+      ),
+      step(
+        "Trip",
+        "think",
+        "Found the next flight that still connects",
+        later === undefined
+          ? "The next departure on the same route."
+          : `${later.flightNo} at ${later.departs} lands ${later.arrives}, in time for the Kayseri leg. Three seats together: 21A to 21C.`,
+      ),
+      step(
+        "Trip",
+        "act",
+        "Rebooked all three",
+        "Before anyone queued at a desk. Then told them, in that order: rebooked first, told second.",
+      ),
+      step(
+        "Moments",
+        "act",
+        "Told the followers",
+        "Anyone following the flight got the new time. Nobody got an apology without a plan.",
+      ),
+    ],
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Journey 2                                                            */
+/* ------------------------------------------------------------------ */
+
+type Emre = {
+  me: string;
+  draft: TripDraft;
+  itinerary: Itinerary;
+  momentState: MomentState;
+};
+
+function emre(state: TraceState): Emre {
+  const me = EMRE.travellers[0]?.name ?? "Emre Kaya";
+  const draft = state.emre.draft ?? emreDraft();
+  return {
+    me,
+    draft,
+    itinerary: itineraryFor(draft, me),
+    momentState: {
+      declined: state.moment.declined,
+      never: state.moment.never,
+      booked: state.emre.booked || state.moment.approved,
+      spoken: state.moment.spoken,
+    },
+  };
+}
+
+/** The three gates, one step each, as they were evaluated for one morning. */
+function gateSteps(
+  moment: Moment,
+  date: string,
+  momentState: MomentState,
+  spokenBefore: number,
+): Step[] {
+  const nudge = nudgeDate(moment);
+  const remind = reminderDate(moment);
+  const isMoment = date === nudge || date === remind;
+  const day = daysBetween(watchStart(moment), date) + 1;
+  return [
+    step(
+      "Moments",
+      isMoment ? "think" : "quiet",
+      "Gate 1: is it the moment?",
+      isMoment
+        ? `${longDate(date)} is ${date === remind ? `${daysBetween(date, moment.occasion)} days out and nothing is booked` : `${moment.nudgeDaysBefore} days before ${moment.title}: fares are lowest about now`}. Yes.`
+        : `${longDate(date)} is not ${shortDate(nudge)} and not ${shortDate(remind)}. No. Day ${day} of checking.`,
+    ),
+    step(
+      "Moments",
+      momentState.never || momentState.declined || momentState.booked ? "quiet" : "think",
+      "Gate 2: was I told not to?",
+      momentState.never
+        ? '"Don\'t suggest again." That holds for good.'
+        : momentState.declined
+          ? '"Not this year." That holds until next April.'
+          : momentState.booked
+            ? "Already booked. Nothing to say."
+            : "Nothing on file says no.",
+    ),
+    step(
+      "Moments",
+      spokenBefore >= moment.interruptionBudget ? "quiet" : "think",
+      "Gate 3: any budget left?",
+      `Spoken ${spokenBefore} of ${moment.interruptionBudget} times about this moment. ${spokenBefore >= moment.interruptionBudget ? "Spent: silent whatever the fares do." : `${moment.interruptionBudget - spokenBefore} left.`}`,
+    ),
+  ];
+}
+
+function flightsTrace(state: TraceState): Trace {
+  const e = emre(state);
+  return {
+    who: "Emre's phone",
+    when: "My Flights",
+    steps: [
+      step(
+        "Moments",
+        "read",
+        "Learned a pattern",
+        `Two Junes running: ${HOME.origin} to ${HOME.destination} on the Friday 19:05, SAVER, seat ${HOME.seat}, back the Sunday. That's ${MOMENT.title}, ${shortDate(MOMENT.occasion)}.`,
+      ),
+      step(
+        "Moments",
+        "think",
+        "Made it a Moment, not a search",
+        `A saved search waits to be run. A Moment is checked every morning from ${shortDate(watchStart(MOMENT))} and speaks ${MOMENT.nudgeDaysBefore} days out, once.`,
+      ),
+      state.moment.set
+        ? step(
+            "Moments",
+            "act",
+            "Watching",
+            `Set. Buy rule: ${MOMENT.buyRule === "ask" ? "ask, never book" : "book"}. Budget: ${MOMENT.interruptionBudget} interruptions.`,
+          )
+        : step(
+            "Moments",
+            "wait",
+            "Not set until Emre taps it",
+            "Learned is not the same as allowed. He confirms what I remembered first.",
+          ),
+      step(
+        "Trip",
+        "think",
+        "Rebuilt the usual",
+        `${gbp(priceOf(e.draft))} all in, so the price is in the first sentence, not after a search.`,
+      ),
+    ],
+  };
+}
+
+function momentSheetTrace(state: TraceState): Trace {
+  const e = emre(state);
+  const counts = countBySource(e.draft);
+  return {
+    who: "Emre's phone",
+    when: "What I remembered",
+    steps: [
+      step(
+        "Moments",
+        "read",
+        "Showed its memory",
+        `Who: ${MOMENT.who.join(", ")}. Must-haves: ${MOMENT.mustHave.join(", ")}. Out the Friday before, back the Sunday.`,
+      ),
+      step(
+        "Moments",
+        "think",
+        "Set the rules on itself",
+        `Buy rule "${MOMENT.buyRule}": I propose, Emre approves. ${MOMENT.interruptionBudget} interruptions, then silence.`,
+      ),
+      step(
+        "Trip",
+        "think",
+        "Rebuilt the usual",
+        `${counts.profile} fields remembered, ${counts.predicted} predicted and flagged: ${
+          uncertainFields(e.draft)
+            .map((k) => FIELD_LABELS[k].toLowerCase())
+            .join(", ") || "none"
+        }.`,
+        [
+          `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} ${e.itinerary.out?.flight.departs ?? "19:05"}`,
+          `Seat ${e.itinerary.out?.seats[0] ?? HOME.seat}`,
+          gbp(priceOf(e.draft)),
+        ],
+      ),
+      state.moment.set
+        ? step(
+            "Moments",
+            "act",
+            "Watching",
+            `From ${shortDate(watchStart(MOMENT))}, every morning.`,
+          )
+        : step("Moments", "wait", "Waiting on Emre", '"Watch this" is his tap.'),
+    ],
+  };
+}
+
+function morningTrace(state: TraceState, date: string, who: string): Trace {
+  const e = emre(state);
+  const history = mornings(MOMENT, shift(date, -1), { ...e.momentState, booked: false });
+  const spokenBefore = history.filter((m) => m.verdict !== "silent").length;
+  const morning = checkMorning(MOMENT, date, { ...e.momentState, spoken: spokenBefore });
+  const steps = gateSteps(MOMENT, date, e.momentState, spokenBefore);
+  if (morning.verdict === "silent") {
+    steps.push(
+      step(
+        "Moments",
+        "quiet",
+        "Said nothing",
+        `${morning.quiet ?? "Not the moment."} One gate is enough. The phone stayed dark.`,
+      ),
+    );
+  } else {
+    steps.push(
+      step(
+        "Moments",
+        "act",
+        morning.verdict === "nudge" ? "Spoke, once, on the lock screen" : "Reminded, once",
+        `At 08:30, where he'll see it. "Why I spoke" is on the card so he can check me.`,
+        morning.why,
+      ),
+      step(
+        "Trip",
+        "think",
+        "Had the usual ready",
+        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} ${e.itinerary.out?.flight.departs ?? "19:05"}, ${FARE_RULES[e.draft.package.value].label}, seat ${e.itinerary.out?.seats[0] ?? HOME.seat}, ${gbp(priceOf(e.draft))} all in. One tap with Face ID; "Look" if he wants to see it first.`,
+      ),
+      step(
+        "Offer",
+        "quiet",
+        "No extras yet",
+        "Gifts come after he says yes, built around the occasion. Not on the nudge.",
+      ),
+      e.momentState.booked
+        ? step("Trip", "act", `Booked ${e.itinerary.reference}`, "He tapped. Done in one.")
+        : step(
+            "Moments",
+            "wait",
+            "Waiting on Emre",
+            `Yes, Look, or Not this year. Silence counts as no: budget now ${spokenBefore + 1} of ${MOMENT.interruptionBudget}.`,
+          ),
+    );
+  }
+  return { who, when: `${longDate(date)}, 08:30`, steps };
+}
+
+function lookTrace(state: TraceState): Trace {
+  const e = emre(state);
+  const counts = countBySource(e.draft);
+  const flagged = uncertainFields(e.draft);
+  const steps: Step[] = [
+    step(
+      "Trip",
+      "think",
+      "Rebuilt last June's trip",
+      `${counts.profile} fields remembered, ${counts.predicted} predicted. ${e.draft.returnDate.why}`,
+      legFacts(e.itinerary),
+    ),
+    step(
+      "Trip",
+      "act",
+      `Printed it at ${gbp(priceOf(e.draft))}`,
+      flagged.length === 0
+        ? "Nothing left flagged."
+        : `Flagged ${flagged.map((k) => FIELD_LABELS[k].toLowerCase()).join(", ")} with the Look tag: the one thing I'm guessing at.`,
+    ),
+  ];
+  if (state.emre.corrected !== null) {
+    steps.push(
+      step(
+        "Trip",
+        "read",
+        '"Not quite: return date"',
+        `Moved the return to ${shortDate(state.emre.corrected)}. The birthday is on the ${weekdayName(MOMENT.occasion)}, so he stays. Next year I propose that first; the thumbs told me exactly which field was wrong.`,
+      ),
+    );
+  } else {
+    steps.push(
+      step(
+        "Trip",
+        "wait",
+        "Waiting on thumbs",
+        "Did I get it right? Down opens a short list: return date, seat, bags. Not a form.",
+      ),
+    );
+  }
+  return { who: "Emre's phone", when: "One tap, his usual", steps };
+}
+
+function emreCheckoutTrace(state: TraceState): Trace {
+  const e = emre(state);
+  const gifts = GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg;
+  return {
+    who: "Emre's phone",
+    when: "Checkout",
+    steps: [
+      step(
+        "Offer",
+        "think",
+        "Built extras around the occasion",
+        `It's a birthday, so the question is presents, not bags. ${GIFTS.extraWeight.label} at ${gbp(GIFTS.extraWeight.perLeg)} on the way out only, and ${GIFTS.delight.label} at ${gbp(GIFTS.delight.perLeg)}.`,
+        [`Gifts: ${gbp(gifts)}`, `Fare: ${gbp(priceOf(e.draft))}`],
+      ),
+      step(
+        "Offer",
+        "quiet",
+        "Not repeated",
+        "Ignored once, an add-on is not offered again on this trip.",
+      ),
+      step(
+        "Trip",
+        "read",
+        "Checked the passport before payment",
+        `${EMRE.onFile.passport}. Valid for the trip, so nothing to say; if it weren't, this is where I'd say it, not at the gate.`,
+      ),
+      step("Trip", "read", "Payment on file", `${EMRE.onFile.payment}. Nothing to type.`),
+      state.emre.booked
+        ? step(
+            "Trip",
+            "act",
+            `Booked ${e.itinerary.reference}`,
+            `${gbp(priceOf(e.draft) + (state.emre.gifts ? gifts : 0))} paid.`,
+          )
+        : step(
+            "Trip",
+            "wait",
+            "Waiting on Emre to pay",
+            `${gbp(priceOf(e.draft) + (state.emre.gifts ? gifts : 0))}, the figure on the ticket.`,
+          ),
+    ],
+  };
+}
+
+function emreConfirmationTrace(state: TraceState): Trace {
+  const e = emre(state);
+  const lands = e.itinerary.out?.flight.arrives ?? "20:50";
+  return {
+    who: "Emre's phone",
+    when: "Confirmation",
+    steps: [
+      step(
+        "Trip",
+        "act",
+        `Booked ${e.itinerary.reference}`,
+        `${shortDate(e.draft.departDate.value)}, ${e.itinerary.out?.flight.departs ?? "19:05"} to ${cityOf(e.draft.destination.value)}, seat ${e.itinerary.out?.seats[0] ?? HOME.seat}.`,
+      ),
+      step(
+        "Moments",
+        "think",
+        "Asked who should know",
+        "It's Mum's birthday and he's flying in. Someone at that end should know he lands; Mum shouldn't, if it's a surprise.",
+      ),
+      state.emre.surprise
+        ? step(
+            "Moments",
+            "act",
+            "Surprise mode on",
+            `Dad gets the landing time (${lands}) and can follow the flight. Mum gets nothing, from any message, until Emre walks in. Every message after honours it.`,
+          )
+        : step(
+            "Moments",
+            "act",
+            "Surprise mode off",
+            `Mum and Dad can both follow. Landing ${lands}.`,
+          ),
+      step(
+        "Group",
+        "think",
+        "Dad becomes a follower",
+        "One tap to install. A direct booker Pegasus didn't have, without a campaign.",
+      ),
+    ],
+  };
+}
+
+function dadTrace(state: TraceState): Trace {
+  const e = emre(state);
+  const lands = e.itinerary.out?.flight.arrives ?? "20:50";
+  return {
+    who: "Dad's phone",
+    when: `${longDate(e.draft.departDate.value)}, ${lands}`,
+    steps: [
+      step(
+        "Moments",
+        "read",
+        "Emre landed",
+        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} on the ground at ${lands}.`,
+      ),
+      step(
+        "Moments",
+        "think",
+        "Checked surprise mode",
+        state.emre.surprise
+          ? "On. Dad only. The message says so, so Dad knows not to say anything."
+          : "Off. Both parents can be told.",
+      ),
+      step(
+        "Moments",
+        "act",
+        "Sent one message",
+        "The landing, a follow link, and STOP in the same breath. Nobody is on a list they didn't choose.",
+      ),
+    ],
+  };
+}
+
+function emreCancelledTrace(state: TraceState): Trace {
+  const e = emre(state);
+  const later = inventory(HOME.origin, HOME.destination, e.draft.departDate.value).find(
+    (f) => f.departs === HOME.later,
+  );
+  return {
+    who: "Emre's lock screen",
+    when: `${longDate(e.draft.departDate.value)}, 17:02`,
+    steps: [
+      step(
+        "Trip",
+        "read",
+        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} cancelled`,
+        `The ${e.itinerary.out?.flight.departs ?? "19:05"} is off, two hours before departure.`,
+      ),
+      step(
+        "Trip",
+        "think",
+        "Found the next one home",
+        later === undefined
+          ? `The ${HOME.later}, same route.`
+          : `${later.flightNo} at ${later.departs}, lands ${later.arrives}. ${later.seatsLeft} seats left; his ${e.itinerary.out?.seats[0] ?? HOME.seat} is free on it.`,
+      ),
+      step(
+        "Trip",
+        "act",
+        "Rebooked first, told second",
+        "The message he gets already has the new flight and seat in it. No queue, no refund form.",
+      ),
+      step(
+        "Moments",
+        "act",
+        "Told Dad the new landing",
+        `${later?.arrives ?? "23:00"}, not ${e.itinerary.out?.flight.arrives ?? "20:50"}. Surprise mode still holds: Mum hears nothing.`,
+      ),
+    ],
+  };
+}
+
+function notThisYearTrace(state: TraceState): Trace {
+  const next = nextYearMoment(MOMENT);
+  const date = nudgeDate(next);
+  const clean: MomentState = { declined: false, never: false, booked: false, spoken: 0 };
+  const thisYear = checkMorning(MOMENT, nudgeDate(MOMENT), { ...clean, declined: true });
+  const yearAfter = checkMorning(next, date, { ...clean, declined: false });
+  const never = checkMorning(next, date, { ...clean, never: true });
+  return {
+    who: "Emre's phone",
+    when: "Opt-outs",
+    steps: [
+      step(
+        "Moments",
+        "read",
+        "Two ways to say no",
+        '"Not this year" and "Don\'t suggest again" are different answers and get different silences.',
+      ),
+      step(
+        "Moments",
+        "quiet",
+        "Not this year",
+        `Silent until next April. ${shortDate(nudgeDate(MOMENT))}: ${thisYear.verdict === "silent" ? `quiet, "${thisYear.quiet}"` : "would speak"}. ${shortDate(date)}, flag cleared: ${yearAfter.verdict === "silent" ? "quiet" : "asks again"}.`,
+      ),
+      step(
+        "Moments",
+        "quiet",
+        "Don't suggest again",
+        `Silent for good. ${shortDate(date)}: ${never.verdict === "silent" ? `quiet, "${never.quiet}"` : "would speak"}. The moment can be painful; the off switch is real.`,
+      ),
+      state.moment.never
+        ? step("Moments", "act", "Off, for good", "Emre chose never.")
+        : state.moment.declined
+          ? step("Moments", "act", "Off, this year", "Emre chose not this year.")
+          : step(
+              "Moments",
+              "wait",
+              "Waiting on Emre",
+              "Either tap is honoured by every morning after.",
+            ),
+    ],
+  };
+}
+
+function nextYearTrace(state: TraceState): Trace {
+  const e = emre(state);
+  const next = nextYearMoment(MOMENT);
+  const date = nudgeDate(next);
+  const momentState: MomentState = { ...e.momentState, booked: false, spoken: 0 };
+  const morning = checkMorning(next, date, momentState);
+  const steps = gateSteps(next, date, momentState, 0);
+  steps.push(
+    morning.verdict === "silent"
+      ? step(
+          "Moments",
+          "quiet",
+          "Said nothing",
+          `"${morning.quiet}" ${e.momentState.never ? "Last year's answer still stands." : "It asks again the year after."}`,
+        )
+      : step(
+          "Moments",
+          "act",
+          "Asked, once",
+          "Same again? Last year's plan, with the corrected return remembered. Yes, Not this year, or Don't suggest again.",
+          [`Budget 1 of ${next.interruptionBudget}`],
+        ),
+  );
+  return { who: "Emre's lock screen", when: `${longDate(date)}, 08:30`, steps };
+}
+
+function stopTrace(state: TraceState): Trace {
+  const e = emre(state);
+  return {
+    who: "Dad's phone",
+    when: longDate(e.draft.departDate.value),
+    steps: [
+      step("Moments", "read", "Dad replied STOP", "One word. It means what it says."),
+      step(
+        "Moments",
+        "act",
+        "Flight status only, for good",
+        "He still hears if Emre's flight moves. He never hears an offer. The two lists were separate from the start, which is what makes this a one-line change.",
+      ),
+      step(
+        "Moments",
+        "quiet",
+        'No "are you sure"',
+        "Messages he never asked for would cost the family's trust.",
+      ),
+    ],
+  };
+}
+
+/* ------------------------------------------------------------------ */
+
+/** The trace for a route, from the demo's state. Unknown routes get the home trace. */
+export function traceFor(pathname: string, state: TraceState): Trace {
+  const dates = momentDates();
+  switch (pathname) {
+    case "/":
+      return homeTrace(state);
+    case "/checkout":
+      return checkoutTrace(state);
+    case "/confirmation":
+      return confirmationTrace(state);
+    case "/group/people":
+      return peopleTrace(state);
+    case "/group/review":
+      return reviewTrace(state);
+    case "/group":
+      return squadTrace(state);
+    case "/invite/archie":
+      return inviteeTrace(state, "archie", "arrive");
+    case "/invite/archie/ticket":
+      return inviteeTrace(state, "archie", "ticket");
+    case "/invite/archie/checkout":
+      return inviteeTrace(state, "archie", "checkout");
+    case "/invite/archie/confirmation":
+      return inviteeTrace(state, "archie", "confirmation");
+    case "/invite/tom":
+      return inviteeTrace(state, "tom", "arrive");
+    case "/invite/tom/ticket":
+      return inviteeTrace(state, "tom", "ticket");
+    case "/invite/tom/checkout":
+      return inviteeTrace(state, "tom", "checkout");
+    case "/invite/tom/confirmation":
+      return inviteeTrace(state, "tom", "confirmation");
+    case "/invite/tom/stalls":
+      return stallsTrace(state);
+    case "/squad/waiting":
+      return waitingTrace(state);
+    case "/squad/check-in":
+      return checkInTrace(state);
+    case "/squad/next-trip":
+      return nextTripTrace(state);
+    case "/squad/cancelled":
+      return squadCancelledTrace(state);
+    case "/flights":
+      return flightsTrace(state);
+    case "/flights/moment":
+      return momentSheetTrace(state);
+    case "/moment/quiet":
+      return morningTrace(state, dates.quiet, "Emre's lock screen");
+    case "/moment/nudge":
+      return morningTrace(state, dates.nudge, "Emre's lock screen");
+    case "/moment/reminder":
+      return morningTrace(state, dates.reminder, "Emre's lock screen");
+    case "/moment/look":
+    case "/emre":
+      return lookTrace(state);
+    case "/emre/checkout":
+      return emreCheckoutTrace(state);
+    case "/emre/confirmation":
+      return emreConfirmationTrace(state);
+    case "/moment/dad":
+      return dadTrace(state);
+    case "/moment/cancelled":
+      return emreCancelledTrace(state);
+    case "/moment/not-this-year":
+      return notThisYearTrace(state);
+    case "/moment/next-year":
+      return nextYearTrace(state);
+    case "/moment/stop":
+      return stopTrace(state);
+    default:
+      return homeTrace(state);
+  }
+}

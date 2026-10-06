@@ -209,6 +209,12 @@ export function mornings(
   return out;
 }
 
+/** The same moment, a year on: the next occasion, the Friday before it, the same rules. */
+export function nextYearMoment(moment: Moment = MOMENT): Moment {
+  const year = Number(moment.occasion.slice(0, 4)) + 1;
+  return buildMoment(`${year}-${moment.occasion.slice(5)}`);
+}
+
 /** The scenes the demo jumps to. */
 export function momentDates(moment: Moment = MOMENT) {
   return {
@@ -216,7 +222,7 @@ export function momentDates(moment: Moment = MOMENT) {
     quiet: shift(nudgeDate(moment), 1),
     reminder: reminderDate(moment),
     travel: moment.out,
-    nextYear: shift(nudgeDate(moment), 365),
+    nextYear: nudgeDate(nextYearMoment(moment)),
   };
 }
 
