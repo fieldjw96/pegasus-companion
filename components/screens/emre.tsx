@@ -113,7 +113,7 @@ export function EmreConfirmation() {
           className="mt-1 w-full"
           onClick={() => update({ aside: { who: "dad", route: "/moment/dad" } })}
         >
-          See what Dad gets
+          Keep Dad updated
         </PrimaryButton>
       </section>
     </ConfirmationScreen>

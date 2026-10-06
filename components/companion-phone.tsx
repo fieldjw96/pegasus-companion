@@ -97,6 +97,10 @@ export function CompanionPhone() {
   const tomInvited = state.invited.length === 0 || state.invited.includes("Tom Baker");
   return (
     <div className="rise flex shrink-0 flex-col items-center gap-3">
+      {/* The label sits under the phone, like the time strip under the main one, so the two phones line up. */}
+      <Device>
+        <NavProvider nav={nav}>{screenFor(aside.route)}</NavProvider>
+      </Device>
       <div className="flex w-[410px] items-center justify-between px-2 text-[12px] font-semibold text-white/60">
         <span className="flex items-center gap-2">
           <span aria-hidden className="h-2 w-2 rounded-full bg-pg-yellow" />
@@ -122,9 +126,6 @@ export function CompanionPhone() {
           </button>
         </span>
       </div>
-      <Device>
-        <NavProvider nav={nav}>{screenFor(aside.route)}</NavProvider>
-      </Device>
     </div>
   );
 }
