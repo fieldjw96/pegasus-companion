@@ -33,7 +33,7 @@ export const FRIENDS: Friend[] = [
     channel: "push",
     pronoun: { subject: "he", object: "him", possessive: "his" },
     remembered: {
-      passport: "Passport, from your profile",
+      passport: "GBR 508812294 · valid to Jun 2029",
       payment: "Card ending 8841",
       meal: "Hot meal, Pegasus Café",
     },

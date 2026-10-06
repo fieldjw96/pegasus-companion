@@ -126,8 +126,12 @@ function finish(): void {
   });
 }
 
+/** Bumped on every reset, so a screen whose key has not changed still re-runs. */
+let generation = 0;
+
 function reset(): void {
   snapshot.active.forEach((r) => clearTimer(r.id));
+  generation += 1;
   emit({ active: [], history: [] });
 }
 
@@ -166,12 +170,17 @@ export function useAgentRun(
     () => key === null || isDone(key),
     () => key === null,
   );
+  const gen = useSyncExternalStore(
+    subscribe,
+    () => generation,
+    () => 0,
+  );
   useEffect(() => {
     if (key !== null) start(key, lane, build());
     // The trace is a function of the key; rebuilding it on every render would
     // restart nothing (start() ignores a repeated key) but is wasted work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, lane]);
+  }, [key, lane, gen]);
   return done;
 }
 

@@ -42,7 +42,8 @@ export function CheckoutScreen({
   names: string[];
   /** Printed after the traveller's name when a seat was bought. */
   seat?: string | null;
-  onFile: { passport: string; payment: string };
+  /** The passport as filled in, where it came from, and the payment. */
+  onFile: { passport: string; from?: string; payment: string };
   backHref: string;
   nextHref: string;
   extraLines?: PriceLine[];
@@ -125,9 +126,14 @@ export function CheckoutScreen({
         </dl>
 
         <div className="pg-card mt-4 flex flex-col px-5 py-1">
-          <div className="flex h-[52px] items-center justify-between gap-4 border-b border-pg-line">
+          <div className="flex min-h-[52px] items-center justify-between gap-4 border-b border-pg-line py-2">
             <span className="caps">Passport</span>
-            <span className="text-[14px] font-bold">{onFile.passport}</span>
+            <span className="flex flex-col items-end">
+              <span className="tabular text-[14px] font-bold">{onFile.passport}</span>
+              {onFile.from !== undefined && (
+                <span className="text-[12px] leading-4 text-pg-ink">{onFile.from}</span>
+              )}
+            </span>
           </div>
           <div className="flex h-[52px] items-center justify-between gap-3">
             <span className="caps">Paying with</span>

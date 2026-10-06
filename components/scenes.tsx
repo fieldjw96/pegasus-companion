@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgents, type Run } from "./agent-provider";
 import { asideFor } from "./companion-phone";
 import { useJourney } from "./journey-provider";
@@ -33,9 +33,24 @@ type View = "agent" | "scenes";
 
 export function Scenes() {
   const pathname = usePathname();
-  const { reset } = useJourney();
+  const router = useRouter();
+  const { reset, update } = useJourney();
   const agents = useAgents();
   const [view, setView] = useState<View>("agent");
+  const pending = useRef<1 | 2 | null>(null);
+  const restart = useCallback(
+    (journey: 1 | 2) => {
+      reset();
+      update({ persona: journey === 2 ? "emre" : "will" });
+      agents.reset();
+    },
+    [reset, update, agents],
+  );
+  useEffect(() => {
+    if (pending.current === null) return;
+    restart(pending.current);
+    pending.current = null;
+  }, [pathname, restart]);
   return (
     <aside
       aria-label="Presenter panel"
@@ -63,16 +78,21 @@ export function Scenes() {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            reset();
-            agents.reset();
+        <JourneyToggle
+          pathname={pathname}
+          onPick={(journey) => {
+            // Picking a journey starts it from the top: the phones, the
+            // passengers' state and the agents' history all go back to zero.
+            // The reset waits for the start screen to be the one mounted, or
+            // the screen being left would run once more into the history.
+            const target = journey === 2 ? "/flights" : "/";
+            if (pathname === target) restart(journey);
+            else {
+              pending.current = journey;
+              router.push(target);
+            }
           }}
-          className="text-[12px] font-semibold text-white/50 hover:text-white"
-        >
-          Reset demo
-        </button>
+        />
       </div>
       {view === "agent" ? <AgentView /> : <SceneList pathname={pathname} />}
       <p className="mt-6 text-[11px] leading-4 text-white/35">
@@ -80,6 +100,48 @@ export function Scenes() {
         concept, not a Pegasus product. Nothing here books anything.
       </p>
     </aside>
+  );
+}
+
+/** Which journey a route belongs to: Emre's start with his screens, the rest are Will's. */
+export function journeyOf(pathname: string): 1 | 2 {
+  return /^\/(emre|flights|moment)/.test(pathname) ? 2 : 1;
+}
+
+/** Journey 1 or 2. Picking one, even the current one, starts it again. */
+function JourneyToggle({
+  pathname,
+  onPick,
+}: {
+  pathname: string;
+  onPick: (journey: 1 | 2) => void;
+}) {
+  const current = journeyOf(pathname);
+  return (
+    <div
+      role="group"
+      aria-label="Journey"
+      className="flex rounded-full bg-white/10 p-0.5 text-[12px] font-bold"
+    >
+      {([1, 2] as const).map((j) => (
+        <button
+          key={j}
+          type="button"
+          aria-pressed={current === j}
+          title={
+            j === 1
+              ? "The lads go to Cappadocia. Starts again."
+              : "Home for Mum's birthday. Starts again."
+          }
+          onClick={() => onPick(j)}
+          className={`rounded-full px-3 py-1 transition-colors ${
+            current === j ? "bg-pg-yellow text-pg-navy" : "text-white/60 hover:text-white"
+          }`}
+        >
+          {j === 1 ? "Will" : "Emre"}
+        </button>
+      ))}
+    </div>
   );
 }
 

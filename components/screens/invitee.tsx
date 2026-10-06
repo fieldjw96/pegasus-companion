@@ -384,8 +384,16 @@ export function InviteeCheckout({ id }: { id: FriendId }) {
       extraLines={extras}
       onFile={
         friend.remembered === null
-          ? { passport: "Add at check-in", payment: "Card ending 3309" }
-          : { passport: friend.remembered.passport, payment: friend.remembered.payment }
+          ? {
+              passport: "Add at check-in",
+              from: "Nothing on file",
+              payment: "Card ending 3309",
+            }
+          : {
+              passport: friend.remembered.passport,
+              from: "From your profile",
+              payment: friend.remembered.payment,
+            }
       }
       backHref={`/invite/${id}/ticket`}
       nextHref={`/invite/${id}/confirmation`}

@@ -41,7 +41,7 @@ export type Profile = {
   /** Remembered from past bookings and shown as such. */
   remembers: string[];
   /** Things on file that fill in a form nobody has to see. */
-  onFile: { passport: string; payment: string };
+  onFile: { passport: string; from: string; payment: string };
 };
 
 export const PROFILES: Profile[] = [
@@ -62,7 +62,11 @@ export const PROFILES: Profile[] = [
       reason: "You're new here, so this is a guess from the trip, not a memory.",
     },
     remembers: [],
-    onFile: { passport: "Passport, from your wallet", payment: "Apple Pay" },
+    onFile: {
+      passport: "GBR 533120471 · valid to Mar 2032",
+      from: "From your Wallet, with permission",
+      payment: "Apple Pay",
+    },
   },
   {
     id: "emre",
@@ -81,7 +85,11 @@ export const PROFILES: Profile[] = [
       reason: "Every trip to Trabzon so far: the Friday 19:05, SAVER, and seat 3A.",
     },
     remembers: ["Friday 19:05", "SAVER", "Seat 3A", "Passport and card"],
-    onFile: { passport: "Passport ·· 4471 · valid to 2031", payment: "VISA •••• 2210" },
+    onFile: {
+      passport: "TUR U21844713 · valid to Aug 2027",
+      from: "On file from your last trip",
+      payment: "VISA •••• 2210",
+    },
   },
 ];
 

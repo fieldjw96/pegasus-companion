@@ -533,7 +533,7 @@ function checkoutTrace(state: TraceState): Trace {
         "Trip",
         "read",
         "Filled the form nobody sees",
-        `Passport ${WILL.onFile.passport.toLowerCase()}, paying with ${WILL.onFile.payment}. Nothing to type.`,
+        `Passport ${WILL.onFile.passport}, ${WILL.onFile.from.toLowerCase()}. Paying with ${WILL.onFile.payment}. Nothing to type.`,
       ),
       state.booked
         ? step(
@@ -1331,7 +1331,7 @@ function emreCheckoutTrace(state: TraceState): Trace {
         "Trip",
         "read",
         "Checked the passport before payment",
-        `${EMRE.onFile.passport}. Valid for the trip, so nothing to say; if it weren't, this is where I'd say it, not at the gate.`,
+        `${EMRE.onFile.passport}, ${EMRE.onFile.from.toLowerCase()}. Fine for June and a domestic flight; not for the September trip on file. So I say so here, with time to renew, not at the gate.`,
       ),
       step("Trip", "read", "Payment on file", `${EMRE.onFile.payment}. Nothing to type.`),
       state.emre.booked
