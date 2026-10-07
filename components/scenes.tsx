@@ -388,42 +388,63 @@ function Dots() {
 
 function StepRow({ step, last, compact }: { step: Step; last: boolean; compact: boolean }) {
   const muted = step.kind === "quiet" || step.kind === "wait";
+  const [open, setOpen] = useState(false);
+  const hasBody = !compact;
   return (
-    <li className="rise flex gap-2.5 pb-4">
+    <li className="rise flex gap-2.5 pb-3">
       <Rail kind={step.kind} last={last} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <AgentChip agent={step.agent} />
-          <span className="text-[10px] font-bold tracking-[0.08em] text-white/40 uppercase">
-            {KIND_LABEL[step.kind]}
-          </span>
-        </div>
-        <p
-          className={`mt-1 text-[13px] leading-[18px] font-semibold ${
-            muted || compact ? "text-white/70" : "text-white"
-          }`}
+        <button
+          type="button"
+          onClick={() => hasBody && setOpen((o) => !o)}
+          aria-expanded={hasBody ? open : undefined}
+          className={`flex w-full items-start gap-2 text-left ${hasBody ? "" : "cursor-default"}`}
         >
-          {step.did}
-        </p>
-        {!compact && (
-          <p
-            className="mt-0.5 text-[12px] leading-[17px] text-white/60"
-            style={{ textWrap: "pretty" }}
-          >
-            {step.thought}
-          </p>
-        )}
-        {!compact && step.facts !== undefined && (
-          <ul className="mt-1.5 flex flex-wrap gap-1">
-            {step.facts.map((f) => (
-              <li
-                key={f}
-                className="tabular rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[11px] leading-4 text-white/70"
-              >
-                {f}
-              </li>
-            ))}
-          </ul>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline gap-2">
+              <AgentChip agent={step.agent} />
+              <span className="text-[10px] font-bold tracking-[0.08em] text-white/40 uppercase">
+                {KIND_LABEL[step.kind]}
+              </span>
+            </span>
+            <span
+              className={`mt-0.5 block text-[13px] leading-[18px] font-semibold ${
+                muted || compact ? "text-white/70" : "text-white"
+              }`}
+            >
+              {step.did}
+            </span>
+          </span>
+          {hasBody && (
+            <span
+              aria-hidden
+              className={`mt-1 shrink-0 text-[10px] text-white/40 transition-transform ${open ? "rotate-180" : ""}`}
+            >
+              ▼
+            </span>
+          )}
+        </button>
+        {hasBody && open && (
+          <div className="fade">
+            <p
+              className="mt-1 text-[12px] leading-[17px] text-white/60"
+              style={{ textWrap: "pretty" }}
+            >
+              {step.thought}
+            </p>
+            {step.facts !== undefined && (
+              <ul className="mt-1.5 flex flex-wrap gap-1">
+                {step.facts.map((f) => (
+                  <li
+                    key={f}
+                    className="tabular rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[11px] leading-4 text-white/70"
+                  >
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </li>

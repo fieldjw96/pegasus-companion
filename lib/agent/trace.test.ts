@@ -69,11 +69,11 @@ describe("the agent trace", () => {
   it("prices Will's week to the same penny as the ticket", () => {
     const home = traceFor("/", { ...COLD, prompt: WILL_PROMPT });
     const priced = home.steps.find((s) => s.did.startsWith("Priced it"));
-    expect(priced?.did).toBe("Priced it at 409.40 GBP");
-    expect(priced?.thought).toContain("112.00 GBP cheaper");
+    expect(priced?.did).toBe("Priced it at 316.90 GBP");
+    expect(priced?.thought).toContain("56.00 GBP cheaper");
     const routed = home.steps.find((s) => s.did === "Routed it on the network");
-    expect(routed?.facts).toHaveLength(4);
-    expect(routed?.facts?.[0]).toContain("PC 1164 06:10");
+    expect(routed?.facts).toHaveLength(2);
+    expect(routed?.facts?.[0]).toContain("PC 1172 06:10");
     expect(home.steps.map((s) => s.agent)).toContain("Offer");
   });
 

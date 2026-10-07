@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestWeekIn, buildDraft, extract, stopsFor } from "./understand";
+import { bestWeekIn, buildDraft, extract } from "./understand";
 import { PROFILES, profileById } from "./profiles";
 import { visibleKeys } from "./draft";
 
@@ -74,42 +74,15 @@ describe("the best week in a month", () => {
   });
 });
 
-describe("the route for a week in Cappadocia", () => {
-  it("runs in through Istanbul, three nights for the balloons, out via the coast", () => {
-    const route = stopsFor("ASR", 7, "backpacking");
-    expect(route?.stops).toEqual([
-      { code: "SAW", nights: 2 },
-      { code: "ASR", nights: 3 },
-      { code: "AYT", nights: 2 },
-    ]);
-  });
-
-  it("re-ranks as a city break: Istanbul first, home from Kayseri", () => {
-    const route = stopsFor("ASR", 7, "cityBreak");
-    expect(route?.stops).toEqual([
-      { code: "SAW", nights: 4 },
-      { code: "ASR", nights: 3 },
-    ]);
-  });
-
-  it("is not a multi-stop trip anywhere else", () => {
-    expect(stopsFor("ADB", 7, null)).toBeNull();
-    expect(stopsFor("ASR", 3, null)).toBeNull();
-  });
-});
-
 describe("Will's week, built from the opening sentence", () => {
-  const draft = buildDraft(
-    "Balloons in Cappadocia with 2 mates, backpacking, a week in May",
-    WILL,
-  );
+  const draft = buildDraft("Balloons in Cappadocia, backpacking, a week in May", WILL);
 
-  it("is Stansted to Cappadocia for a week, in May, with the route predicted", () => {
+  it("is Stansted to Cappadocia for a week, in May, straight there and back", () => {
     expect(draft.origin.value).toBe("STN");
     expect(draft.origin.source).toBe("predicted");
     expect(draft.destination.source).toBe("said");
     expect(draft.departDate.value.slice(5, 7)).toBe("05");
-    expect(draft.stops.value.map((s) => s.code)).toEqual(["SAW", "ASR", "AYT"]);
+    expect(draft.stops.value).toEqual([]);
     expect(draft.returnDate.source).toBe("said");
   });
 

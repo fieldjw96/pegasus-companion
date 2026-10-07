@@ -25,9 +25,9 @@ which alone silences the companion. Ignored offers are not repeated; "not this
 year" holds for a year; "don't suggest again" holds for good. A change that makes
 it speak more often is a regression unless the Ticket says otherwise.
 
-**Every number the companion says is computed.** "112.00 GBP cheaper", "14B next
-to him is yours", "down to 7 seats": all arithmetic in `lib/`, handed to the
-screen as a finished sentence. The demo's routes are pinned in
+**Every number the companion says is computed.** "56.00 GBP cheaper", "14B next
+to him is free", "down to 9 seats", and every figure in the impact column: all
+arithmetic in `lib/`, handed to the screen as a finished sentence. The demo's routes are pinned in
 `lib/journey/script.ts`, keyed by route so the figures hold whichever month the
 demo runs in, and asserted in its test so every screen agrees.
 

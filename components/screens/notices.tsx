@@ -107,11 +107,6 @@ export function CheckInScreen() {
           />
         </div>
       )}
-      {ready && (
-        <p className="mt-3 px-3 text-center text-[12px] leading-[18px] text-white/60">
-          The second one arrives the moment check-in opens. Nobody has to remember.
-        </p>
-      )}
     </LockScreen>
   );
 }
@@ -179,11 +174,6 @@ export function NextTripScreen() {
           </PrimaryButton>
         </LockCard>
       )}
-      {ready && (
-        <p className="mt-3 px-3 text-center text-[12px] leading-[18px] text-white/60">
-          New routes go first to groups who have travelled together, not to a newsletter.
-        </p>
-      )}
     </LockScreen>
   );
 }
@@ -243,12 +233,6 @@ export function DadFollowsScreen({ cancelled = false }: { cancelled?: boolean })
           </div>
         </LockCard>
       )}
-      {ready && (
-        <p className="mt-3 px-3 text-center text-[12px] leading-[18px] text-white/60">
-          Dad&rsquo;s phone. He joins the app, and becomes a direct booker Pegasus didn&rsquo;t
-          have.
-        </p>
-      )}
     </LockScreen>
   );
 }
@@ -271,9 +255,6 @@ export function EmreCancelledScreen() {
             lead="Your 19:05 is cancelled."
             rest={` You're on the 21:15, seat ${seat}. Dad's been told the new landing time.`}
           />
-          <p className="mt-3 px-3 text-center text-[12px] leading-[18px] text-white/60">
-            No queue at the desk. Fewer refunds, and a customer kept after a bad day.
-          </p>
         </>
       )}
     </LockScreen>
@@ -377,12 +358,6 @@ export function NextYearScreen() {
             </SecondaryButton>
           </div>
         </LockCard>
-      )}
-      {ready && !quiet && (
-        <p className="mt-3 px-3 text-center text-[12px] leading-[18px] text-white/60">
-          An annual booking on the direct channel. &ldquo;Don&rsquo;t suggest again&rdquo;
-          switches it off for good: the moment can be painful.
-        </p>
       )}
     </LockScreen>
   );

@@ -32,8 +32,8 @@ export function ConfirmationScreen({
   extraLines?: PriceLine[];
   /** Over the city: "You're going, Will". */
   headline?: string;
-  /** The companion's one line under the receipt. */
-  says: ReactNode;
+  /** The companion's one line under the receipt, if any. */
+  says?: ReactNode;
   /** Anything else: the group card, the seat, the group progress. */
   children?: ReactNode;
   /** The agents' run before the confirmation shows. */
@@ -106,9 +106,11 @@ export function ConfirmationScreen({
             </div>
           </div>
 
-          <Says big className="mt-6">
-            {says}
-          </Says>
+          {says !== undefined && (
+            <Says big className="mt-6">
+              {says}
+            </Says>
+          )}
 
           {children}
 

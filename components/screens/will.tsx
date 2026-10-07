@@ -3,17 +3,12 @@
 import { useState } from "react";
 import { useNav } from "@/components/phone-nav";
 import { useJourney } from "@/components/journey-provider";
-import { Says } from "@/components/ui/avatar";
 import { Initials, PrimaryButton, TextButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
 import { traceFor } from "@/lib/agent/trace";
-import { countBySource } from "@/lib/assistant/draft";
-import { itineraryFor } from "@/lib/assistant/itinerary";
-import { formatFare } from "@/lib/journey/flights";
-import { SQUAD } from "@/lib/journey/script";
 import { FRIENDS, firstName, friendByName, seatBeside } from "@/lib/group/group";
-import { WILL, willDraft, shortDate } from "@/lib/demo/personas";
+import { WILL, willDraft } from "@/lib/demo/personas";
 
 /**
  * Will's checkout and confirmation: the organiser's side of the booking.
@@ -57,9 +52,6 @@ export function WillConfirmation() {
   const router = useNav();
   const { draft, names, state, update } = useWill();
   const me = names[0] ?? "Will Parker";
-  const counts = countBySource(draft);
-  const itinerary = itineraryFor(draft, me);
-  const first = itinerary.out;
   const [picked, setPicked] = useState<string[]>(
     state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name),
   );
@@ -81,18 +73,6 @@ export function WillConfirmation() {
         trace: () => traceFor("/confirmation", state),
         label: "Booking…",
       }}
-      says={
-        <>
-          {first !== null && (
-            <>
-              {first.from} → {first.to} · {shortDate(first.date)} ·{" "}
-              {first.seats[0] ?? "any seat"}.{" "}
-            </>
-          )}
-          You said {counts.said} things. I worked out {counts.predicted} and showed you every
-          one before you paid.
-        </>
-      }
     >
       <section
         aria-label="Send to your friends"
@@ -101,10 +81,6 @@ export function WillConfirmation() {
         <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
           Send this to your friends?
         </h2>
-        <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-          You said mates. Each gets your trip in your name, with the seat next to yours
-          offered, and books their own. Nobody sees what you paid.
-        </p>
         {state.sent ? (
           <>
             <p className="text-[14px] font-bold">
@@ -174,18 +150,9 @@ export function WillConfirmation() {
                 ? "Pick someone"
                 : `Send to ${chosen.map((f) => firstName(f.name)).join(" and ")}`}
             </PrimaryButton>
-            <p className="text-[12px] leading-[18px] text-pg-ink">
-              Seats next to you cost {formatFare(SQUAD.seatPricePerLeg)} a leg. They decide.
-            </p>
           </>
         )}
       </section>
-      {!state.sent && (
-        <Says className="mt-4">
-          Two names from your contacts, with permission. Untick anyone, or send to nobody; I
-          won&rsquo;t ask again.
-        </Says>
-      )}
     </ConfirmationScreen>
   );
 }

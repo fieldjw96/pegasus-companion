@@ -16,7 +16,7 @@ export const WILL: Profile = profileById("will");
 export const EMRE: Profile = profileById("emre");
 export { PROFILES };
 
-export const WILL_PROMPT = "Balloons in Cappadocia with 2 mates, backpacking, a week in May";
+export const WILL_PROMPT = "Balloons in Cappadocia, backpacking, a week in May";
 
 export function willDraft(): TripDraft {
   return buildDraft(WILL_PROMPT, WILL);

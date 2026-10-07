@@ -6,12 +6,10 @@ import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
 import { traceFor } from "@/lib/agent/trace";
 import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
-import { Avatar, Mark, Says } from "@/components/ui/avatar";
 import { LockCard, LockScreen } from "@/components/ui/lock-screen";
 import { AppIcon, Initials, PrimaryButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
-import { SentenceSection } from "./home-screen";
 import { SeatSheet } from "./seat-sheet";
 import { Ticket, cityOf } from "./ticket";
 import type { ExtraRow } from "./change-panel";
@@ -74,7 +72,7 @@ function useInvitee(id: FriendId) {
 function noticeText(me: string, city: string, organiser: TripDraft, seat: string | null) {
   return {
     lead: `${firstName(me)}'s booked ${city}.`,
-    rest: ` ${seat ?? "A seat"} next to ${firstName(me) === "Will" ? "him" : "them"} is free: ${formatFare(SQUAD.seatPricePerLeg)} a leg. Your booking's built; just check it.`,
+    rest: ` ${seat ?? "A seat"} next to ${firstName(me) === "Will" ? "him" : "them"} is free. Your booking's ready.`,
     span: dateSpan(organiser.departDate.value, organiser.returnDate.value),
   };
 }
@@ -116,48 +114,14 @@ export function ArchiePushScreen() {
                 <strong className="font-extrabold">{notice.lead}</strong>
                 {notice.rest}
               </span>
-              <span className="mt-1.5 flex flex-col gap-0.5 text-[13px] leading-[18px] text-pg-ink">
-                <Row
-                  label="Flights"
-                  value={`${notice.span}, from ${firstName(me)}`}
-                  tag="from"
-                />
-                <Row label="Passport, payment" value="remembered" tag="profile" />
-                <Row label={`SAVER + seat ${seat ?? ""}`} value="predicted" tag="predicted" />
-                <Row label="Hot meal, Pegasus Café" value="remembered" tag="profile" />
-              </span>
               <span className="mt-2 text-[14px] font-extrabold text-pg-orange">
                 Book in one tap
               </span>
             </span>
-            <Avatar size={44} className="mt-5" />
           </LockCard>
         </button>
       )}
     </LockScreen>
-  );
-}
-
-function Row({
-  label,
-  value,
-  tag,
-}: {
-  label: string;
-  value: string;
-  tag: "from" | "profile" | "predicted";
-}) {
-  return (
-    <span className="flex items-center justify-between gap-2">
-      <span className="font-semibold text-pg-navy">{label}</span>
-      <span
-        className={`tag ${tag === "from" ? "tag-shared" : tag === "profile" ? "tag-profile" : "tag-predicted"}`}
-        style={{ height: 18, lineHeight: "16px" }}
-      >
-        {tag === "from" && <Initials name="Will Parker" size={14} />}
-        {value}
-      </span>
-    </span>
   );
 }
 
@@ -318,16 +282,6 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
         ) : undefined
       }
     >
-      <Says>
-        {first} booked this and asked me to build yours.{" "}
-        <Mark>
-          {counts.shared} things from {first === "Will" ? "his" : "their"} booking,{" "}
-          {counts.profile > 0 ? `${counts.profile} remembered, ` : ""}
-          {counts.predicted} I worked out.
-        </Mark>{" "}
-        Tap any <span className="mine font-semibold">dotted value</span> to change it. You pay
-        only for yourself.
-      </Says>
       <Ticket
         draft={shown}
         onChange={setLocal}
@@ -339,8 +293,8 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
         onSeat={() => setSheet(true)}
         extraLines={extras}
         extraRows={extraRowsFor(friend)}
+        compact
       />
-      <SentenceSection onSubmit={() => undefined} />
     </AppShell>
   );
 }
@@ -493,7 +447,7 @@ function ordinal(n: number): string {
 /** Tom stalls: a nudge in Will's name, and a rescue when his card fails. */
 export function TomStallsScreen() {
   const router = useNav();
-  const { me, seat, state, itinerary } = useInvitee("tom");
+  const { me, state, itinerary } = useInvitee("tom");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
   const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
   return (
@@ -509,12 +463,6 @@ export function TomStallsScreen() {
             onTap={() => router.push("/invite/tom/checkout")}
             lead={`${firstName(me)} and ${archie} are waiting on you.`}
             rest={` Your booking's ready: just tap pay. The 06:10 is down to ${itinerary.out?.flight.seatsLeft ?? 9} seats.`}
-          />
-          <Notice
-            onTap={() => router.push("/invite/tom/checkout")}
-            lead="Card declined?"
-            rest={` Try Apple Pay. ${seat} is still free next to them.`}
-            when="2m ago"
           />
         </div>
       )}

@@ -1,7 +1,6 @@
 import { AIRPORTS, type AirportCode, type FareFamily, inventory } from "@/lib/journey/flights";
-import { SQUAD } from "@/lib/journey/script";
 import { partyOf, type Profile } from "./profiles";
-import type { Field, Stop, TripDraft } from "./draft";
+import { NO_STOPS, type Field, type TripDraft } from "./draft";
 
 /**
  * Turning a sentence plus a profile into a filled-in trip.
@@ -286,39 +285,6 @@ function field<T>(
 }
 
 /**
- * The route for a week in Cappadocia. Pegasus does not fly London to Kayseri,
- * so the companion builds it the way its network works: into Istanbul, across
- * to Kayseri for the balloons, down to the coast, and home from Antalya.
- */
-export function stopsFor(
-  destination: string,
-  nights: number,
-  tripType: Extracted["tripType"],
-): { stops: Stop[]; why: string } | null {
-  if (destination !== SQUAD.destination || nights < 5) return null;
-  if (tripType === "cityBreak") {
-    const rest = Math.max(2, nights - 3);
-    return {
-      stops: [
-        { code: "SAW", nights: rest },
-        { code: "ASR", nights: nights - rest },
-      ],
-      why: `A city break: ${rest} nights in Istanbul, then the balloons, and home from Kayseri.`,
-    };
-  }
-  const coast = Math.max(1, Math.round((nights - 3) / 2));
-  const istanbul = nights - 3 - coast;
-  return {
-    stops: [
-      { code: "SAW", nights: istanbul },
-      { code: "ASR", nights: 3 },
-      { code: "AYT", nights: coast },
-    ],
-    why: `Balloons from Göreme need three mornings. Two nights in Istanbul on the way in, and the coast to finish, which is how the network connects it.`,
-  };
-}
-
-/**
  * Fill every gap, saying where each answer came from.
  *
  * What was said wins, then what the profile remembers, then what can be
@@ -348,7 +314,6 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
   const nightsAway = said.nights ?? (cold ? 7 : 2);
   const returnDate = said.returnDate ?? addDays(departDate, nightsAway);
 
-  const route = stopsFor(destination, nightsAway, said.tripType);
   const needsBag =
     said.checkedBag ?? (said.tripType === "backpacking" ? true : habits.checkedBag);
   const checkedKg: 0 | 12 | 20 | 25 = needsBag ? 25 : 0;
@@ -359,7 +324,7 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
       : habits.package
     : habits.package;
 
-  const firstFlight = inventory(origin, route?.stops[0]?.code ?? destination, departDate)[0];
+  const firstFlight = inventory(origin, destination, departDate)[0];
   const departs = firstFlight?.departs ?? "06:10";
 
   const packageWhy = needsBag
@@ -387,12 +352,7 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
       said.destination !== null ? "said" : mem,
       said.destination !== null ? "You said so." : "Where you always go.",
     ),
-    stops: field(
-      route?.stops ?? [],
-      "predicted",
-      route?.why ?? "",
-      route !== null && said.tripType === null,
-    ),
+    stops: NO_STOPS,
     departDate: field(
       departDate,
       said.departDate !== null ? "said" : "predicted",

@@ -53,17 +53,24 @@ when opened cold; it falls back to the persona's starting trip.
 
 The Agent view is computed, not written. `lib/agent/trace.ts` builds each step
 from the same calls the screen made, so the panel cannot say one thing while
-the phone shows another; `lib/agent/trace.test.ts` holds it to that.
+the phone shows another; `lib/agent/trace.test.ts` holds it to that. Each step
+shows its headline; the reasoning and the figures open on a tap.
+
+The **impact column** at the far right is the commercial case, moving as the
+demo moves: revenue, add-ons, bookings and new customers, each against a
+stated model of today's app. `lib/metrics/impact.ts` computes it from the same
+drafts and prices the screens print, and says at its foot how "today" is
+counted.
 
 ### Journey 1 · The lads go to Cappadocia
 
 Will, 26, London. A cold start: no history, no profile.
 
-1. **A wish becomes a week.** He says "Balloons in Cappadocia with 2 mates,
-   backpacking, a week in May". The companion builds a four-flight route on
-   Pegasus's network, picks the week, prices it, and prints a ticket. What it
-   heard is shown as chips; everything it guessed carries a dotted underline and
-   a reason. One tap says "actually: a city break" and the route re-ranks.
+1. **A wish becomes a week.** He says "Balloons in Cappadocia, backpacking, a
+   week in May". The companion picks the week, finds the flights to Kayseri and
+   back, prices it, and prints a ticket: flights, seat, fare and baggage, with
+   the breakdown and every field changeable underneath. Everything it guessed
+   carries a dotted underline and a reason.
    The bag and the seat are decided here too: from "backpacking" it puts SAVER
    on the ticket (a 40L pack won't fit under the seat, and the bag costs less
    inside the fare than at the airport), and the seat sheet gives a reason to
@@ -71,9 +78,9 @@ Will, 26, London. A cold start: no history, no profile.
 2. **Nothing to type.** Checkout fills the passport from his Wallet and pays with
    Apple Pay. The Offer agent adds nothing at the till: insurance, a car and the
    lounge don't fit a backpacker, so they aren't there.
-3. **Send it to your friends?** The sentence said mates, not who. The
-   confirmation asks whether to send the trip on and suggests two people from
-   his contacts. Each gets it in Will's name, with the seat next to his offered
+3. **Send it to your friends?** A backpacking trip is rarely solo, and the
+   sentence didn't say who. The confirmation asks whether to send the trip on
+   and suggests two people from his contacts. Each gets it in Will's name, with the seat next to his offered
    at 7 GBP a leg. Nothing is frozen or held.
 4. **Archie has the app.** A push in Will's name leads with the seat and opens a
    booking already built: flights from Will, fare and seat predicted, passport,
@@ -145,6 +152,7 @@ components/
   agent-provider.tsx       The agents running: one streaming run per phone, and the wait.
   phone-nav.tsx            Where a tap goes: the browser's router, or the second phone's screen.
   scenes.tsx               The presenter's panel: Agent (live) and Scenes (the list).
+  impact.tsx               The impact column: the companion against today's app.
   journey-provider.tsx     What the passengers have done so far, in session storage.
   ui/                      The design system: avatar, shell, nav, sheet, lock screen, tags.
   screens/                 One file per screen or family of screens.
@@ -156,6 +164,7 @@ lib/
   moments/moments.ts       Mum's birthday: the usual trip, the nudge rule, the three gates.
   agent/trace.ts           What each agent read, thought and did on every screen, computed.
   agent/first-open.ts      The first open: the device and sign-up signals, and the three pitches.
+  metrics/impact.ts        Revenue, add-ons, bookings and new customers, companion against today.
   agent/scenes.ts          Every beat of both journeys, with its route.
 ```
 

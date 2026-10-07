@@ -45,6 +45,7 @@ export function Ticket({
   extraLines = [],
   extraRows = [],
   initialPanel = "none",
+  compact = false,
 }: {
   draft: TripDraft;
   onChange: (next: TripDraft) => void;
@@ -69,6 +70,8 @@ export function Ticket({
   /** Remembered things that are not draft fields: passport, payment, a meal. */
   extraRows?: ExtraRow[];
   initialPanel?: Panel;
+  /** Flights, seat, fare and baggage only: no passenger, gate, boarding time or barcode. */
+  compact?: boolean;
 }) {
   const [panel, setPanel] = useState<Panel>(initialPanel);
   const itinerary = itineraryFor(draft, owner);
@@ -138,13 +141,15 @@ export function Ticket({
             </div>
 
             <dl className="grid grid-cols-6 gap-x-3 gap-y-4 border-t border-pg-line pt-4">
-              <Slot label="Passenger" span={3}>
-                {names[0] ?? "Passenger"}
-                {people > 1 && ` +${people - 1}`}
-              </Slot>
+              {!compact && (
+                <Slot label="Passenger" span={3}>
+                  {names[0] ?? "Passenger"}
+                  {people > 1 && ` +${people - 1}`}
+                </Slot>
+              )}
               <Slot
                 label="Seat"
-                span={3}
+                span={compact ? 2 : 3}
                 dotted={seatLabel !== undefined ? seatDotted : mine("seating")}
                 onTap={onSeat ?? (() => setPanel("change"))}
                 why="chosen by your companion"
@@ -152,12 +157,16 @@ export function Ticket({
                 {seatLabel ??
                   (first.seats.length === 0 ? "At check-in" : first.seats.join(" "))}
               </Slot>
-              <Slot label="Gate" span={2}>
-                {first.gate}
-              </Slot>
-              <Slot label="Boards" span={2}>
-                {first.boards}
-              </Slot>
+              {!compact && (
+                <Slot label="Gate" span={2}>
+                  {first.gate}
+                </Slot>
+              )}
+              {!compact && (
+                <Slot label="Boards" span={2}>
+                  {first.boards}
+                </Slot>
+              )}
               <Slot
                 label="Fare"
                 span={2}
@@ -169,22 +178,24 @@ export function Ticket({
               </Slot>
               <Slot
                 label="Baggage"
-                span={3}
+                span={compact ? 2 : 3}
                 dotted={mine("checkedKg") && draft.checkedKg.source === "predicted"}
                 onTap={() => setPanel("change")}
                 why="chosen by your companion"
               >
                 {baggageOf(draft)}
               </Slot>
-              <Slot
-                label="Changes"
-                span={3}
-                dotted={mine("flexibility")}
-                onTap={() => setPanel("change")}
-                why="chosen by your companion"
-              >
-                {FLEXIBILITY[draft.flexibility.value]}
-              </Slot>
+              {!compact && (
+                <Slot
+                  label="Changes"
+                  span={3}
+                  dotted={mine("flexibility")}
+                  onTap={() => setPanel("change")}
+                  why="chosen by your companion"
+                >
+                  {FLEXIBILITY[draft.flexibility.value]}
+                </Slot>
+              )}
             </dl>
           </div>
         )}
@@ -217,8 +228,10 @@ export function Ticket({
           />
         </div>
 
-        <div className="flex items-center justify-between gap-4 px-5 pt-3.5 pb-4">
-          <Barcode reference={itinerary.reference} />
+        <div
+          className={`flex items-center gap-4 px-5 pt-3.5 pb-4 ${compact ? "justify-end" : "justify-between"}`}
+        >
+          {!compact && <Barcode reference={itinerary.reference} />}
           <span className="flex flex-col items-end gap-0.5">
             <span className="caps" style={{ fontSize: 10.5 }}>
               Total

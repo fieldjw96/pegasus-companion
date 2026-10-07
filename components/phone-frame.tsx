@@ -33,6 +33,7 @@ export function PhoneFrame({
   before,
   below,
   aside,
+  after,
 }: {
   children: ReactNode;
   /** The second phone, or null. */
@@ -40,15 +41,18 @@ export function PhoneFrame({
   /** The time strip under the main phone. */
   below?: ReactNode;
   aside?: ReactNode;
+  /** The impact column, at the far right. */
+  after?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center gap-6 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-10 lg:p-10">
+    <div className="flex min-h-dvh flex-col items-center gap-6 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-8 lg:p-8">
       {before}
       <div className="flex shrink-0 flex-col items-center gap-3">
         <Device>{children}</Device>
         {below}
       </div>
       {aside}
+      {after}
     </div>
   );
 }

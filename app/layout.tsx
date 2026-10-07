@@ -5,6 +5,7 @@ import { JourneyProvider } from "@/components/journey-provider";
 import { CompanionPhone } from "@/components/companion-phone";
 import { TimeStrip } from "@/components/time-strip";
 import { Scenes } from "@/components/scenes";
+import { Impact } from "@/components/impact";
 
 export const metadata: Metadata = {
   title: "Pegasus — AI Travel Companion mock",
@@ -24,7 +25,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ticket built on the home screen is the ticket the checkout prints.
         */}
         <JourneyProvider>
-          <PhoneFrame before={<CompanionPhone />} below={<TimeStrip />} aside={<Scenes />}>
+          <PhoneFrame
+            before={<CompanionPhone />}
+            below={<TimeStrip />}
+            aside={<Scenes />}
+            after={<Impact />}
+          >
             {children}
           </PhoneFrame>
         </JourneyProvider>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
 import { traceFor } from "@/lib/agent/trace";
@@ -60,7 +59,6 @@ export function GroupStatusScreen() {
   // One nudge, to the last straggler, once everyone else is in. Not a chase.
   const waiting =
     booked === members.length - 1 ? members.find((m) => m.status !== "booked") : undefined;
-  const [breakfast, setBreakfast] = useState(false);
   const early = itinerary.out?.flight.departs ?? "06:10";
   const ready = useAgentRun(`group:status:${booked}:${state.sent}`, () =>
     traceFor("/group", state),
@@ -208,12 +206,12 @@ export function GroupStatusScreen() {
                 </p>
               </div>
             </div>
-            {breakfast ? (
+            {state.breakfast ? (
               <p className="text-[14px] font-bold">
                 Added for all {members.length}. See you at {early}.
               </p>
             ) : (
-              <PrimaryButton size="sm" onClick={() => setBreakfast(true)}>
+              <PrimaryButton size="sm" onClick={() => update({ breakfast: true })}>
                 Add for all {members.length} · {formatFare(BREAKFAST.each * members.length)}{" "}
                 GBP
               </PrimaryButton>

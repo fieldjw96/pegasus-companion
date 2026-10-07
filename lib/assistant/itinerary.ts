@@ -184,7 +184,7 @@ function legFor(
   if (flight === undefined) return null;
   const h = hash(`gate|${flight.id}`);
   const pinned =
-    plan.from === SQUAD.origin && plan.to === "SAW"
+    plan.from === SQUAD.origin && plan.to === SQUAD.destination
       ? SQUAD.gate
       : plan.from === HOME.origin && plan.to === HOME.destination
         ? HOME.gate

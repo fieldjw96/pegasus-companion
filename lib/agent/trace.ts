@@ -247,7 +247,7 @@ function builtSteps(w: Will): Step[] {
       "think",
       "Routed it on the network",
       draft.stops.value.length === 0
-        ? `A simple return: ${routeSentence(draft)}`
+        ? `${AIRPORTS[draft.origin.value as AirportCode]?.name ?? draft.origin.value} to ${AIRPORTS[draft.destination.value as AirportCode]?.name ?? draft.destination.value} direct, and back. ${routeSentence(draft)}`
         : `Pegasus doesn't fly ${cityOf(draft.origin.value)} to ${AIRPORTS[draft.destination.value as AirportCode]?.name ?? draft.destination.value} direct. ${draft.stops.why} So: ${routeSentence(draft)}`,
       legFacts(itinerary),
     ),
@@ -523,8 +523,8 @@ function checkoutTrace(state: TraceState): Trace {
       step(
         "Group",
         "think",
-        "Noted the mates",
-        `The sentence said mates. ${free.join(" and ")} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free right now; I'll offer them to whoever he sends this to. Nothing is held: an offer, not a reservation.`,
+        "Seats beside are free",
+        `${free.join(" and ")} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free right now. If he sends the trip to anyone, that's the offer they get. Nothing is held: an offer, not a reservation.`,
       ),
       state.booked
         ? step(
@@ -565,8 +565,8 @@ function confirmationTrace(state: TraceState): Trace {
     step(
       "Group",
       "think",
-      "Heard mates, not names",
-      `"With 2 mates" says there are others. It doesn't say who, and I don't guess who a friend is. So I ask whether to send the trip on, and suggest.`,
+      "Backpacking is rarely solo",
+      "Balloons and a backpack in May: trips like this are usually three or four people. The sentence didn't say who, and I don't guess who a friend is. So I ask whether to send it on, and suggest.",
     ),
     step(
       "Group",

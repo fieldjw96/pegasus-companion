@@ -4,36 +4,26 @@ import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useNav } from "@/components/phone-nav";
 import { useAgentRun } from "@/components/agent-provider";
 import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
-import { Avatar, Mark, Says, ThinkingAvatar } from "@/components/ui/avatar";
+import { Avatar, Says, ThinkingAvatar } from "@/components/ui/avatar";
 import { DestinationPhoto } from "@/components/ui/destination-photo";
-import { PrimaryButton, Sparkle, TextButton } from "@/components/ui/primitives";
+import { PrimaryButton, Sparkle } from "@/components/ui/primitives";
 import { SentenceBox } from "@/components/ui/sentence-box";
 import { useJourney } from "@/components/journey-provider";
 import { SeatSheet } from "./seat-sheet";
-import { Ticket, cityOf } from "./ticket";
+import { Ticket } from "./ticket";
 import { Suggestions } from "./suggestions";
-import { buildDraft, extract, stopsFor } from "@/lib/assistant/understand";
+import { buildDraft, extract } from "@/lib/assistant/understand";
 import { suggest, type Suggestion } from "@/lib/assistant/discover";
 import { firstOpen, pitches } from "@/lib/agent/first-open";
 import { traceFor } from "@/lib/agent/trace";
-import { countBySource, type TripDraft } from "@/lib/assistant/draft";
+import type { TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor, nights } from "@/lib/assistant/itinerary";
-import { breakdown, naivePath, withLines, type PriceLine } from "@/lib/assistant/price";
+import { breakdown, withLines, type PriceLine } from "@/lib/assistant/price";
 import { AIRPORTS, formatFare } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
-import { FRIENDS, firstName } from "@/lib/group/group";
+import { firstName } from "@/lib/group/group";
 import { GIFTS, MOMENT, nextYearMoment } from "@/lib/moments/moments";
-import {
-  EMRE,
-  WILL,
-  dateSpan,
-  dayLongMonth,
-  emreDraft,
-  shift,
-  shortDate,
-  weekdayName,
-  type Persona,
-} from "@/lib/demo/personas";
+import { EMRE, WILL, emreDraft, shift, shortDate, type Persona } from "@/lib/demo/personas";
 
 /**
  * Home: the greeting, the thinking beat, and the ticket.
@@ -138,12 +128,6 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     setDraft(buildDraft(`${state.prompt ?? ""} to ${code}`, profile));
   }
 
-  function reset(): void {
-    setSuggestions([]);
-    setDraft(null);
-    update({ prompt: null, booked: false, thumbs: null });
-  }
-
   if (phase === "idle") {
     return (
       <AppShell bodyClassName="pt-2 pb-8">
@@ -223,53 +207,10 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   }
 
   const heard = state.prompt === null ? null : extract(state.prompt);
-  const youSaid = (
-    <div className="pg-card mt-4 flex flex-col px-5 pt-1.5 pb-4">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-pg-ink">You said:</span>
-        <TextButton onClick={reset} className="pl-4">
-          Start over
-        </TextButton>
-      </div>
-      <p className="text-[17px] leading-[25px] font-semibold" style={{ textWrap: "pretty" }}>
-        {state.prompt ?? "Your usual trip home"}
-      </p>
-      {heard !== null && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="caps mr-1">Heard</span>
-          {heard.companions !== null && (
-            <Heard label="Travellers" value={String(heard.companions + 1)} />
-          )}
-          {heard.month !== null && (
-            <Heard label="Month" value={MONTH_NAMES[heard.month] ?? ""} />
-          )}
-          {heard.destination !== null && (
-            <Heard label="To" value={cityOf(heard.destination)} />
-          )}
-          {heard.nights !== null && (
-            <Heard
-              label="Nights"
-              value={heard.nights === 7 ? "a week" : String(heard.nights)}
-            />
-          )}
-          {heard.tripType !== null && (
-            <Heard
-              label="Trip"
-              value={heard.tripType === "backpacking" ? "backpacking" : "city break"}
-            />
-          )}
-          {heard.origin === null && draft !== null && (
-            <Heard label="From" value={cityOf(draft.origin.value)} guessed />
-          )}
-        </div>
-      )}
-    </div>
-  );
 
   if (phase === "thinking") {
     return (
       <AppShell header={<AppHeader user={names[0]} withAvatar />}>
-        {persona === "will" ? youSaid : null}
         <div role="status" className="flex flex-col items-center gap-7 pt-20 pb-10">
           <ThinkingAvatar />
           <p className="text-center text-[17px] leading-6 font-semibold">
@@ -289,8 +230,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   if (phase === "discovery" || draft === null) {
     return (
       <AppShell header={<AppHeader user={names[0]} withAvatar />} bodyClassName="pb-8">
-        {youSaid}
-        <div className="mt-5">
+        <div className="mt-2">
           <Says>
             You did not name anywhere, so here is what I would pick: priced for{" "}
             {(heard?.companions ?? 0) + 1}, with nothing you did not ask for.
@@ -327,107 +267,26 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   const price = withLines(breakdown(draft), gifts);
   const away = nights(draft);
   const people = draft.party.value.adults + draft.party.value.children;
-  const counts = countBySource(draft);
-  const saving = naivePath(draft);
   const seatLegs = itinerary.legs.length;
 
   const willIntro = (
-    <>
-      <Says>
-        Here&rsquo;s your week. You told me {counts.said} things; the{" "}
-        {counts.predicted + counts.profile} with a{" "}
-        <span className="mine font-semibold">dotted line underneath</span> are mine. Tap one to
-        see why.{" "}
-        {saving !== null && (
-          <>
-            <Mark>The bag is in the fare: {formatFare(saving.saved)} GBP cheaper</Mark> than
-            adding it at the airport.
-          </>
-        )}
-      </Says>
-      {draft.stops.value.length > 0 && (
-        <div className="pg-card mt-4 flex flex-col gap-2 px-5 py-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[16px] font-extrabold">
-              Your week · {dateSpan(draft.departDate.value, draft.returnDate.value)}
-            </span>
-            <span className="text-[13px] font-semibold text-pg-ink">
-              for {(heard?.companions ?? 0) + 1}
-            </span>
-          </div>
-          <ol className="flex flex-col gap-1 text-[14px] leading-5">
-            {itinerary.legs.map((leg, i) => (
-              <li key={leg.flight.id} className="flex items-baseline justify-between gap-3">
-                <span className="font-bold">
-                  {leg.from} → {leg.to}{" "}
-                  <span className="font-medium text-pg-ink">
-                    {i < itinerary.legs.length - 1
-                      ? `${cityOf(leg.to)} · ${draft.stops.value[i]?.nights ?? ""} nights`
-                      : "Home"}
-                  </span>
-                </span>
-                <span className="tabular text-[13px] text-pg-ink">{shortDate(leg.date)}</span>
-              </li>
-            ))}
-          </ol>
-          <p className="text-[13px] leading-[18px] text-pg-ink">
-            Why {MONTH_NAMES[Number(draft.departDate.value.slice(5, 7)) - 1]}: balloons fly
-            most mornings, before peak fares. Your mates book their own; the seats beside you
-            are free for them.
-          </p>
-        </div>
-      )}
-      <Thumbs
-        question="Did we get your trip right?"
-        value={state.thumbs}
-        onPick={(v) => {
-          update({ thumbs: v });
-          setThumbsDown(v === "down");
-        }}
-        open={thumbsDown}
-        options={[
-          {
-            label: "Actually: a city break",
-            onPick: () => {
-              const route = stopsFor(draft.destination.value, away ?? 7, "cityBreak");
-              if (route !== null) {
-                setDraft({
-                  ...draft,
-                  stops: { value: route.stops, source: "said", why: "You said so." },
-                  package: {
-                    value: "light",
-                    source: "predicted",
-                    why: "A city break with a small bag: the cheapest fare.",
-                  },
-                  checkedKg: {
-                    value: 0,
-                    source: "predicted",
-                    why: "No hold bag for a city break.",
-                  },
-                  cabinBag: {
-                    value: true,
-                    source: "predicted",
-                    why: "A cabin bag, 17.00 a leg.",
-                  },
-                });
-              }
-              setThumbsDown(false);
-            },
-          },
-          {
-            label: "Wrong month",
-            onPick: () => setThumbsDown(false),
-          },
-        ]}
-        reply={
-          thumbsDown
-            ? null
-            : draft.stops.source === "said"
-              ? "Re-ranked: Istanbul first, then the balloons, home from Kayseri."
-              : null
-        }
-      />
-    </>
+    <Thumbs
+      question="Did we get your trip right?"
+      value={state.thumbs}
+      onPick={(v) => {
+        update({ thumbs: v });
+        setThumbsDown(v === "down");
+      }}
+      open={thumbsDown}
+      options={[
+        { label: "Wrong week", onPick: () => setThumbsDown(false) },
+        { label: "The bag", onPick: () => setThumbsDown(false) },
+        { label: "The seat", onPick: () => setThumbsDown(false) },
+      ]}
+      reply={
+        state.thumbs === "down" && !thumbsDown ? "Noted. That feeds the next guess." : null
+      }
+    />
   );
 
   const moment = state.emre.nextYear ? nextYearMoment(MOMENT) : MOMENT;
@@ -468,13 +327,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   ];
   const emreIntro = (
     <>
-      <Says>
-        Your usual, rebuilt from last June: the Friday {itinerary.out?.flight.departs}, SAVER,
-        seat {itinerary.out?.seats[0]}, back on the {weekdayName(draft.returnDate.value ?? "")}
-        . <Mark>All in, {formatFare(price.total)} GBP.</Mark> Mum&rsquo;s birthday is{" "}
-        {dayLongMonth(birthday)}, a {weekdayName(birthday)}.
-      </Says>
-      <div className="mt-3 flex flex-col gap-2 px-1">
+      <div className="mt-1 flex flex-col gap-2 px-1">
         <span className="text-[13px] font-semibold text-pg-ink">Back</span>
         <div className="flex flex-wrap gap-2">
           {returnOptions.map((o) => {
@@ -575,14 +428,10 @@ export function HomeScreen({ persona }: { persona: Persona }) {
             row={Number(squadRow)}
             seats={
               persona === "will"
-                ? [
-                    { letter: "A", name: names[0] ?? null },
-                    { letter: "B", name: FRIENDS[0]?.name ?? null, held: true },
-                    { letter: "C", name: FRIENDS[1]?.name ?? null, held: true },
-                    { letter: "D", name: null },
-                    { letter: "E", name: null },
-                    { letter: "F", name: null },
-                  ]
+                ? ["A", "B", "C", "D", "E", "F"].map((letter) => ({
+                    letter,
+                    name: letter === "A" ? (names[0] ?? null) : null,
+                  }))
                 : ["A", "B", "C", "D", "E", "F"].map((letter) => ({
                     letter,
                     name: letter === seatLetter ? (names[0] ?? null) : null,
@@ -594,7 +443,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
             included={draft.seating.value !== "none"}
             says={
               persona === "will"
-                ? `${itinerary.out.flight.departs} departure. Grab the window and sleep; ${FRIENDS.map((f) => firstName(f.name)).join(" and ")} will see the seats next to you when they book.`
+                ? `${itinerary.out.flight.departs} departure. Grab the window and sleep.`
                 : "Your usual. Say if you'd rather sit anywhere this time."
             }
             cta={
@@ -623,10 +472,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         ) : undefined
       }
     >
-      {persona === "will" ? youSaid : null}
-      <div className={persona === "will" ? "mt-5" : ""}>
-        {persona === "emre" ? emreIntro : willIntro}
-      </div>
+      {persona === "emre" ? emreIntro : null}
       <Ticket
         draft={draft}
         onChange={setDraft}
@@ -637,55 +483,10 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         seatDotted={draft.seating.source !== "said"}
         between={giftsOffer}
         extraLines={gifts}
+        compact
       />
-      <SentenceSection onSubmit={run} />
+      {persona === "will" ? willIntro : null}
     </AppShell>
-  );
-}
-
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-/** One thing the companion heard, as a chip. Dotted when it had to guess. */
-function Heard({
-  label,
-  value,
-  guessed = false,
-}: {
-  label: string;
-  value: string;
-  guessed?: boolean;
-}) {
-  return (
-    <span className="flex h-7 items-center gap-1.5 rounded-full bg-pg-surface pr-2.5 pl-2.5 text-[12px]">
-      <span className="font-semibold text-pg-ink">{label}</span>
-      <span className={`font-extrabold ${guessed ? "mine" : ""}`}>{value}</span>
-      <svg
-        width="11"
-        height="11"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#6B7684"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M4 20h4l10-10-4-4L4 16v4Z" />
-      </svg>
-    </span>
   );
 }
 

@@ -17,41 +17,36 @@ describe("Will's week", () => {
   const draft = willDraft();
   const me = WILL.travellers[0]!.name;
 
-  it("is four flights, on the pinned routes, whatever the dates", () => {
+  it("is there and back on the pinned route, whatever the dates", () => {
     const legs = legPlan(draft);
-    expect(legs.map((l) => `${l.from}-${l.to}`)).toEqual([
-      "STN-SAW",
-      "SAW-ASR",
-      "ASR-AYT",
-      "AYT-STN",
-    ]);
-    const first = inventory("STN", "SAW", draft.departDate.value)[0];
-    expect(first?.flightNo).toBe("PC 1164");
+    expect(legs.map((l) => `${l.from}-${l.to}`)).toEqual(["STN-ASR", "ASR-STN"]);
+    const first = inventory("STN", "ASR", draft.departDate.value)[0];
+    expect(first?.flightNo).toBe("PC 1172");
     expect(first?.departs).toBe("06:10");
   });
 
-  it("prices to the penny: SAVER for one over four legs, plus the window", () => {
+  it("prices to the penny: SAVER for one, out and back, plus the window", () => {
     const price = breakdown(draft);
-    // Fares: 89.40 + 32.10 + 38.60 + 101.30 light, + 30 SAVER each leg.
+    // Fares: 118.60 + 124.30 light, + 30 SAVER each leg, + 7 a leg for the window.
     expect(price.lines.map((l) => l.label)).toEqual([
       "SAVER flight fares",
       "Taxes, fees and charges",
       "Seat selection",
     ]);
-    expect(priceOf(draft)).toBe(409.4);
-    expect(naivePath(draft)).toEqual({ paid: 521.4, saved: 112 });
+    expect(priceOf(draft)).toBe(316.9);
+    expect(naivePath(draft)).toEqual({ paid: 372.9, saved: 56 });
   });
 
   it("prints K4T7QX, gate B12 and seat 14A on every leg", () => {
     const itinerary = itineraryFor(draft, me);
     expect(itinerary.reference).toBe(SQUAD.references.will);
     expect(itinerary.out?.gate).toBe(SQUAD.gate);
-    expect(itinerary.legs.map((l) => l.seats[0])).toEqual(["14A", "14A", "14A", "14A"]);
+    expect(itinerary.legs.map((l) => l.seats[0])).toEqual(["14A", "14A"]);
   });
 
   it("counts what was said against what was predicted", () => {
     const counts = countBySource(draft);
-    expect(counts.said).toBe(3);
+    expect(counts.said).toBe(2);
     expect(counts.profile).toBe(0);
     expect(counts.shared).toBe(0);
     expect(counts.predicted).toBe(8);

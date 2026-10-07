@@ -29,6 +29,8 @@ export type JourneyState = {
   inviteesBooked: Record<string, string | null>;
   /** Tom's card was declined once. */
   declined: boolean;
+  /** Will took the one group offer: breakfast for the three of them. */
+  breakfast: boolean;
   /** Emre's side. */
   emre: {
     draft: TripDraft | null;
@@ -41,6 +43,8 @@ export type JourneyState = {
     nextYear: boolean;
     /** Whether the presents were taken last year. Left once, they are not offered again. */
     giftsLastYear: boolean;
+    /** Dad was sent the flight: a new direct customer. */
+    dadTold: boolean;
   };
   moment: {
     set: boolean;
@@ -66,6 +70,7 @@ const INITIAL: JourneyState = {
   sent: false,
   inviteesBooked: {},
   declined: false,
+  breakfast: false,
   emre: {
     draft: null,
     booked: false,
@@ -74,6 +79,7 @@ const INITIAL: JourneyState = {
     surprise: true,
     nextYear: false,
     giftsLastYear: false,
+    dadTold: false,
   },
   // The companion learned the moment itself, from last June: it is set from the start.
   moment: { set: true, declined: false, never: false, approved: false, spoken: 0 },
