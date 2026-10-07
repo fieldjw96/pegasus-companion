@@ -88,7 +88,7 @@ const RULES: { test: RegExp; agent?: Step["agent"]; value: Commercial }[] = [
   },
   // Discovery
   {
-    test: /^Picked three|^Scored the network|^No place named|^What people like him book/,
+    test: /^Picked three|^Scored the network|^No place named|^Didn't catch a trip|not on the network$|^What people like him book/,
     value: {
       outcome: "More passengers",
       gain: "Someone who did not know where to go leaves with a Pegasus route, not a search on a competitor.",

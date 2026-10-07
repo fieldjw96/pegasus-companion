@@ -442,8 +442,16 @@ function discoveryTrace(state: TraceState): Trace {
       step(
         "Trip",
         "think",
-        "No place named",
-        "So the answer is places, not flights. A list of departure times would answer a question he didn't ask.",
+        said.unclear
+          ? "Didn't catch a trip"
+          : said.unknownPlace !== null
+            ? `${said.unknownPlace}: not on the network`
+            : "No place named",
+        said.unclear
+          ? "Nothing in that reads as a trip. Better to say so and offer three than to invent one."
+          : said.unknownPlace !== null
+            ? `Pegasus can't sell ${said.unknownPlace} here, so the honest answer is the closest thing it can sell, not a trip he didn't ask for.`
+            : "So the answer is places, not flights. A list of departure times would answer a question he didn't ask.",
       ),
       step(
         "Trip",
@@ -485,7 +493,11 @@ const MONTH_NAMES = [
 
 function homeTrace(state: TraceState): Trace {
   if (state.prompt === null && state.draft === null) return suggestTrace();
-  if (state.draft === null && state.prompt !== null && extract(state.prompt).discovery) {
+  if (
+    state.draft === null &&
+    state.prompt !== null &&
+    (extract(state.prompt).discovery || extract(state.prompt).destination === null)
+  ) {
     return discoveryTrace(state);
   }
   const w = will(state);
