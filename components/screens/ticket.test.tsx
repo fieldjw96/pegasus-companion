@@ -45,7 +45,8 @@ describe("Ticket", () => {
     expect(screen.getByText(/What makes up/)).toBeTruthy();
     expect(screen.getByText("SAVER flight fares")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Change anything" }));
-    expect(screen.getByText(/2 from you · 8 predicted/)).toBeTruthy();
+    expect(screen.getByText(/2 from you · 9 predicted/)).toBeTruthy();
+    expect(screen.getByText(/Istanbul 2 · Cappadocia 3 · Antalya 2/)).toBeTruthy();
     cleanup();
   });
 

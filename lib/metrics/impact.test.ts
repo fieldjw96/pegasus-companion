@@ -20,20 +20,21 @@ const COLD: ImpactState = {
 describe("the impact column", () => {
   it("starts at zero on both sides", () => {
     const { companion, today } = impactOf(COLD);
-    expect(companion).toEqual({ bookings: 0, revenue: 0, addOns: 0, newCustomers: 0 });
+    expect(companion).toEqual({ bookings: 0, revenue: 0, addOns: 0, newUsers: 0 });
     expect(today).toEqual(companion);
   });
 
-  it("counts Will's booking at the ticket's price, against the opening fare", () => {
+  it("counts Will's booking at the ticket's price, against one LIGHT return to Istanbul", () => {
     const { companion, today } = impactOf({ ...COLD, booked: true });
     expect(companion.bookings).toBe(1);
     expect(companion.revenue).toBe(priceOf(willDraft()));
     expect(today.revenue).toBe(openingFare(willDraft()));
+    expect(today.revenue).toBeLessThan(companion.revenue);
     expect(companion.addOns).toBe(Math.round((companion.revenue - today.revenue) * 100) / 100);
     expect(today.addOns).toBe(0);
   });
 
-  it("adds each friend who books, and Tom as a new customer", () => {
+  it("adds each friend who books, on both sides, and Tom as a new user", () => {
     const { companion, today } = impactOf({
       ...COLD,
       booked: true,
@@ -42,8 +43,10 @@ describe("the impact column", () => {
       breakfast: true,
     });
     expect(companion.bookings).toBe(3);
-    expect(companion.newCustomers).toBe(1);
-    expect(today.bookings).toBe(1);
+    expect(companion.newUsers).toBe(1);
+    expect(today.bookings).toBe(3);
+    expect(today.newUsers).toBe(0);
+    expect(companion.revenue).toBeGreaterThan(today.revenue);
     expect(companion.addOns).toBeGreaterThan(3 * 7 * 2 + 22.5);
   });
 
@@ -54,7 +57,7 @@ describe("the impact column", () => {
     });
     expect(companion.bookings).toBe(1);
     expect(companion.revenue).toBe(Math.round((priceOf(emreDraft()) + 30.5) * 100) / 100);
-    expect(companion.newCustomers).toBe(1);
-    expect(today.newCustomers).toBe(0);
+    expect(companion.newUsers).toBe(1);
+    expect(today.newUsers).toBe(0);
   });
 });

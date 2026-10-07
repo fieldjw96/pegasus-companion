@@ -57,7 +57,7 @@ the phone shows another; `lib/agent/trace.test.ts` holds it to that. Each step
 shows its headline; the reasoning and the figures open on a tap.
 
 The **impact column** at the far right is the commercial case, moving as the
-demo moves: revenue, add-ons, bookings and new customers, each against a
+demo moves: revenue, add-ons, bookings and new users, each against a
 stated model of today's app. `lib/metrics/impact.ts` computes it from the same
 drafts and prices the screens print, and says at its foot how "today" is
 counted.
@@ -67,10 +67,11 @@ counted.
 Will, 26, London. A cold start: no history, no profile.
 
 1. **A wish becomes a week.** He says "Balloons in Cappadocia, backpacking, a
-   week in May". The companion picks the week, finds the flights to Kayseri and
-   back, prices it, and prints a ticket: flights, seat, fare and baggage, with
-   the breakdown and every field changeable underneath. Everything it guessed
-   carries a dotted underline and a reason.
+   week in May". The companion builds a four-flight route on Pegasus's network
+   (in through Istanbul, the balloons, out via Antalya), picks the week, prices
+   it, and prints a ticket: flights, seat, fare and baggage, with the breakdown
+   and every field changeable underneath. Everything it guessed carries a
+   dotted underline and a reason. Four sectors where today's app sells one.
    The bag and the seat are decided here too: from "backpacking" it puts SAVER
    on the ticket (a 40L pack won't fit under the seat, and the bag costs less
    inside the fare than at the airport), and the seat sheet gives a reason to
@@ -164,7 +165,7 @@ lib/
   moments/moments.ts       Mum's birthday: the usual trip, the nudge rule, the three gates.
   agent/trace.ts           What each agent read, thought and did on every screen, computed.
   agent/first-open.ts      The first open: the device and sign-up signals, and the three pitches.
-  metrics/impact.ts        Revenue, add-ons, bookings and new customers, companion against today.
+  metrics/impact.ts        Revenue, add-ons, bookings and new users, companion against today.
   agent/scenes.ts          Every beat of both journeys, with its route.
 ```
 

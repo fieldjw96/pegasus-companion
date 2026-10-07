@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAgents } from "./agent-provider";
 import { useJourney } from "./journey-provider";
 import { ASSUMPTIONS, impactOf, type Figures } from "@/lib/metrics/impact";
 import { formatFare } from "@/lib/journey/flights";
@@ -19,7 +21,7 @@ const TILES: Tile[] = [
   { key: "revenue", label: "Revenue", money: true },
   { key: "addOns", label: "Add-ons", money: true },
   { key: "bookings", label: "Bookings", money: false },
-  { key: "newCustomers", label: "New customers", money: false },
+  { key: "newUsers", label: "New users", money: false },
 ];
 
 /** Eases a number towards its target over a few hundred milliseconds. */
@@ -55,17 +57,33 @@ function Figure({ value, money }: { value: number; money: boolean }) {
 }
 
 export function Impact() {
-  const { state } = useJourney();
+  const { state, reset } = useJourney();
+  const agents = useAgents();
+  const router = useRouter();
   const { companion, today } = impactOf(state);
   return (
     <aside
       aria-label="Impact"
       className="w-full max-w-[410px] shrink-0 text-white/80 lg:w-[220px] lg:pt-2"
     >
-      <div className="flex items-baseline justify-between py-1">
+      <div className="flex items-center justify-between py-1">
         <h2 className="text-[11px] font-bold tracking-[0.08em] text-white/50 uppercase">
           Impact
         </h2>
+        <button
+          type="button"
+          onClick={() => {
+            // Everything back to zero: the phones, the passengers and the agents.
+            reset();
+            agents.reset();
+            router.push("/");
+          }}
+          className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white/70 hover:bg-white/15 hover:text-white"
+        >
+          Reset demo
+        </button>
+      </div>
+      <div className="flex items-center justify-end py-1">
         <span className="flex items-center gap-3 text-[10px] font-semibold text-white/50">
           <span className="flex items-center gap-1">
             <span aria-hidden className="h-2 w-2 rounded-sm bg-pg-yellow" />

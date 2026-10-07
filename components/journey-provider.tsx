@@ -43,7 +43,7 @@ export type JourneyState = {
     nextYear: boolean;
     /** Whether the presents were taken last year. Left once, they are not offered again. */
     giftsLastYear: boolean;
-    /** Dad was sent the flight: a new direct customer. */
+    /** Dad was sent the flight: a new user. */
     dadTold: boolean;
   };
   moment: {

@@ -23,11 +23,16 @@ export type ScriptedFlight = {
   light: number;
 };
 
-/** Journey 1: Will, Archie and Tom's week. Out and back, direct. */
+/** Journey 1: Will, Archie and Tom's week. Four sectors each. */
 export const SQUAD = {
   origin: "STN",
-  /** Kayseri, for the balloons. Straight there and back, for the demo. */
+  /** The headline place. The route runs through Istanbul and out via Antalya. */
   destination: "ASR",
+  stops: [
+    { code: "SAW", nights: 2 },
+    { code: "ASR", nights: 3 },
+    { code: "AYT", nights: 2 },
+  ],
   references: { will: "K4T7QX", archie: "M2PR8V", tom: "X7K2PQ" },
   row: 14,
   seats: { will: "14A", archie: "14B", tom: "14C" },
@@ -48,37 +53,6 @@ export const HOME = {
 } as const;
 
 const SCRIPTED: Record<string, ScriptedFlight[]> = {
-  "STN|ASR": [
-    {
-      flightNo: "PC 1172",
-      departs: "06:10",
-      arrives: "12:55",
-      durationMinutes: 285,
-      aircraft: "A321neo",
-      seatsLeft: 9,
-      light: 118.6,
-    },
-    {
-      flightNo: "PC 1174",
-      departs: "13:30",
-      arrives: "20:15",
-      durationMinutes: 285,
-      aircraft: "A320neo",
-      seatsLeft: 21,
-      light: 126.9,
-    },
-  ],
-  "ASR|STN": [
-    {
-      flightNo: "PC 1173",
-      departs: "14:10",
-      arrives: "17:15",
-      durationMinutes: 305,
-      aircraft: "A321neo",
-      seatsLeft: 6,
-      light: 124.3,
-    },
-  ],
   "STN|SAW": [
     {
       flightNo: "PC 1164",

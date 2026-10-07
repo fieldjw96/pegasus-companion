@@ -248,7 +248,7 @@ function builtSteps(w: Will): Step[] {
       "Routed it on the network",
       draft.stops.value.length === 0
         ? `${AIRPORTS[draft.origin.value as AirportCode]?.name ?? draft.origin.value} to ${AIRPORTS[draft.destination.value as AirportCode]?.name ?? draft.destination.value} direct, and back. ${routeSentence(draft)}`
-        : `Pegasus doesn't fly ${cityOf(draft.origin.value)} to ${AIRPORTS[draft.destination.value as AirportCode]?.name ?? draft.destination.value} direct. ${draft.stops.why} So: ${routeSentence(draft)}`,
+        : `Pegasus doesn't fly ${cityOf(draft.origin.value)} to ${AIRPORTS[draft.destination.value as AirportCode]?.name ?? draft.destination.value} direct. ${draft.stops.why} So: ${routeSentence(draft)} Four sectors on one booking; the app today would sell one return to Istanbul and lose the rest.`,
       legFacts(itinerary),
     ),
     step(

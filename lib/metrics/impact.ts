@@ -11,8 +11,9 @@ import { EMRE, WILL, emreDraft, willDraft } from "@/lib/demo/personas";
  * against a stated model of the app as it is today. The model is simple and
  * it is written down here, because a comparison nobody can check reads as a
  * boast. Today's app: sells the fare it opens on (LIGHT), sells add-ons at the
- * till where most are declined, has no way to send a trip to a friend, no
- * birthday that speaks first, and no reason to give Dad an account.
+ * till where most are declined, sells one return where the companion routes
+ * four sectors, and gives nobody a reason to join. The three friends still
+ * book today; they just book less.
  */
 export type Figures = {
   bookings: number;
@@ -20,8 +21,8 @@ export type Figures = {
   revenue: number;
   /** GBP of fare uplift, seats, bags, meals and gifts: everything above the opening fare. */
   addOns: number;
-  /** People who became direct Pegasus customers because of the companion. */
-  newCustomers: number;
+  /** People who joined the app because of the companion: Tom, Dad. */
+  newUsers: number;
 };
 
 export type Impact = {
@@ -47,7 +48,7 @@ export type ImpactState = {
   };
 };
 
-const ZERO: Figures = { bookings: 0, revenue: 0, addOns: 0, newCustomers: 0 };
+const ZERO: Figures = { bookings: 0, revenue: 0, addOns: 0, newUsers: 0 };
 const round = (n: number) => Math.round(n * 100) / 100;
 
 function add(a: Figures, b: Partial<Figures>): Figures {
@@ -55,14 +56,25 @@ function add(a: Figures, b: Partial<Figures>): Figures {
     bookings: a.bookings + (b.bookings ?? 0),
     revenue: round(a.revenue + (b.revenue ?? 0)),
     addOns: round(a.addOns + (b.addOns ?? 0)),
-    newCustomers: a.newCustomers + (b.newCustomers ?? 0),
+    newUsers: a.newUsers + (b.newUsers ?? 0),
   };
 }
 
-/** The fare the funnel opens on: LIGHT, no bag, no seat. What today's app sells. */
+/**
+ * The fare the funnel opens on: LIGHT, no bag, no seat. What today's app sells.
+ * On a multi-stop trip, today's app sells one return to the first stop; the
+ * onward legs are bought elsewhere, so they are not Pegasus revenue.
+ */
 export function openingFare(draft: TripDraft): number {
+  const first = draft.stops.value[0];
   return breakdown({
     ...draft,
+    ...(first === undefined
+      ? {}
+      : {
+          destination: { value: first.code, source: "predicted" as const, why: "" },
+          stops: { value: [], source: "predicted" as const, why: "" },
+        }),
     package: { value: "light", source: "predicted", why: "" },
     checkedKg: { value: 0, source: "predicted", why: "" },
     cabinBag: { value: false, source: "predicted", why: "" },
@@ -73,7 +85,8 @@ export function openingFare(draft: TripDraft): number {
 
 export const ASSUMPTIONS = [
   "Today's app sells the fare it opens on, LIGHT, and offers the bag and seat at the till.",
-  "Today, friends get a screenshot and book elsewhere or later: not counted.",
+  "Today's app sells one return to Istanbul; the onward legs are bought elsewhere.",
+  "The three friends book today too, on LIGHT, without the app. Nobody joins.",
   "Today, Emre books late in May on LIGHT; nobody messages Dad.",
 ];
 
@@ -100,8 +113,9 @@ export function impactOf(state: ImpactState): Impact {
       bookings: 1,
       revenue: total,
       addOns: total - base,
-      newCustomers: friend.account ? 0 : 1,
+      newUsers: friend.account ? 0 : 1,
     });
+    today = add(today, { bookings: 1, revenue: base });
   }
   if (state.breakfast) {
     const squad = 1 + Object.keys(state.inviteesBooked).length;
@@ -121,7 +135,7 @@ export function impactOf(state: ImpactState): Impact {
     today = add(today, { bookings: 1, revenue: base });
   }
   if (state.emre.dadTold) {
-    companion = add(companion, { newCustomers: 1 });
+    companion = add(companion, { newUsers: 1 });
   }
 
   void EMRE;

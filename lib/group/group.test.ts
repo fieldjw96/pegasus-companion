@@ -8,7 +8,7 @@ import { WILL, willDraft } from "@/lib/demo/personas";
 /**
  * The invitee's booking is the claim of the group beats: built from the
  * organiser's flights and whatever Pegasus already knows about the invitee,
- * priced for one, with the seat beside the organiser offered.
+ * priced for one, with the seat beside the organiser held.
  */
 describe("Archie's booking", () => {
   const will = willDraft();
@@ -16,22 +16,28 @@ describe("Archie's booking", () => {
   const archie = FRIENDS[0]!;
   const draft = buildInviteeDraft(will, archie, me);
 
-  it("carries Will's route and dates, tagged as his", () => {
-    for (const key of ["origin", "destination", "departDate", "returnDate"] as const) {
+  it("carries Will's route, stops and dates, tagged as his", () => {
+    for (const key of [
+      "origin",
+      "destination",
+      "stops",
+      "departDate",
+      "returnDate",
+    ] as const) {
       expect(draft[key].value).toEqual(will[key].value);
       expect(draft[key].source).toBe("shared");
       expect(draft[key].from).toBe(me);
     }
   });
 
-  it("counts 4 from Will, 2 remembered, 4 predicted", () => {
-    expect(countBySource(draft)).toEqual({ shared: 4, profile: 2, predicted: 4, said: 0 });
+  it("counts 5 from Will, 2 remembered, 4 predicted", () => {
+    expect(countBySource(draft)).toEqual({ shared: 5, profile: 2, predicted: 4, said: 0 });
   });
 
   it("is held in 14B, next to Will, on every leg", () => {
     expect(seatBeside(will, archie, me)).toBe("14B");
     const itinerary = itineraryFor(draft, archie.name);
-    expect(itinerary.legs.map((l) => l.seats[0])).toEqual(["14B", "14B"]);
+    expect(itinerary.legs.map((l) => l.seats[0])).toEqual(["14B", "14B", "14B", "14B"]);
     expect(itinerary.reference).toBe("M2PR8V");
   });
 
@@ -39,7 +45,7 @@ describe("Archie's booking", () => {
     const extras = inviteeExtras(will, archie, me);
     expect(extras.map((e) => e.label)).toEqual(["Hot meal, Pegasus Café"]);
     const total = withLines(breakdown(draft), extras).total;
-    expect(total).toBe(priceOf(will) + 13);
+    expect(total).toBe(priceOf(will) + 26);
   });
 });
 

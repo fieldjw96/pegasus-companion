@@ -11,6 +11,8 @@ import {
   type TripDraft,
 } from "@/lib/assistant/draft";
 import { naivePath } from "@/lib/assistant/price";
+import { stopsFor } from "@/lib/assistant/understand";
+import { nights } from "@/lib/assistant/itinerary";
 import { AIRPORTS, FARE_RULES, airportCodes, formatFare } from "@/lib/journey/flights";
 import { shortDate } from "@/lib/demo/personas";
 
@@ -222,8 +224,33 @@ function Editor({
           ))}
         </select>
       );
-    case "stops":
-      return null;
+    case "stops": {
+      const away = nights(draft) ?? 7;
+      const options = [
+        {
+          label: "Backpacking: Istanbul, the balloons, the coast",
+          type: "backpacking" as const,
+        },
+        { label: "City break: Istanbul, then the balloons", type: "cityBreak" as const },
+      ];
+      return (
+        <div className={wrap}>
+          {options.map((o) => {
+            const route = stopsFor(draft.destination.value, away, o.type);
+            const on = JSON.stringify(route?.stops) === JSON.stringify(draft.stops.value);
+            return (
+              <Chip
+                key={o.type}
+                on={on}
+                onClick={() => route !== null && onPick("stops", route.stops)}
+              >
+                {o.label}
+              </Chip>
+            );
+          })}
+        </div>
+      );
+    }
     case "departDate":
       return (
         <input

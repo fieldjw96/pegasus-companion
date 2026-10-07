@@ -185,8 +185,6 @@ const DURATIONS: Record<string, number> = {
   "DLM-SAW": 80,
   "SAW-TZX": 105,
   "ASR-SAW": 80,
-  "STN-ASR": 285,
-  "ASR-STN": 305,
   "ASR-AYT": 75,
   "SAW-STN": 230,
   "LGW-SAW": 235,
