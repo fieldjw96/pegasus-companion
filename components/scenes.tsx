@@ -105,9 +105,9 @@ export function Scenes() {
         <BasketView journey={journeyOf(pathname)} />
       )}
       <p className="mt-6 text-[11px] leading-4 text-white/35">
-        Jamie version, for comparison with Jack&rsquo;s build. Team Winging It, for the Pegasus ×
-        Berkeley Haas AI Travel Companion Hackathon. A concept, not a Pegasus product. Nothing
-        here books anything.
+        Jamie version, for comparison with Jack&rsquo;s build. Team Winging It, for the Pegasus
+        × Berkeley Haas AI Travel Companion Hackathon. A concept, not a Pegasus product.
+        Nothing here books anything.
       </p>
     </aside>
   );

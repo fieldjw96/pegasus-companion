@@ -248,33 +248,39 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         {state.prompt ?? "Your usual trip home"}
       </p>
       {heard !== null && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="caps mr-1">Heard</span>
-          {heard.companions !== null && (
-            <Heard label="Travellers" value={String(heard.companions + 1)} />
-          )}
-          {heard.month !== null && (
-            <Heard label="Month" value={MONTH_NAMES[heard.month] ?? ""} />
-          )}
-          {heard.destination !== null && (
-            <Heard label="To" value={cityOf(heard.destination)} />
-          )}
-          {heard.nights !== null && (
-            <Heard
-              label="Nights"
-              value={heard.nights === 7 ? "a week" : String(heard.nights)}
-            />
-          )}
-          {heard.tripType !== null && (
-            <Heard
-              label="Trip"
-              value={heard.tripType === "backpacking" ? "backpacking" : "city break"}
-            />
-          )}
-          {heard.origin === null && draft !== null && (
-            <Heard label="My guess: from" value={cityOf(draft.origin.value)} guessed />
-          )}
-        </div>
+        // Jamie version: what was heard is behind a tap, not on the screen by default.
+        <details className="group mt-2">
+          <summary className="cursor-pointer list-none text-[13px] font-semibold text-pg-orange">
+            What I heard{" "}
+            <span className="inline-block transition group-open:rotate-90">›</span>
+          </summary>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {heard.companions !== null && (
+              <Heard label="Travellers" value={String(heard.companions + 1)} />
+            )}
+            {heard.month !== null && (
+              <Heard label="Month" value={MONTH_NAMES[heard.month] ?? ""} />
+            )}
+            {heard.destination !== null && (
+              <Heard label="To" value={cityOf(heard.destination)} />
+            )}
+            {heard.nights !== null && (
+              <Heard
+                label="Nights"
+                value={heard.nights === 7 ? "a week" : String(heard.nights)}
+              />
+            )}
+            {heard.tripType !== null && (
+              <Heard
+                label="Trip"
+                value={heard.tripType === "backpacking" ? "backpacking" : "city break"}
+              />
+            )}
+            {heard.origin === null && draft !== null && (
+              <Heard label="My guess: from" value={cityOf(draft.origin.value)} guessed />
+            )}
+          </div>
+        </details>
       )}
     </div>
   );
@@ -363,11 +369,6 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     <>
       <Says>
         Here&rsquo;s your {away === 7 ? "week" : away === 2 ? "weekend" : "trip"}.{" "}
-        {counts.said === 0
-          ? "I filled in all of it"
-          : `You told me ${counts.said} thing${counts.said === 1 ? "" : "s"}; I filled in the other ${counts.predicted + counts.profile}`}
-        , <span className="mine font-semibold">highlighted like this</span>. Tap one to see
-        why.{" "}
         {heard?.unknownOrigin != null && (
           <>
             {heard.unknownOrigin} isn&rsquo;t on the routes I can book yet, so I&rsquo;ve
@@ -390,6 +391,19 @@ export function HomeScreen({ persona }: { persona: Persona }) {
           </>
         )}
       </Says>
+      <details className="group mt-2 px-1">
+        <summary className="cursor-pointer list-none text-[13px] font-semibold text-pg-orange">
+          Why these choices{" "}
+          <span className="inline-block transition group-open:rotate-90">›</span>
+        </summary>
+        <p className="mt-1.5 text-[13px] leading-[18px] text-pg-ink">
+          {counts.said === 0
+            ? "I filled in all of it"
+            : `You told me ${counts.said} thing${counts.said === 1 ? "" : "s"}; I filled in the other ${counts.predicted + counts.profile}`}
+          , <span className="mine font-semibold">highlighted like this</span>. Tap one on the
+          ticket to see why.
+        </p>
+      </details>
       {draft.stops.value.length > 0 && (
         <div className="pg-card mt-4 flex flex-col gap-2 px-5 py-4">
           <div className="flex items-baseline justify-between">
