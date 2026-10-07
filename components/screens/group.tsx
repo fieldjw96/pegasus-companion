@@ -15,16 +15,10 @@ import {
 } from "@/components/ui/primitives";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { formatFare } from "@/lib/journey/flights";
-import {
-  BREAKFAST,
-  INVITE,
-  FRIENDS,
-  firstName,
-  friendByName,
-  groupMembers,
-} from "@/lib/group/group";
+import { BREAKFAST, FRIENDS, firstName, friendByName, groupMembers } from "@/lib/group/group";
 import { WILL, willDraft } from "@/lib/demo/personas";
 import { cityOf } from "./ticket";
+import { inviteWhen } from "@/lib/group/when";
 
 /**
  * The organiser's side of a group booking.
@@ -124,7 +118,9 @@ export function GroupStatusScreen() {
                   .map((m) => m.seat)
                   .filter(Boolean)
                   .join(" · ")}`
-              : `Sent ${INVITE.sentAt} · ${members.length - booked} to go`}
+              : state.sent
+                ? `Sent ${inviteWhen(draft.departDate.value).sentAt} · ${members.length - booked} to go`
+                : `Not sent yet · ${members.length - booked} to invite`}
           </span>
         </div>
         <div className="flex flex-col px-5 py-1.5">

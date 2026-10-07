@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { inviteWhen } from "@/lib/group/when";
+
 import { useEffect } from "react";
 import { useNav } from "@/components/phone-nav";
 import { useAgentRun } from "@/components/agent-provider";
@@ -38,7 +41,11 @@ export function WaitingWindowScreen() {
     traceFor("/squad/waiting", state),
   );
   return (
-    <LockScreen date="Wednesday 4 March" time="20:14" bottom={120}>
+    <LockScreen
+      date={inviteWhen(draft.departDate.value).waitingLong}
+      time="20:14"
+      bottom={120}
+    >
       {ready && (
         <div className="flex flex-col gap-2.5">
           <LockCard label="Pegasus Live Activity">
@@ -137,10 +144,11 @@ export function SquadCancelledScreen() {
 
 /** A new route, offered first to a group that has travelled together. */
 export function NextTripScreen() {
-  const router = useNav();
   const { state } = useJourney();
   const draft = state.draft ?? willDraft();
   const mates = FRIENDS.map((f) => firstName(f.name));
+  // Jamie version: asking the squad is the action, not a jump back to the old trip.
+  const [asked, setAsked] = useState(false);
   const ready = useAgentRun("squad:next-trip", () => traceFor("/squad/next-trip", state));
   return (
     <LockScreen
@@ -174,9 +182,16 @@ export function NextTripScreen() {
               ),
             )}
           </div>
-          <PrimaryButton className="mt-3.5 w-full" onClick={() => router.push("/group")}>
-            Ask {mates.join(" and ")}
-          </PrimaryButton>
+          {asked ? (
+            <p className="rise mt-3.5 rounded-xl bg-pg-yellow/25 px-3 py-2.5 text-[14px] leading-5 font-semibold text-pg-navy">
+              Asked ✓ {mates.join(" and ")} get Almaty in September, in your name. When two say
+              yes I build the trip, seats together, and you each book your own.
+            </p>
+          ) : (
+            <PrimaryButton className="mt-3.5 w-full" onClick={() => setAsked(true)}>
+              Ask {mates.join(" and ")}
+            </PrimaryButton>
+          )}
         </LockCard>
       )}
       {ready && (
@@ -204,7 +219,7 @@ export function DadFollowsScreen({ cancelled = false }: { cancelled?: boolean })
   return (
     <LockScreen
       date={longDate(draft.departDate.value)}
-      time={cancelled ? "17:03" : arrives}
+      time={cancelled ? "17:03" : "12:00"}
       bottom={150}
     >
       {ready && (
@@ -222,7 +237,7 @@ export function DadFollowsScreen({ cancelled = false }: { cancelled?: boolean })
                 <strong className="font-extrabold">
                   {cancelled
                     ? `Emre's ${itinerary.out?.flight.departs ?? "19:05"} is cancelled. He's on the ${later?.departs ?? HOME.later}, landing ${later?.arrives ?? "23:00"} 🤫`
-                    : `Emre lands in Trabzon at ${arrives} 🤫`}
+                    : `Emre lands in Trabzon tonight at ${arrives} 🤫`}
                 </strong>{" "}
                 Mum {cancelled ? "still " : ""}doesn&rsquo;t know{cancelled ? "." : " yet."}
               </span>

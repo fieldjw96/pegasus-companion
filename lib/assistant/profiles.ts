@@ -63,8 +63,8 @@ export const PROFILES: Profile[] = [
     },
     remembers: [],
     onFile: {
-      passport: "GBR 533120471 · valid to Mar 2032",
-      from: "From your Wallet, with permission",
+      passport: "GBR ••••0471 · valid to Mar 2032",
+      from: "Scanned once with your camera, kept on this phone",
       payment: "Apple Pay",
     },
   },
@@ -86,7 +86,7 @@ export const PROFILES: Profile[] = [
     },
     remembers: ["Friday 19:05", "SAVER", "Seat 3A", "Passport and card"],
     onFile: {
-      passport: "TUR U21844713 · valid to Aug 2027",
+      passport: "TUR ••••4713 · valid to Aug 2027",
       from: "On file from your last trip",
       payment: "VISA •••• 2210",
     },

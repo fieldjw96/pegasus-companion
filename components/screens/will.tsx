@@ -1,5 +1,7 @@
 "use client";
 
+import { extract } from "@/lib/assistant/understand";
+
 import { useState } from "react";
 import { useNav } from "@/components/phone-nav";
 import { useJourney } from "@/components/journey-provider";
@@ -102,7 +104,10 @@ export function WillConfirmation() {
           Send this to your friends?
         </h2>
         <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-          You said mates. Each gets your trip in your name, with the seat next to yours
+          {(extract(state.prompt ?? "").companions ?? 0) > 0
+            ? "You said you're not going alone. "
+            : "Taking anyone? "}
+          Each person you pick gets your trip in your name, with the seat next to yours
           offered, and books their own. Nobody sees what you paid.
         </p>
         {state.sent ? (

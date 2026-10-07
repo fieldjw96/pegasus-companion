@@ -7,7 +7,7 @@ import { TimeStrip } from "@/components/time-strip";
 import { Scenes } from "@/components/scenes";
 
 export const metadata: Metadata = {
-  title: "Pegasus — AI Travel Companion mock",
+  title: "Pegasus Companion (Jamie version)",
   description:
     "A mock of the Pegasus mobile app with an AI travel companion built into it. Not affiliated with Pegasus Airlines.",
 };

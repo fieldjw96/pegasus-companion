@@ -5,6 +5,7 @@ import { useJourney } from "./journey-provider";
 import { asideFor } from "./companion-phone";
 import { momentDates } from "@/lib/moments/moments";
 import { dayMonth, shift, willDraft } from "@/lib/demo/personas";
+import { inviteWhen } from "@/lib/group/when";
 
 /**
  * Time, for a phone that cannot move its own clock.
@@ -21,16 +22,16 @@ function emreJumps(): Jump[] {
   const d = momentDates();
   return [
     { label: "The nudge", when: `${dayMonth(d.nudge)}, 08:30`, href: "/moment/nudge" },
+    { label: "Dad's phone", when: `${dayMonth(d.travel)}, 12:00`, href: "/moment/dad" },
     { label: "Cancelled", when: `${dayMonth(d.travel)}, 17:02`, href: "/moment/cancelled" },
-    { label: "Dad's phone", when: `${dayMonth(d.travel)}, 20:50`, href: "/moment/dad" },
     { label: "Next year", when: dayMonth(d.nextYear), href: "/moment/next-year" },
   ];
 }
 
 function willJumps(out: string, back: string): Jump[] {
   return [
-    { label: "Waiting window", when: "4 Mar, 20:14", href: "/squad/waiting" },
-    { label: "Tom stalls", when: "5 Mar, 09:15", href: "/invite/tom/stalls" },
+    { label: "Waiting window", when: inviteWhen(out).waitingShort, href: "/squad/waiting" },
+    { label: "Tom stalls", when: inviteWhen(out).stallsShort, href: "/invite/tom/stalls" },
     { label: "Check-in", when: `${dayMonth(shift(out, -2))}, 05:30`, href: "/squad/check-in" },
     { label: "Cancelled", when: `${dayMonth(out)}, 04:50`, href: "/squad/cancelled" },
     { label: "Next trip", when: dayMonth(shift(back, 60)), href: "/squad/next-trip" },

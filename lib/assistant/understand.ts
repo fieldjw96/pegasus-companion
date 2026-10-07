@@ -37,6 +37,14 @@ export type Extracted = {
   discovery: boolean;
   /** Loose descriptors used for discovery: warm, city, beach, short. */
   vibes: string[];
+  /** A place the passenger named that Pegasus does not fly to (Jamie version). */
+  unknownPlace: string | null;
+  /** A departure city named that is not on the network (Jamie version). */
+  unknownOrigin: string | null;
+  /** Nothing in the sentence reads as a trip at all (Jamie version). */
+  unclear: boolean;
+  /** "Make it the 20th": a day with no month (Jamie version). */
+  bareDay?: number | null;
 };
 
 const CITY_TO_CODE: Record<string, AirportCode> = {
@@ -82,6 +90,10 @@ const NUMBER_WORDS: Record<string, number> = {
   four: 4,
   five: 5,
   six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
   a: 1,
   couple: 2,
   few: 3,
@@ -109,14 +121,229 @@ export function bestWeekIn(monthIndex: number): string {
   return addDays(first, toSaturday + 7);
 }
 
+function daysFromToday(iso: string): number {
+  return Math.round(
+    (Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${todayIso()}T00:00:00Z`)) / 86400000,
+  );
+}
+
 export function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
+const WEEKDAYS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** The next given weekday strictly after today. */
+function nextWeekday(day: number, from = todayIso()): string {
+  const d = new Date(`${from}T00:00:00Z`);
+  const ahead = (day - d.getUTCDay() + 7) % 7 || 7;
+  return addDays(from, ahead);
+}
+
+/** Words that can follow "to" or "in" without being a place. */
+const NOT_PLACES = new Set([
+  "the",
+  "a",
+  "an",
+  "my",
+  "our",
+  "go",
+  "get",
+  "see",
+  "visit",
+  "fly",
+  "be",
+  "do",
+  "have",
+  "take",
+  "travel",
+  "book",
+  "come",
+  "stay",
+  "spend",
+  "somewhere",
+  "anywhere",
+  "it",
+  "us",
+  "me",
+  "them",
+  "and",
+  "with",
+  "for",
+  "from",
+  "on",
+  "at",
+  "of",
+  "this",
+  "next",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "time",
+  "summer",
+  "winter",
+  "spring",
+  "autumn",
+  "fall",
+  "march",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+  "january",
+  "february",
+  "april",
+  "week",
+  "weekend",
+  "days",
+  "nights",
+  "total",
+  "style",
+  "comfort",
+  "peace",
+  "mind",
+  "sun",
+  "sunshine",
+  "warm",
+  "town",
+  "city",
+  "beach",
+  "mountains",
+  "budget",
+  "mid",
+  "late",
+  "early",
+  "about",
+  "around",
+  "march's",
+  "half",
+  "term",
+]);
+
+function placeAfter(text: string, words: string[]): string | null {
+  for (const w of words) {
+    const re = new RegExp(`\\b${w}\\s+([a-zà-ÿ][a-zà-ÿ'-]+(?:\\s+[a-zà-ÿ][a-zà-ÿ'-]+)?)`, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const phrase = (m[1] ?? "").trim();
+      const firstWord = phrase.split(/\s+/)[0] ?? "";
+      if (firstWord.length < 3 || NOT_PLACES.has(firstWord) || /^\d/.test(firstWord)) continue;
+      if (Object.keys(CITY_TO_CODE).some((name) => phrase.startsWith(name))) continue;
+      if (WEEKDAYS.includes(firstWord)) continue;
+      // Keep a two-word place only if both words look like a name ("new york").
+      const two = phrase.split(/\s+/);
+      const second = two[1] ?? "";
+      return second !== "" &&
+        !NOT_PLACES.has(second) &&
+        second.length >= 3 &&
+        /^(new|san|los|las|hong|abu|tel|cape|rio|buenos|kuala|ho)$/.test(firstWord)
+        ? phrase
+        : firstWord;
+    }
+  }
+  return null;
+}
+
+const titleCase = (s: string): string => s.replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+
 /** Pull what we can out of the sentence. Everything here is best effort. */
+/**
+ * Jamie version: a sentence plus later corrections ("A week in Antalya. Make it
+ * 3 of us. Add a bag.") reads as one trip, with the later sentence winning
+ * wherever it says something. "Change it in a sentence" appends to the prompt,
+ * so a change edits the trip instead of replacing it.
+ */
 export function extract(prompt: string): Extracted {
+  const parts = prompt
+    .split(/(?<=[.!?])\s+|\s+·\s+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  if (parts.length <= 1) return extractOne(prompt);
+  const all = parts.map(extractOne);
+  const pick = <K extends keyof Extracted>(k: K): Extracted[K] => {
+    for (let i = all.length - 1; i >= 0; i--) {
+      const v = all[i]?.[k];
+      if (v !== null && v !== undefined) return v as Extracted[K];
+    }
+    return all[0]![k];
+  };
+  // A later month or date replaces an earlier one of either kind.
+  let lastDated = -1;
+  all.forEach((e, i) => {
+    if (e.departDate !== null || e.month !== null || (e.bareDay ?? null) !== null)
+      lastDated = i;
+  });
+  const dated = lastDated === -1 ? null : all[lastDated]!;
+  let departDate = dated?.departDate ?? null;
+  let month = dated?.month ?? null;
+  if (dated !== null && dated.departDate === null && dated.month === null && dated.bareDay) {
+    // "the 20th": in the month the trip was already in.
+    const earlier = all
+      .slice(0, lastDated)
+      .reverse()
+      .find((e) => e.departDate !== null || e.month !== null);
+    const monthIndex =
+      earlier?.departDate != null
+        ? Number(earlier.departDate.slice(5, 7)) - 1
+        : (earlier?.month ?? new Date().getMonth());
+    departDate = isoFrom(Math.min(dated.bareDay, 28), monthIndex);
+    month = null;
+  }
+  const nights = pick("nights");
+  const destination = pick("destination");
+  return {
+    origin: pick("origin"),
+    destination,
+    departDate,
+    returnDate:
+      dated?.returnDate != null && dated.departDate === departDate
+        ? dated.returnDate
+        : departDate !== null && nights !== null
+          ? addDays(departDate, nights)
+          : null,
+    month,
+    nights,
+    companions: pick("companions"),
+    tripType: pick("tripType"),
+    checkedBag: pick("checkedBag"),
+    cabinBag: pick("cabinBag"),
+    seating: pick("seating"),
+    flexibility: pick("flexibility"),
+    budget: pick("budget"),
+    discovery: destination === null && all.some((e) => e.discovery),
+    vibes: [...new Set(all.flatMap((e) => e.vibes))],
+    unknownPlace: destination === null ? pick("unknownPlace") : null,
+    unknownOrigin: pick("origin") === null ? pick("unknownOrigin") : null,
+    unclear: all.every((e) => e.unclear),
+    bareDay: null,
+  };
+}
+
+function extractOne(prompt: string): Extracted {
   const text = prompt.toLowerCase();
 
   const found: { code: AirportCode; at: number }[] = [];
@@ -193,6 +420,28 @@ export function extract(prompt: string): Extracted {
     }
   }
 
+  // Relative dates: "on Friday", "this weekend", "next weekend", "tomorrow".
+  if (dates.length === 0 && month === null) {
+    const weekday = text.match(
+      /\b(?:on|this|next|coming)?\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/,
+    );
+    if (/\btomorrow\b/.test(text)) dates.push(addDays(todayIso(), 1));
+    else if (/\bnext weekend\b/.test(text)) dates.push(addDays(nextWeekday(5), 7));
+    else if (/\bthis weekend\b/.test(text)) dates.push(nextWeekday(5));
+    else if (/\bnext week\b/.test(text)) dates.push(nextWeekday(1));
+    else if (/\bnext month\b/.test(text)) month = (new Date().getMonth() + 1) % 12;
+    else if (weekday?.[1] !== undefined) {
+      const day = WEEKDAYS.indexOf(weekday[1]);
+      const base = nextWeekday(day);
+      dates.push(
+        /\bnext\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/.test(text) &&
+          daysFromToday(base) < 7
+          ? addDays(base, 7)
+          : base,
+      );
+    }
+  }
+
   const nightsMatch = text.match(
     /\b(\d{1,2}|a|one|two|three|four|five|six)\s*(?:nights?|days?)\b/,
   );
@@ -205,15 +454,54 @@ export function extract(prompt: string): Extracted {
   if (nights === null && /\blong weekend\b/.test(text)) nights = 3;
   if (nights === null && /\bweekend\b/.test(text)) nights = 2;
 
+  const num = (w: string | undefined): number | null => {
+    if (w === undefined) return null;
+    const cleaned = w.replace(/^a /, "").replace(/ of$/, "");
+    const n = NUMBER_WORDS[cleaned] ?? Number(cleaned);
+    return Number.isFinite(n) && n > 0 && n < 40 ? n : null;
+  };
+  const N = "(\\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|a couple of|a few)";
   const mates = text.match(
-    /\b(?:with|and)\s+(\d|one|two|three|four|five|six|a couple of|a few)\s+(?:mates?|friends?|others?|of us|lads)\b/,
+    new RegExp(
+      `\\b(?:with|and)\\s+${N}\\s+(?:mates?|friends?|others?|lads|people|colleagues|of the lads)\\b`,
+    ),
   );
+  const ofUs = text.match(new RegExp(`\\b${N}\\s+of\\s+us\\b`));
+  const familyOf = text.match(new RegExp(`\\b(?:family|group|party)\\s+of\\s+${N}\\b`));
+  const forN = text.match(
+    new RegExp(
+      `\\bfor\\s+${N}(?!\\s*(?:nights?|days?|weeks?|kg|gbp|pounds|£|euros?))\\b(?:\\s+(?:people|of us|adults|passengers))?`,
+    ),
+  );
+  // "with Archie and Tom": names, read from the original casing.
+  const named = prompt.match(
+    /\bwith\s+((?:[A-Z][a-z]+)(?:\s*,\s*[A-Z][a-z]+)*(?:\s+and\s+[A-Z][a-z]+)?)/,
+  );
+  const namedCount =
+    named?.[1] !== undefined
+      ? named[1]
+          .split(/\s*,\s*|\s+and\s+/)
+          .filter(
+            (n) =>
+              !(n.toLowerCase() in CITY_TO_CODE) &&
+              !MONTHS.includes(n.toLowerCase()) &&
+              !WEEKDAYS.includes(n.toLowerCase()) &&
+              !["My", "The", "Friends", "Mates", "Family"].includes(n),
+          ).length
+      : 0;
   const companions =
-    mates?.[1] !== undefined
-      ? (NUMBER_WORDS[mates[1].replace(/^a /, "").replace(/ of$/, "")] ?? Number(mates[1]))
-      : /\b(?:me and|with)\s+(?:my\s+)?(?:mates|friends|the lads)\b/.test(text)
-        ? 2
-        : null;
+    num(mates?.[1]) ??
+    (ofUs !== null ? (num(ofUs[1]) ?? 1) - 1 : null) ??
+    (familyOf !== null ? (num(familyOf[1]) ?? 1) - 1 : null) ??
+    (forN !== null ? (num(forN[1]) ?? 1) - 1 : null) ??
+    (namedCount > 0 ? namedCount : null) ??
+    (/\b(?:me and|with)\s+(?:my\s+)?(?:mates|friends|the lads)\b/.test(text)
+      ? 2
+      : /\b(?:me and|with)\s+(?:my\s+)?(?:partner|girlfriend|boyfriend|wife|husband|mum|dad|brother|sister)\b/.test(
+            text,
+          )
+        ? 1
+        : null);
 
   const tripType = /\bbackpack|hostel|interrail/.test(text)
     ? "backpacking"
@@ -229,7 +517,9 @@ export function extract(prompt: string): Extracted {
       text,
     );
   const wantsBag =
-    /\b(check(ed|ing)?|hold)\s+(a\s+)?(bag|luggage)|\d{2}\s*kg\b|suitcase\b/.test(text);
+    /\b(check(ed|ing)?|hold)\s+(a\s+)?(bag|luggage)|\d{2}\s*kg\b|suitcase\b|\badd\s+(a\s+)?bag|\bwith\s+(a\s+)?bags?\b/.test(
+      text,
+    );
 
   const seating = /\btogether\b/.test(text)
     ? "together"
@@ -247,15 +537,41 @@ export function extract(prompt: string): Extracted {
 
   const discovery =
     destination === null &&
-    /\bsomewhere|anywhere|ideas|suggest|where should|inspire|getaway|warm|sunny|cheap\b/.test(
-      text,
-    );
+    (/\b(turkey|turkiye|türkiye)\b/.test(text) ||
+      /\bsomewhere|anywhere|ideas|suggest|where should|inspire|getaway|warm|sunny|cheap\b/.test(
+        text,
+      ));
 
   const vibes = ["warm", "sunny", "beach", "city", "short", "cheap", "quiet"].filter((v) =>
     text.includes(v),
   );
 
+  const rawPlace =
+    destination === null ? placeAfter(text, ["to", "in", "visit", "visiting", "see"]) : null;
+  // "Turkey" is not a place to fly to but a brief: show the best of the network.
+  const countryBrief = rawPlace !== null && /^(turkey|turkiye|türkiye)$/.test(rawPlace);
+  const unknownPlace = countryBrief ? null : rawPlace;
+  const unknownOrigin = spokenFrom === null ? placeAfter(text, ["from"]) : null;
+  const unclear =
+    origin === null &&
+    destination === null &&
+    unknownPlace === null &&
+    dates.length === 0 &&
+    month === null &&
+    nights === null &&
+    companions === null &&
+    tripType === null &&
+    !discovery &&
+    vibes.length === 0 &&
+    !/\b(trip|holiday|flight|fly|away|break|getaway)\b/.test(text);
+
+  const bare = dates.length === 0 ? text.match(/\bthe\s+(\d{1,2})(?:st|nd|rd|th)\b/) : null;
+
   return {
+    bareDay: bare?.[1] !== undefined ? Number(bare[1]) : null,
+    unknownPlace: unknownPlace === null ? null : titleCase(unknownPlace),
+    unknownOrigin: unknownOrigin === null ? null : titleCase(unknownOrigin),
+    unclear,
     origin,
     destination,
     departDate: dates[0] ?? null,

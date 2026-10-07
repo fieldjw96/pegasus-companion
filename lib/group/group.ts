@@ -36,9 +36,9 @@ export const FRIENDS: Friend[] = [
     account: true,
     channel: "push",
     pronoun: { subject: "he", object: "him", possessive: "his" },
-    because: "Top of your recent calls, and on Pegasus already.",
+    because: "In your contacts, and already flies Pegasus.",
     remembered: {
-      passport: "GBR 508812294 · valid to Jun 2029",
+      passport: "GBR ••••2294 · valid to Jun 2029",
       payment: "Card ending 8841",
       meal: "Hot meal, Pegasus Café",
     },
@@ -48,7 +48,7 @@ export const FRIENDS: Friend[] = [
     account: false,
     channel: "whatsapp",
     pronoun: { subject: "he", object: "him", possessive: "his" },
-    because: "In the group chat you message most. No app, so a WhatsApp link.",
+    because: "In your contacts. No app, so a WhatsApp link.",
     remembered: null,
   },
 ];
@@ -149,8 +149,10 @@ export function seatBeside(
   const first = itinerary.out?.seats[0];
   if (first === undefined) return null;
   const who = ownerOf(friend.name);
-  if (who === "archie") return SQUAD.seats.archie;
-  if (who === "tom") return SQUAD.seats.tom;
+  // Jamie version: the pinned 14B/14C only when Will is actually in 14A;
+  // otherwise the seats next to whatever seat Will has.
+  if (first === SQUAD.seats.will && who === "archie") return SQUAD.seats.archie;
+  if (first === SQUAD.seats.will && who === "tom") return SQUAD.seats.tom;
   const row = first.slice(0, -1);
   const letter = first.slice(-1);
   const next = String.fromCharCode(

@@ -8,6 +8,9 @@ import { asideFor } from "./companion-phone";
 import { useJourney } from "./journey-provider";
 import { ACTS, sceneFor } from "@/lib/agent/scenes";
 import type { AgentName, Step, StepKind } from "@/lib/agent/trace";
+import { commercialFor, outcomesOf, type Outcome } from "@/lib/agent/commercial";
+import { emreComparison, willComparison, type Basket } from "@/lib/agent/basket";
+import { formatFare } from "@/lib/journey/flights";
 import { buildDraft } from "@/lib/assistant/understand";
 import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
 
@@ -29,7 +32,7 @@ import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
  * Both are for the person giving the demo, not the passenger, which is why
  * the panel sits outside the device.
  */
-type View = "agent" | "scenes";
+type View = "agent" | "scenes" | "basket";
 
 export function Scenes() {
   const pathname = usePathname();
@@ -63,7 +66,7 @@ export function Scenes() {
           aria-label="Panel view"
           className="flex rounded-full bg-white/10 p-0.5 text-[12px] font-bold"
         >
-          {(["agent", "scenes"] as const).map((v) => (
+          {(["agent", "scenes", "basket"] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -74,7 +77,7 @@ export function Scenes() {
                 view === v ? "bg-white text-pg-navy" : "text-white/60 hover:text-white"
               }`}
             >
-              {v === "agent" ? "Agent" : "Scenes"}
+              {v === "agent" ? "Agent" : v === "scenes" ? "Scenes" : "Basket"}
             </button>
           ))}
         </div>
@@ -94,10 +97,17 @@ export function Scenes() {
           }}
         />
       </div>
-      {view === "agent" ? <AgentView /> : <SceneList pathname={pathname} />}
+      {view === "agent" ? (
+        <AgentView />
+      ) : view === "scenes" ? (
+        <SceneList pathname={pathname} />
+      ) : (
+        <BasketView journey={journeyOf(pathname)} />
+      )}
       <p className="mt-6 text-[11px] leading-4 text-white/35">
-        Team Winging It, for the Pegasus × Berkeley Haas AI Travel Companion Hackathon. A
-        concept, not a Pegasus product. Nothing here books anything.
+        Jamie version, for comparison with Jack&rsquo;s build. Team Winging It, for the Pegasus ×
+        Berkeley Haas AI Travel Companion Hackathon. A concept, not a Pegasus product. Nothing
+        here books anything.
       </p>
     </aside>
   );
@@ -345,10 +355,12 @@ function RunView({
           <StepRow
             key={`${run.id}-${i}`}
             step={s}
+            repeat={i > 0 && sameValue(shown[i - 1], s)}
             last={run.done && i === shown.length - 1}
             compact={compact}
           />
         ))}
+        {run.done && !compact && <Earned steps={shown} />}
         {!run.done && (
           <li className="flex gap-2.5 pb-4" aria-label="Thinking">
             <span className="relative flex w-4 shrink-0 flex-col items-center">
@@ -386,7 +398,23 @@ function Dots() {
   );
 }
 
-function StepRow({ step, last, compact }: { step: Step; last: boolean; compact: boolean }) {
+/** Jamie version: the same commercial line twice in a row says nothing new. */
+function sameValue(a: Step | undefined, b: Step): boolean {
+  if (a === undefined) return false;
+  return commercialFor(a)?.gain === commercialFor(b)?.gain;
+}
+
+function StepRow({
+  step,
+  last,
+  compact,
+  repeat = false,
+}: {
+  step: Step;
+  last: boolean;
+  compact: boolean;
+  repeat?: boolean;
+}) {
   const muted = step.kind === "quiet" || step.kind === "wait";
   return (
     <li className="rise flex gap-2.5 pb-4">
@@ -413,6 +441,7 @@ function StepRow({ step, last, compact }: { step: Step; last: boolean; compact: 
             {step.thought}
           </p>
         )}
+        {!compact && !repeat && <CommercialLine step={step} />}
         {!compact && step.facts !== undefined && (
           <ul className="mt-1.5 flex flex-wrap gap-1">
             {step.facts.map((f) => (
@@ -427,5 +456,175 @@ function StepRow({ step, last, compact }: { step: Step; last: boolean; compact: 
         )}
       </div>
     </li>
+  );
+}
+
+/*
+ * Jamie version: the commercial reason for every step, and a summary of what
+ * the beat did for Pegasus. Colour by outcome so the five read at a glance.
+ */
+const OUTCOME_STYLE: Record<Outcome, { icon: string; cls: string }> = {
+  "More passengers": { icon: "＋", cls: "bg-sky-400/15 text-sky-200" },
+  "More per passenger": { icon: "€", cls: "bg-pg-yellow/15 text-pg-yellow" },
+  "New direct customer": { icon: "↓", cls: "bg-emerald-400/15 text-emerald-200" },
+  "Repeat booking": { icon: "↻", cls: "bg-violet-400/15 text-violet-200" },
+  "Protects the booking": { icon: "◆", cls: "bg-orange-400/15 text-orange-200" },
+  "Protects conversion": { icon: "◇", cls: "bg-white/10 text-white/75" },
+};
+
+function OutcomeChip({ outcome }: { outcome: Outcome }) {
+  const style = OUTCOME_STYLE[outcome];
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-bold ${style.cls}`}
+    >
+      <span aria-hidden>{style.icon}</span>
+      {outcome}
+    </span>
+  );
+}
+
+function CommercialLine({ step }: { step: Step }) {
+  const c = commercialFor(step);
+  if (c === null) return null;
+  return (
+    <div className="mt-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1.5">
+      <OutcomeChip outcome={c.outcome} />
+      <p className="mt-1 text-[11.5px] leading-4 text-white/75">{c.gain}</p>
+    </div>
+  );
+}
+
+function Earned({ steps }: { steps: Step[] }) {
+  const outcomes = outcomesOf(steps);
+  if (outcomes.length === 0) return null;
+  return (
+    <li className="mt-1 rounded-lg bg-pg-yellow/10 px-3 py-2.5">
+      <p className="text-[10px] font-bold tracking-[0.08em] text-pg-yellow uppercase">
+        What this beat does for Pegasus
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {outcomes.map((o) => (
+          <OutcomeChip key={o} outcome={o} />
+        ))}
+      </div>
+    </li>
+  );
+}
+
+/*
+ * Jamie version: the third view. The same trip, booked the way most people
+ * book it today, against what the companion sold. Figures from the pricing
+ * code the tickets use.
+ */
+function BasketView({ journey }: { journey: 1 | 2 }) {
+  const c = journey === 1 ? willComparison() : emreComparison();
+  const uplift = c.companion.total - c.today.total;
+  const perPaxToday = c.today.ancillary / Math.max(1, c.today.passengers);
+  const perPaxCompanion = c.companion.ancillary / Math.max(1, c.companion.passengers);
+  return (
+    <div role="tabpanel" aria-label="Basket" className="mt-5 flex flex-col gap-4">
+      <div>
+        <h3 className="text-[13px] font-bold text-white">{c.title}</h3>
+        <p className="mt-0.5 text-[12px] leading-4 text-white/50">
+          Today: booked the way most people book it (cheapest fare, no seat, alone). With the
+          companion: what the demo&rsquo;s screens sold. GBP.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <BasketCard label="Today's app" basket={c.today} muted />
+        <BasketCard label="With the companion" basket={c.companion} />
+      </div>
+      <div className="rounded-lg bg-pg-yellow/10 px-3 py-2.5">
+        <p className="text-[10px] font-bold tracking-[0.08em] text-pg-yellow uppercase">
+          The difference
+        </p>
+        <dl className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[12px] leading-4">
+          <dt className="text-white/70">Basket</dt>
+          <dd className="tabular text-right font-bold text-white">
+            +{formatFare(uplift)} (
+            {(c.companion.total / Math.max(1, c.today.total)).toFixed(1)}×)
+          </dd>
+          <dt className="text-white/70">Passengers</dt>
+          <dd className="tabular text-right font-bold text-white">
+            {c.today.passengers} → {c.companion.passengers}
+          </dd>
+          <dt className="text-white/70">Ancillary per passenger</dt>
+          <dd className="tabular text-right font-bold text-white">
+            {formatFare(perPaxToday)} → {formatFare(perPaxCompanion)}
+          </dd>
+        </dl>
+      </div>
+      <table className="w-full text-[11.5px] leading-4">
+        <thead>
+          <tr className="text-left text-white/40">
+            <th className="pb-1 font-semibold"></th>
+            <th className="pb-1 font-semibold">Today</th>
+            <th className="pb-1 font-semibold text-pg-yellow">Companion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {c.kpis.map((k) => (
+            <tr key={k.label} className="border-t border-white/10 align-top">
+              <td className="py-1.5 pr-2 text-white/70">{k.label}</td>
+              <td className="py-1.5 pr-2 text-white/50">{k.today}</td>
+              <td className="py-1.5 font-semibold text-white">{k.companion}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-[11px] leading-4 text-white/40">
+        Scale: across Pegasus, every €1 more ancillary per passenger is worth about €43m a
+        year, and 1% more passengers about €34m.
+      </p>
+    </div>
+  );
+}
+
+function BasketCard({
+  label,
+  basket,
+  muted = false,
+}: {
+  label: string;
+  basket: Basket;
+  muted?: boolean;
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-2 rounded-lg px-2.5 py-2.5 ${muted ? "bg-white/[0.04]" : "bg-white/[0.09] ring-1 ring-pg-yellow/40"}`}
+    >
+      <p
+        className={`text-[10px] font-bold tracking-[0.08em] uppercase ${muted ? "text-white/45" : "text-pg-yellow"}`}
+      >
+        {label}
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {basket.rows.map((r) => (
+          <li key={r.who} className="text-[11.5px] leading-4">
+            <span className="flex justify-between gap-1 font-semibold text-white">
+              <span>{r.who}</span>
+              <span className="tabular">{formatFare(r.fare + r.ancillary)}</span>
+            </span>
+            <span className="block text-[10.5px] text-white/50">{r.note}</span>
+            {r.ancillary > 0 && (
+              <span className="tabular block text-[10.5px] text-pg-yellow/90">
+                incl. {formatFare(r.ancillary)} extras
+              </span>
+            )}
+          </li>
+        ))}
+        {muted && basket.passengers === 1 && (
+          <li className="text-[10.5px] leading-4 text-white/45">
+            Friends book on their own, if at all. About 40% of Pegasus sales come through OTAs
+            and agents.
+          </li>
+        )}
+      </ul>
+      <p className="tabular mt-auto flex justify-between border-t border-white/10 pt-1.5 text-[12px] font-bold text-white">
+        <span>{basket.passengers} pax</span>
+        <span>{formatFare(basket.total)}</span>
+      </p>
+    </div>
   );
 }

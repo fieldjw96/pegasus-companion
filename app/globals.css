@@ -162,7 +162,10 @@ body {
 
 /* The dotted underline that says "the companion filled this in". */
 .mine {
-  border-bottom: 2px dotted var(--color-pg-orange);
+  /* Jamie version: a soft highlight, not a red dotted line that reads as a typo. */
+  background: linear-gradient(transparent 55%, rgba(253, 185, 19, 0.38) 55%);
+  border-radius: 2px;
+  padding: 0 1px;
 }
 
 /* Primary action. Pressed: the fill darkens, the edge disappears, and it drops 2px. */

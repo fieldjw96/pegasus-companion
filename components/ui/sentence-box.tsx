@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { ArrowRight, MicIcon } from "./primitives";
 
 /**
@@ -25,6 +25,59 @@ export function SentenceBox({
 }) {
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
+  // Jamie version: real speech-to-text where the browser has it (Chrome,
+  // Safari), and no mic button at all where it does not.
+  const [voiceNote, setVoiceNote] = useState<string | null>(null);
+  const rec = useRef<SpeechRec | null>(null);
+  const voice = useSyncExternalStore(
+    () => () => {},
+    () => (speechCtor() === null ? "no" : "yes"),
+    () => "unknown",
+  );
+
+  function toggleVoice(): void {
+    if (listening) {
+      rec.current?.stop();
+      return;
+    }
+    const Ctor = speechCtor();
+    if (Ctor === null) return;
+    const r = new Ctor();
+    r.lang = "en-GB";
+    r.interimResults = true;
+    r.continuous = false;
+    let heard = "";
+    r.onresult = (e) => {
+      heard = Array.from(e.results)
+        .map((res) => res[0]?.transcript ?? "")
+        .join(" ");
+      setText(heard);
+    };
+    r.onerror = (e) => {
+      setVoiceNote(
+        e.error === "not-allowed" || e.error === "service-not-allowed"
+          ? "Microphone blocked here. Type it instead."
+          : "Didn't catch that. Try again or type it.",
+      );
+    };
+    r.onend = () => {
+      setListening(false);
+      const trimmed = heard.trim();
+      if (trimmed !== "" && !busy) {
+        onSubmit(trimmed);
+        setText("");
+      }
+    };
+    rec.current = r;
+    setVoiceNote(null);
+    setListening(true);
+    try {
+      r.start();
+    } catch {
+      setListening(false);
+      setVoiceNote("Microphone blocked here. Type it instead.");
+    }
+  }
 
   function send(): void {
     const trimmed = text.trim();
@@ -51,20 +104,25 @@ export function SentenceBox({
       />
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label={listening ? "Stop listening" : "Speak your trip"}
-            aria-pressed={listening}
-            onClick={() => setListening((v) => !v)}
-            className={`-ml-1.5 flex h-12 w-12 items-center justify-center rounded-full transition ${
-              listening ? "bg-pg-orange text-white" : "bg-pg-surface text-pg-navy"
-            }`}
-          >
-            <MicIcon />
-          </button>
+          {voice !== "no" && (
+            <button
+              type="button"
+              aria-label={listening ? "Stop listening" : "Speak your trip"}
+              aria-pressed={listening}
+              onClick={toggleVoice}
+              className={`-ml-1.5 flex h-12 w-12 items-center justify-center rounded-full transition ${
+                listening ? "bg-pg-orange text-white" : "bg-pg-surface text-pg-navy"
+              }`}
+            >
+              <MicIcon />
+            </button>
+          )}
+          {voiceNote !== null && !listening && (
+            <span className="text-[12px] leading-4 font-semibold text-pg-ink">
+              {voiceNote}
+            </span>
+          )}
           {listening && (
-            /* Mock only. A real build wires the Web Speech API here; the button
-               exists because voice is a first-class way in, not an afterthought. */
             <span className="flex items-center gap-1.5 text-[13px] font-semibold text-pg-orange">
               <span className="flex items-end gap-0.5">
                 {[0, 1, 2, 3].map((i) => (
@@ -94,4 +152,26 @@ export function SentenceBox({
       </div>
     </div>
   );
+}
+
+/* The browser's speech recogniser, typed just enough for this box. */
+type SpeechRecEvent = { results: ArrayLike<ArrayLike<{ transcript: string }>> };
+type SpeechRec = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((e: SpeechRecEvent) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function speechCtor(): (new () => SpeechRec) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRec;
+    webkitSpeechRecognition?: new () => SpeechRec;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }

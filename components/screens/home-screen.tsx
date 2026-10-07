@@ -90,6 +90,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
           : "trip";
   const [seatSheet, setSeatSheet] = useState(false);
   const [thumbsDown, setThumbsDown] = useState(false);
+  const [thumbsReply, setThumbsReply] = useState<string | null>(null);
   const greeting = useSyncExternalStore(
     () => () => {},
     () => {
@@ -109,8 +110,12 @@ export function HomeScreen({ persona }: { persona: Persona }) {
 
   function run(text: string): void {
     setThumbsDown(false);
+    setThumbsReply(null);
     const said = extract(text);
-    if (said.discovery) {
+    // Jamie version: a cold-start sentence with no place we can fly to goes to
+    // suggestions, never to a default trip the passenger did not ask for.
+    const noPlace = persona === "will" && said.destination === null;
+    if (said.discovery || noPlace) {
       const when =
         said.departDate ??
         (() => {
@@ -131,6 +136,14 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     } else {
       update({ prompt: text, thumbs: null, draft: buildDraft(text, profile), booked: false });
     }
+  }
+
+  /** Jamie version: a change edits the trip; "start again" starts again. */
+  function refine(text: string): void {
+    const fresh = /^\s*(start (again|over)|new trip|forget that)/i.test(text);
+    if (fresh || state.prompt === null)
+      run(text.replace(/^\s*(start (again|over)|new trip|forget that)[,.:\s-]*/i, "") || text);
+    else run(`${state.prompt} · ${text}`);
   }
 
   function choose(code: string): void {
@@ -259,7 +272,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
             />
           )}
           {heard.origin === null && draft !== null && (
-            <Heard label="From" value={cityOf(draft.origin.value)} guessed />
+            <Heard label="My guess: from" value={cityOf(draft.origin.value)} guessed />
           )}
         </div>
       )}
@@ -292,8 +305,23 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         {youSaid}
         <div className="mt-5">
           <Says>
-            You did not name anywhere, so here is what I would pick: priced for{" "}
-            {(heard?.companions ?? 0) + 1}, with nothing you did not ask for.
+            {heard?.unclear === true ? (
+              <>
+                I didn&rsquo;t catch a trip in that. Try something like &ldquo;a week in
+                Antalya in July with 2 mates&rdquo;, or pick one of these:
+              </>
+            ) : heard?.unknownPlace != null ? (
+              <>
+                {heard.unknownPlace} isn&rsquo;t on the routes I can book yet. Here&rsquo;s
+                what I can do{heard.month !== null ? ` in ${MONTH_NAMES[heard.month]}` : ""},
+                priced for {(heard.companions ?? 0) + 1}:
+              </>
+            ) : (
+              <>
+                You didn&rsquo;t name a place, so here&rsquo;s what I&rsquo;d pick, priced for{" "}
+                {(heard?.companions ?? 0) + 1}, with nothing you didn&rsquo;t ask for.
+              </>
+            )}
           </Says>
         </div>
         <div className="mt-4">
@@ -334,10 +362,27 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   const willIntro = (
     <>
       <Says>
-        Here&rsquo;s your week. You told me {counts.said} things; the{" "}
-        {counts.predicted + counts.profile} with a{" "}
-        <span className="mine font-semibold">dotted line underneath</span> are mine. Tap one to
-        see why.{" "}
+        Here&rsquo;s your {away === 7 ? "week" : away === 2 ? "weekend" : "trip"}.{" "}
+        {counts.said === 0
+          ? "I filled in all of it"
+          : `You told me ${counts.said} thing${counts.said === 1 ? "" : "s"}; I filled in the other ${counts.predicted + counts.profile}`}
+        , <span className="mine font-semibold">highlighted like this</span>. Tap one to see
+        why.{" "}
+        {heard?.unknownOrigin != null && (
+          <>
+            {heard.unknownOrigin} isn&rsquo;t on the routes I can book yet, so I&rsquo;ve
+            started from {cityOf(draft.origin.value)}.{" "}
+          </>
+        )}
+        {(heard?.companions ?? 0) > 0 && (
+          <>
+            You book yours; I&rsquo;ll send{" "}
+            {heard?.companions === 1
+              ? "the other person theirs"
+              : `the other ${heard?.companions} theirs`}
+            , seats beside you.{" "}
+          </>
+        )}
         {saving !== null && (
           <>
             <Mark>The bag is in the fare: {formatFare(saving.saved)} GBP cheaper</Mark> than
@@ -415,16 +460,51 @@ export function HomeScreen({ persona }: { persona: Persona }) {
             },
           },
           {
-            label: "Wrong month",
-            onPick: () => setThumbsDown(false),
+            label: "Dates",
+            onPick: () => {
+              setThumbsReply("Which dates? Say it below: “make it the 20th” or “in June”.");
+              setThumbsDown(false);
+            },
           },
-        ]}
+          {
+            label: "Who's going",
+            onPick: () => {
+              setThumbsReply("Who else? Say it below: “3 of us” or “with Archie and Tom”.");
+              setThumbsDown(false);
+            },
+          },
+          {
+            label: draft.checkedKg.value > 0 ? "No bag" : "Add a bag",
+            onPick: () => {
+              refine(draft.checkedKg.value > 0 ? "hand luggage only" : "add a bag");
+              setThumbsReply(
+                draft.checkedKg.value > 0
+                  ? "Bag taken off. Noted: you travel light."
+                  : "Bag added, inside the fare where it's cheapest.",
+              );
+              setThumbsDown(false);
+            },
+          },
+          {
+            label: "Somewhere else",
+            onPick: () => {
+              setThumbsReply("Where instead? Say it below, or tap Start over.");
+              setThumbsDown(false);
+            },
+          },
+        ].filter(
+          (o) =>
+            o.label !== "Actually: a city break" ||
+            stopsFor(draft.destination.value, away ?? 7, "cityBreak") !== null,
+        )}
         reply={
           thumbsDown
             ? null
-            : draft.stops.source === "said"
-              ? "Re-ranked: Istanbul first, then the balloons, home from Kayseri."
-              : null
+            : thumbsReply !== null
+              ? thumbsReply
+              : draft.stops.source === "said"
+                ? "Re-ranked: Istanbul first, then the balloons, home from Kayseri."
+                : null
         }
       />
     </>
@@ -638,7 +718,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         between={giftsOffer}
         extraLines={gifts}
       />
-      <SentenceSection onSubmit={run} />
+      <SentenceSection onSubmit={refine} />
     </AppShell>
   );
 }

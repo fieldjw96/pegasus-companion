@@ -12,7 +12,6 @@ import { firstOpen, pitches } from "./first-open";
 import { sceneFor } from "./scenes";
 import {
   BREAKFAST,
-  INVITE,
   FRIENDS,
   MEAL_PRICE,
   buildInviteeDraft,
@@ -31,6 +30,7 @@ import {
   type AirportCode,
 } from "@/lib/journey/flights";
 import { HOME, SQUAD } from "@/lib/journey/script";
+import { inviteWhen } from "@/lib/group/when";
 import {
   GIFTS,
   MOMENT,
@@ -175,6 +175,13 @@ function will(state: TraceState): Will {
   };
 }
 
+/** Jamie version: the seats next to Will's actual seat, one per friend. */
+function mateSeats(w: Will): string[] {
+  return FRIENDS.map((f) => seatBeside(w.draft, f, w.me)).filter(
+    (x): x is string => x !== null,
+  );
+}
+
 function legFacts(itinerary: Itinerary): string[] {
   return itinerary.legs.map(
     (leg) =>
@@ -230,7 +237,7 @@ function heardSteps(w: Will): Step[] {
       "Listed what wasn't said",
       missing.length === 0
         ? "Everything I need is in the sentence."
-        : `Not said: ${missing.join(", ")}. ${WILL.coldStart ? "No history to remember from, so each of those is a prediction and gets a dotted underline." : "I'll fill those from past trips."}`,
+        : `Not said: ${missing.join(", ")}. ${WILL.coldStart ? "No history to remember from, so each of those is a prediction and gets highlighted." : "I'll fill those from past trips."}`,
     ),
   ];
 }
@@ -276,9 +283,7 @@ function builtSteps(w: Will): Step[] {
         ? undefined
         : [
             `${firstName(w.me)}: ${itinerary.out.seats[0] ?? "—"} on every leg`,
-            ...(w.companions > 0
-              ? [`Held beside: ${SQUAD.seats.archie}, ${SQUAD.seats.tom}`]
-              : []),
+            ...(w.companions > 0 ? [`Free beside: ${mateSeats(w).join(", ")}`] : []),
           ],
     ),
     step(
@@ -294,7 +299,7 @@ function builtSteps(w: Will): Step[] {
       "Trip",
       "act",
       "Printed the ticket",
-      `${counts.said} thing${counts.said === 1 ? "" : "s"} you said, ${counts.predicted} I predicted, each with a dotted underline and a reason.${flagged.length === 0 ? "" : ` Flagged as a guess worth a look: ${flagged.join(", ")}.`}`,
+      `${counts.said} thing${counts.said === 1 ? "" : "s"} you said, ${counts.predicted} I predicted, each highlighted, with a reason.${flagged.length === 0 ? "" : ` Flagged as a guess worth a look: ${flagged.join(", ")}.`}`,
       [`Reference ${itinerary.reference}`],
     ),
   ];
@@ -502,7 +507,7 @@ function homeTrace(state: TraceState): Trace {
 function checkoutTrace(state: TraceState): Trace {
   const w = will(state);
   const price = breakdown(w.draft);
-  const free = [SQUAD.seats.archie, SQUAD.seats.tom];
+  const free = mateSeats(w);
   return {
     who: "Will's phone",
     when: "Checkout",
@@ -518,13 +523,13 @@ function checkoutTrace(state: TraceState): Trace {
         "Offer",
         "quiet",
         "Nothing to add at the till",
-        `The bag and the seat were decided on the ticket. Insurance, a car, the lounge: none fits a backpacker on a ${w.itinerary.out?.flight.departs ?? "06:10"}, so none is here. A checkout with four upsells is the funnel I replaced.`,
+        `The bag and the seat were decided on the ticket. Insurance, a car and the lounge have low predicted take-up for this trip (${w.itinerary.out?.flight.departs ?? "06:10"} departure, ${w.draft.package.value === "light" ? "cheapest fare" : "bag already in the fare"}), so none is shown here. They come back if the signals change.`,
       ),
       step(
         "Group",
         "think",
         "Noted the mates",
-        `The sentence said mates. ${free.join(" and ")} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free right now; I'll offer them to whoever he sends this to. Nothing is held: an offer, not a reservation.`,
+        `${w.companions > 0 ? `The sentence said ${w.companions} other${w.companions === 1 ? "" : "s"}.` : "No one else was named, but the seats are worth knowing."} ${free.join(" and ")} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free right now; I'll offer them to whoever he sends this to. Nothing is held: an offer, not a reservation.`,
       ),
       state.booked
         ? step(
@@ -566,20 +571,20 @@ function confirmationTrace(state: TraceState): Trace {
       "Group",
       "think",
       "Heard mates, not names",
-      `"With 2 mates" says there are others. It doesn't say who, and I don't guess who a friend is. So I ask whether to send the trip on, and suggest.`,
+      `${w.companions > 0 ? `"${w.companions} other${w.companions === 1 ? "" : "s"}" says someone is coming.` : "Nobody else was named."} It doesn't say who, and I don't guess who a friend is. So I ask whether to send the trip on, and suggest.`,
     ),
     step(
       "Group",
       "read",
-      "Looked at his contacts, with permission",
-      `Two people stand out: ${FRIENDS.map((f) => `${firstName(f.name)}, ${f.because.toLowerCase()}`).join(" ")}`,
+      "Matched his contacts to Pegasus accounts, with permission",
+      `Only names Will picks get the trip. Of the ones he saved, ${FRIENDS.map((f) => `${firstName(f.name)}: ${f.because.toLowerCase()}`).join(" ")} Nothing is read from his calls or chats.`,
       FRIENDS.map((f) => `${firstName(f.name)}: ${f.account ? "has the app" : "no app"}`),
     ),
     step(
       "Offer",
       "think",
       "Made the seat the nudge",
-      `${SQUAD.seats.archie} and ${SQUAD.seats.tom} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free. That's the line each friend gets, in Will's name: the seat beside him, ${formatFare(SQUAD.seatPricePerLeg)} a leg, if they're quick. Nothing is frozen; the fare is today's fare.`,
+      `${mateSeats(w).join(" and ")} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free. That's the line each friend gets, in Will's name: the seat beside him, ${formatFare(SQUAD.seatPricePerLeg)} a leg, if they're quick. Nothing is frozen; the fare is today's fare.`,
     ),
     step(
       "Group",
@@ -655,7 +660,7 @@ function inviteeTrace(
         "Moments",
         "think",
         "Timed it",
-        `Sent the minute Will booked, ${INVITE.sentAt}, while the trip is the thing he's talking about.`,
+        `Sent the minute Will booked, ${inviteWhen(w.draft.departDate.value).sentAt}, while the trip is the thing he's talking about.`,
       ),
       step(
         "Group",
@@ -956,7 +961,7 @@ function nextTripTrace(state: TraceState): Trace {
         "Group",
         "act",
         "Made it one tap",
-        '"Ask Archie and Tom" opens the squad, not a search. If Will says nothing, the card goes away. No second card.',
+        '"Ask Archie and Tom" sends the route to the squad in Will\'s name. If Will says nothing, the card goes away. No second card.',
       ),
     ],
   };
@@ -1374,7 +1379,7 @@ function dadTrace(state: TraceState, cancelled = false): Trace {
   }
   return {
     who: "Dad's phone",
-    when: `${longDate(e.draft.departDate.value)}, ${lands}`,
+    when: `${longDate(e.draft.departDate.value)}, 12:00, the morning of the flight`,
     steps: [
       step(
         "Moments",

@@ -11,7 +11,6 @@ import { LockCard, LockScreen } from "@/components/ui/lock-screen";
 import { AppIcon, Initials, PrimaryButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
-import { SentenceSection } from "./home-screen";
 import { SeatSheet } from "./seat-sheet";
 import { Ticket, cityOf } from "./ticket";
 import type { ExtraRow } from "./change-panel";
@@ -20,9 +19,9 @@ import { itineraryFor, nights } from "@/lib/assistant/itinerary";
 import { breakdown, withLines } from "@/lib/assistant/price";
 import { formatFare } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
+import { inviteWhen } from "@/lib/group/when";
 import { dateSpan, shortDate, WILL, willDraft } from "@/lib/demo/personas";
 import {
-  INVITE,
   FRIENDS,
   buildInviteeDraft,
   firstName,
@@ -87,7 +86,7 @@ export function ArchiePushScreen() {
   const ready = useAgentRun("invite:archie:arrive", () => traceFor("/invite/archie", state));
   return (
     <LockScreen
-      date={INVITE.sentLong}
+      date={inviteWhen(state.draft?.departDate.value ?? willDraft().departDate.value).sentLong}
       time="18:42"
       bottom={150}
       onTap={() => router.push("/invite/archie/ticket")}
@@ -181,7 +180,7 @@ export function TomWhatsAppScreen() {
       </div>
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pt-6">
         <div className="mx-auto mb-4 w-fit rounded-md bg-white/70 px-3 py-1 text-[12px] font-semibold text-pg-ink">
-          {INVITE.sentLong}
+          {inviteWhen(state.draft?.departDate.value ?? willDraft().departDate.value).sentLong}
         </div>
         {ready && (
           <div className="rise max-w-[300px] rounded-2xl rounded-tl-sm bg-white p-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
@@ -340,7 +339,6 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
         extraLines={extras}
         extraRows={extraRowsFor(friend)}
       />
-      <SentenceSection onSubmit={() => undefined} />
     </AppShell>
   );
 }
@@ -498,7 +496,9 @@ export function TomStallsScreen() {
   const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
   return (
     <LockScreen
-      date="Thursday 5 March"
+      date={
+        inviteWhen(state.draft?.departDate.value ?? willDraft().departDate.value).stallsLong
+      }
       time="09:15"
       bottom={130}
       onTap={() => router.push("/invite/tom/checkout")}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useAgents } from "./agent-provider";
 import { useJourney, type JourneyState } from "./journey-provider";
 import { Device } from "./phone-frame";
@@ -84,6 +85,18 @@ export function CompanionPhone() {
   useEffect(() => {
     if (!open) retireLane("aside");
   }, [open, retireLane]);
+  // Jamie version: the second phone belongs to one journey. Moving to the
+  // other journey, or jumping to a later scene, puts it away.
+  const pathname = usePathname();
+  const asideWho = aside?.who ?? null;
+  useEffect(() => {
+    if (asideWho === null) return;
+    const emreScreen = /^\/(emre|flights|moment)/.test(pathname);
+    const laterBeat = /^\/(squad\/|invite\/tom\/stalls)/.test(pathname);
+    if ((asideWho === "dad") !== emreScreen || laterBeat) update({ aside: null });
+    // Only the route decides; reacting to the aside itself would close it as it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
   const nav = useMemo<Nav>(
     () => ({
       push: (href) => update({ aside: asideFor(href) }),

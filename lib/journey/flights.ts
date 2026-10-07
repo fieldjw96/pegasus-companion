@@ -193,6 +193,19 @@ const DURATIONS: Record<string, number> = {
   "AMS-SAW": 195,
   "FCO-SAW": 160,
   "DXB-SAW": 275,
+  // Jamie version: London to the coast, roughly as flown, so no 2-hour Antalya.
+  "AYT-STN": 240,
+  "AYT-LGW": 240,
+  "DLM-STN": 240,
+  "DLM-LGW": 240,
+  "BJV-STN": 235,
+  "BJV-LGW": 235,
+  "ADB-STN": 225,
+  "ADB-LGW": 225,
+  "ESB-STN": 240,
+  "ESB-LGW": 240,
+  "ASR-STN": 265,
+  "STN-TZX": 290,
 };
 
 function baseDuration(origin: string, destination: string): number {
