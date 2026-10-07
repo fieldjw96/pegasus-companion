@@ -15,6 +15,8 @@ import type { TripDraft } from "@/lib/assistant/draft";
 export type JourneyState = {
   /** Whose phone this is. */
   persona: "will" | "emre";
+  /** Jamie version: free play. Any sentence, no scripted story. */
+  sandbox: boolean;
   prompt: string | null;
   draft: TripDraft | null;
   /** Will has paid. */
@@ -58,6 +60,7 @@ export type JourneyState = {
 
 const INITIAL: JourneyState = {
   persona: "will",
+  sandbox: false,
   prompt: null,
   draft: null,
   booked: false,

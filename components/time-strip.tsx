@@ -44,6 +44,8 @@ export function TimeStrip() {
   const { state, update } = useJourney();
   const emre = /^\/(emre|flights|moment)/.test(pathname);
   const draft = state.draft ?? willDraft();
+  // Jamie version: later scenes are scripted, so free play has no time jumps.
+  if (state.sandbox) return null;
   const jumps = emre
     ? emreJumps()
     : willJumps(draft.departDate.value, draft.returnDate.value ?? draft.departDate.value);

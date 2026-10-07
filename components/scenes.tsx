@@ -9,7 +9,12 @@ import { useJourney } from "./journey-provider";
 import { ACTS, sceneFor } from "@/lib/agent/scenes";
 import type { AgentName, Step, StepKind } from "@/lib/agent/trace";
 import { commercialFor, outcomesOf, type Outcome } from "@/lib/agent/commercial";
-import { emreComparison, willComparison, type Basket } from "@/lib/agent/basket";
+import {
+  emreComparison,
+  typedComparison,
+  willComparison,
+  type Basket,
+} from "@/lib/agent/basket";
 import { formatFare } from "@/lib/journey/flights";
 import { buildDraft } from "@/lib/assistant/understand";
 import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
@@ -37,14 +42,14 @@ type View = "agent" | "scenes" | "basket";
 export function Scenes() {
   const pathname = usePathname();
   const router = useRouter();
-  const { reset, update } = useJourney();
+  const { reset, update, state: journeyState } = useJourney();
   const agents = useAgents();
   const [view, setView] = useState<View>("agent");
   const pending = useRef<1 | 2 | null>(null);
   const restart = useCallback(
     (journey: 1 | 2) => {
       reset();
-      update({ persona: journey === 2 ? "emre" : "will" });
+      update({ persona: journey === 2 ? "emre" : "will", sandbox: false });
       agents.reset();
     },
     [reset, update, agents],
@@ -73,7 +78,7 @@ export function Scenes() {
               role="tab"
               aria-selected={view === v}
               onClick={() => setView(v)}
-              className={`rounded-full px-3 py-1 transition-colors ${
+              className={`rounded-full px-2.5 py-1 whitespace-nowrap transition-colors ${
                 view === v ? "bg-white text-pg-navy" : "text-white/60 hover:text-white"
               }`}
             >
@@ -82,6 +87,7 @@ export function Scenes() {
           ))}
         </div>
         <JourneyToggle
+          sandbox={journeyState.sandbox}
           pathname={pathname}
           onPick={(journey) => {
             // Picking a journey starts it from the top: the phones, the
@@ -89,6 +95,14 @@ export function Scenes() {
             // The reset waits for the start screen to be the one mounted, or
             // the screen being left would run once more into the history.
             const target = journey === 2 ? "/moment/nudge" : "/";
+            if (journey === 0) {
+              // Jamie version: free play starts from a blank phone.
+              reset();
+              agents.reset();
+              update({ persona: "will", sandbox: true });
+              if (pathname !== "/") router.push("/");
+              return;
+            }
             if (pathname === target) restart(journey);
             else {
               pending.current = journey;
@@ -102,7 +116,7 @@ export function Scenes() {
       ) : view === "scenes" ? (
         <SceneList pathname={pathname} />
       ) : (
-        <BasketView journey={journeyOf(pathname)} />
+        <BasketView journey={journeyState.sandbox ? 0 : journeyOf(pathname)} />
       )}
       <p className="mt-6 text-[11px] leading-4 text-white/35">
         Jamie version, for comparison with Jack&rsquo;s build. Team Winging It, for the Pegasus
@@ -122,33 +136,37 @@ export function journeyOf(pathname: string): 1 | 2 {
 function JourneyToggle({
   pathname,
   onPick,
+  sandbox,
 }: {
   pathname: string;
-  onPick: (journey: 1 | 2) => void;
+  onPick: (journey: 0 | 1 | 2) => void;
+  sandbox: boolean;
 }) {
-  const current = journeyOf(pathname);
+  const current = sandbox && journeyOf(pathname) === 1 ? 0 : journeyOf(pathname);
   return (
     <div
       role="group"
       aria-label="Journey"
       className="flex rounded-full bg-white/10 p-0.5 text-[12px] font-bold"
     >
-      {([1, 2] as const).map((j) => (
+      {([0, 1, 2] as const).map((j) => (
         <button
           key={j}
           type="button"
           aria-pressed={current === j}
           title={
-            j === 1
-              ? "The lads go to Cappadocia. Starts again."
-              : "Home for Mum's birthday. Starts again."
+            j === 0
+              ? "Free play: type any trip."
+              : j === 1
+                ? "The lads go to Cappadocia. Starts again."
+                : "Home for Mum's birthday. Starts again."
           }
           onClick={() => onPick(j)}
-          className={`rounded-full px-3 py-1 transition-colors ${
+          className={`rounded-full px-2.5 py-1 whitespace-nowrap transition-colors ${
             current === j ? "bg-pg-yellow text-pg-navy" : "text-white/60 hover:text-white"
           }`}
         >
-          {j === 1 ? "Will" : "Emre"}
+          {j === 0 ? "Try it" : j === 1 ? "Will" : "Emre"}
         </button>
       ))}
     </div>
@@ -517,8 +535,24 @@ function Earned({ steps }: { steps: Step[] }) {
  * book it today, against what the companion sold. Figures from the pricing
  * code the tickets use.
  */
-function BasketView({ journey }: { journey: 1 | 2 }) {
-  const c = journey === 1 ? willComparison() : emreComparison();
+function BasketView({ journey }: { journey: 0 | 1 | 2 }) {
+  const { state } = useJourney();
+  const c =
+    journey === 0
+      ? state.draft === null
+        ? null
+        : typedComparison(state.draft, state.prompt ?? "")
+      : journey === 1
+        ? willComparison()
+        : emreComparison();
+  if (c === null) {
+    return (
+      <p className="mt-5 text-[12px] leading-4 text-white/50">
+        Type a trip on the phone. The basket prices it here: today&rsquo;s app against the
+        companion.
+      </p>
+    );
+  }
   const uplift = c.companion.total - c.today.total;
   const perPaxToday = c.today.ancillary / Math.max(1, c.today.passengers);
   const perPaxCompanion = c.companion.ancillary / Math.max(1, c.companion.passengers);

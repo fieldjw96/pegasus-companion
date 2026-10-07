@@ -171,7 +171,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
             YOUR AI COMPANION
           </span>
           <h1 className="mt-1 text-center text-[28px] leading-[34px] font-extrabold tracking-[-0.02em]">
-            {greeting}, {first}
+            {state.sandbox ? "Where to?" : `${greeting}, ${first}`}
           </h1>
         </div>
 
@@ -189,48 +189,68 @@ export function HomeScreen({ persona }: { persona: Persona }) {
             : `${profile.remembers.join(" · ")} · remembered from your trips home`}
         </p>
 
-        <div className="mt-7 flex flex-col gap-3">
-          <h2 className="caps px-1">{firstOpenDone ? "For you" : "Thinking about where…"}</h2>
-          {firstOpenDone
-            ? picks.map((item) => (
-                <button
-                  key={item.code}
-                  type="button"
-                  onClick={() => run(item.prompt)}
-                  className="pg-card rise relative block h-28 w-full overflow-hidden text-left"
-                >
-                  <DestinationPhoto
-                    code={item.code}
-                    className="absolute inset-0"
-                    scrim={false}
-                  />
+        {state.sandbox && (
+          // Jamie version: free play. Tap one, or type your own.
+          <div className="mt-6 flex flex-col gap-2">
+            <h2 className="caps px-1">Try one, or type your own</h2>
+            {TRY_EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                type="button"
+                onClick={() => run(ex)}
+                className="pg-card px-4 py-3 text-left text-[15px] leading-5 font-semibold"
+              >
+                &ldquo;{ex}&rdquo;
+              </button>
+            ))}
+          </div>
+        )}
+        {!state.sandbox && (
+          <div className="mt-7 flex flex-col gap-3">
+            <h2 className="caps px-1">
+              {firstOpenDone ? "For you" : "Thinking about where…"}
+            </h2>
+            {firstOpenDone
+              ? picks.map((item) => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => run(item.prompt)}
+                    className="pg-card rise relative block h-28 w-full overflow-hidden text-left"
+                  >
+                    <DestinationPhoto
+                      code={item.code}
+                      className="absolute inset-0"
+                      scrim={false}
+                    />
+                    <span
+                      aria-hidden
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          "linear-gradient(180deg, rgba(31,42,55,0.05) 0%, rgba(31,42,55,0.78) 100%)",
+                      }}
+                    />
+                    <span className="absolute inset-x-[18px] bottom-3.5 flex flex-col gap-0.5 text-white">
+                      <span className="text-[20px] leading-6 font-extrabold tracking-[-0.01em]">
+                        {item.title}
+                      </span>
+                      <span className="text-[13px] leading-[18px] font-medium">
+                        {item.prompt}
+                      </span>
+                    </span>
+                  </button>
+                ))
+              : [0, 1, 2].map((i) => (
                   <span
+                    key={i}
                     aria-hidden
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        "linear-gradient(180deg, rgba(31,42,55,0.05) 0%, rgba(31,42,55,0.78) 100%)",
-                    }}
+                    className="pg-card block h-28 w-full animate-pulse bg-white/70"
+                    style={{ animationDelay: `${i * 150}ms` }}
                   />
-                  <span className="absolute inset-x-[18px] bottom-3.5 flex flex-col gap-0.5 text-white">
-                    <span className="text-[20px] leading-6 font-extrabold tracking-[-0.01em]">
-                      {item.title}
-                    </span>
-                    <span className="text-[13px] leading-[18px] font-medium">
-                      {item.prompt}
-                    </span>
-                  </span>
-                </button>
-              ))
-            : [0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  aria-hidden
-                  className="pg-card block h-28 w-full animate-pulse bg-white/70"
-                  style={{ animationDelay: `${i * 150}ms` }}
-                />
-              ))}
-        </div>
+                ))}
+          </div>
+        )}
       </AppShell>
     );
   }
@@ -876,6 +896,14 @@ export function Thumbs({
 }
 
 /** The input under a ticket. The ask is no longer "where", it is "what else". */
+const TRY_EXAMPLES = [
+  "A week in Antalya in July with 2 mates",
+  "Weekend in Paris with my girlfriend",
+  "Family of 4 to Dalaman in August with bags",
+  "Somewhere warm in November, under £300",
+  "Istanbul to Trabzon on Friday",
+];
+
 export function SentenceSection({ onSubmit }: { onSubmit: (text: string) => void }) {
   return (
     <div className="mt-7 flex flex-col gap-3">

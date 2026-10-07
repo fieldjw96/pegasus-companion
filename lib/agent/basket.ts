@@ -1,3 +1,4 @@
+import { extract } from "@/lib/assistant/understand";
 import type { TripDraft } from "@/lib/assistant/draft";
 import { breakdown, withLines } from "@/lib/assistant/price";
 import { emreDraft, WILL, willDraft } from "@/lib/demo/personas";
@@ -133,6 +134,51 @@ export function emreComparison(): Comparison {
         companion: "Rebooked, Dad told",
       },
       { label: "Next year", today: "Starts from zero", companion: "Same trip, remembered" },
+    ],
+  };
+}
+
+/**
+ * Jamie version: free play. Whatever the passenger typed, priced the same two
+ * ways. Each extra traveller books their own copy of the trip, the way the
+ * Group agent sends it: pre-filled, with the seat beside the organiser.
+ */
+export function typedComparison(draft: TripDraft, prompt: string): Comparison {
+  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const others = Math.max(0, extract(prompt).companions ?? 0);
+  const today = basket([row("You", cheapest(draft), 0, "Cheapest fare, nothing added")]);
+  const friendRows = Array.from({ length: others }, (_, i) => {
+    const template = FRIENDS[i % FRIENDS.length]!;
+    const name = i < FRIENDS.length ? firstName(template.name) : `Friend ${i + 1}`;
+    const d = buildInviteeDraft(draft, template, me);
+    const extras =
+      i < FRIENDS.length
+        ? withLines(breakdown(d), inviteeExtras(draft, template, me)).total -
+          breakdown(d).total
+        : 0;
+    return row(name, d, extras, "Sent your trip, books their own");
+  });
+  const companion = basket([row("You", draft, 0, "What the companion built"), ...friendRows]);
+  return {
+    title: `Your trip · ${companion.passengers} travelling`,
+    today,
+    companion,
+    kpis: [
+      {
+        label: "Passengers on Pegasus.com / app",
+        today: "1",
+        companion: String(companion.passengers),
+      },
+      {
+        label: "Bag and seat decided",
+        today: "Later, or at the airport",
+        companion: "At booking, inside the fare",
+      },
+      {
+        label: "Screens to book",
+        today: "Search to payment funnel",
+        companion: "One sentence, one ticket",
+      },
     ],
   };
 }
