@@ -660,7 +660,7 @@ function confirmationTrace(state: TraceState): Trace {
 function inviteeTrace(
   state: TraceState,
   id: "archie" | "tom",
-  stage: "arrive" | "ticket" | "checkout" | "confirmation",
+  stage: "arrive" | "signup" | "ticket" | "checkout" | "confirmation",
 ): Trace {
   const w = will(state);
   const friend = FRIENDS.find((f) => firstName(f.name).toLowerCase() === id) ?? FRIENDS[0]!;
@@ -696,7 +696,7 @@ function inviteeTrace(
             "Group",
             "think",
             "Chose WhatsApp",
-            `${first} has no account. A link from Will's number opens the same booking on the web, and the app comes after, not before.`,
+            `${first} has no account. A link from Will's number opens the app on a sign-up that already knows him, and the same booking right after. The account is a tap, not a form.`,
           ),
       step(
         "Offer",
@@ -716,6 +716,34 @@ function inviteeTrace(
         `Waiting on ${first}`,
         "He opens it or he doesn't. One nudge later, at most.",
       ),
+    );
+  }
+  if (stage === "signup") {
+    steps.push(
+      step(
+        "Group",
+        "read",
+        "Opened from Will's link",
+        `The link carries the invite: ${friend.name}, Will's trip, ${seat ?? "a seat"} held. So the app opens knowing who he is, before any account exists.`,
+        [
+          `Name: ${friend.name}`,
+          "Number: the one Will messaged",
+          `Seat ${seat ?? "—"}, next to Will`,
+        ],
+      ),
+      step(
+        "Trip",
+        "act",
+        "Skipped the form",
+        "Name and number from the invite; the passport can wait for check-in and the card for the pay button. One tap on Apple or email makes the account. A form in front of a mate's seat is where he leaves.",
+      ),
+      step(
+        "Offer",
+        "quiet",
+        "Sold nothing here",
+        "No newsletter box, no app-only offer. The booking is the reason to join, and it is the next screen.",
+      ),
+      step("Group", "wait", `Waiting on ${first}`, "Continue, and the ticket is next."),
     );
   }
   if (stage === "ticket") {
@@ -843,8 +871,8 @@ function stallsTrace(state: TraceState): Trace {
       step(
         "Trip",
         "act",
-        "Made the card the pay button",
-        `The card in the message installs the app and opens Will's flight with ${seatBeside(w.draft, tom, w.me) ?? "his seat"} held. Nothing on file for Tom, so there is nothing to check: one tap books him. A second screen here is where the squad is lost.`,
+        "Made the card the way in",
+        `The card in the message installs the app and opens it on a sign-up that already knows him, then Will's flight with ${seatBeside(w.draft, tom, w.me) ?? "his seat"} held. One tap to join, one to pay, nothing to type on either. A form here is where the squad is lost.`,
       ),
     ],
   };
@@ -1639,6 +1667,8 @@ function untitled(pathname: string, state: TraceState): Trace {
       return inviteeTrace(state, "archie", "confirmation");
     case "/invite/tom":
       return inviteeTrace(state, "tom", "arrive");
+    case "/invite/tom/signup":
+      return inviteeTrace(state, "tom", "signup");
     case "/invite/tom/ticket":
       return inviteeTrace(state, "tom", "ticket");
     case "/invite/tom/checkout":

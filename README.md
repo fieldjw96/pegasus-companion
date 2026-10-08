@@ -86,13 +86,13 @@ Will, 26, London. A cold start: no history, no profile.
 4. **Archie has the app.** A push in Will's name leads with the seat and opens a
    booking already built: flights from Will, fare and seat predicted, passport,
    payment and his usual hot meal remembered. He checks and pays.
-5. **Tom doesn't.** A WhatsApp from Will opens the same booking on the web and
-   brings him into the app.
+5. **Tom doesn't.** A WhatsApp from Will opens the app on a sign-up with
+   nothing to type, then the same booking, ready to pay.
 6. **The waiting window.** A lock-screen tracker shows who has booked and sells
    extras to the ones already in.
 7. **Tom stalls.** When everyone else is in, one WhatsApp from Will, drafted
-   by the companion: get the app, book the same flight. The card is the pay
-   button.
+   by the companion: get the app, book the same flight. One tap to join, one
+   to pay.
 8. **Squad complete.** All three booked, seats together, one group offer that
    makes sense for three: breakfast for the 06:10, to the organiser only.
 9. **Checked in for them**, **the next trip** (a new route offered first to the

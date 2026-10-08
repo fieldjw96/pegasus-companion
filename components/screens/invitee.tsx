@@ -5,10 +5,16 @@ import { useNav } from "@/components/phone-nav";
 import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
 import { traceFor } from "@/lib/agent/trace";
-import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
+import { AppHeader, AppShell, StatusBar, TotalFooter } from "@/components/ui/app-shell";
 import { Avatar, type AvatarMood } from "@/components/ui/avatar";
 import { LockCard, LockScreen } from "@/components/ui/lock-screen";
-import { AppIcon, Initials, PrimaryButton } from "@/components/ui/primitives";
+import {
+  AppIcon,
+  Initials,
+  PrimaryButton,
+  SecondaryButton,
+  Wordmark,
+} from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
 import { SeatSheet } from "./seat-sheet";
@@ -153,14 +159,69 @@ export function TomWhatsAppScreen() {
           city={city}
           span={span}
           seat={seat}
-          onTap={() => router.push("/invite/tom/ticket")}
+          onTap={() => router.push("/invite/tom/signup")}
         />
       )}
       <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
-        Opens the app, or the web if it isn&rsquo;t installed. A new direct customer Pegasus
-        didn&rsquo;t have.
+        Opens the app on a sign-up with nothing to type, then the booking. A new direct
+        customer Pegasus didn&rsquo;t have.
       </p>
     </WhatsAppChat>
+  );
+}
+
+/**
+ * Tom's first screen in the app: a sign-up with nothing to type. The invite
+ * link carries who he is, so the account is one tap and the form is skipped.
+ * The booking, already built from Will's, is the reason to join; it is the
+ * next screen, not a reward after a form.
+ */
+export function TomSignUpScreen() {
+  const router = useNav();
+  const { me, friend, city, state } = useInvitee("tom");
+  const ready = useAgentRun("invite:tom:signup", () => traceFor("/invite/tom/signup", state));
+  if (!ready) return <Thinking label="Opening your invite…" header={null} />;
+  const join = () => router.push("/invite/tom/ticket");
+  return (
+    <div className="flex h-full flex-col bg-pg-surface text-pg-navy">
+      <StatusBar />
+      <main className="flex min-h-0 flex-1 flex-col items-center px-6 pt-5 pb-6 text-center">
+        <Wordmark size={24} />
+        <Avatar size={96} className="mt-9" />
+        <h1
+          className="mt-5 text-[26px] leading-8 font-extrabold tracking-[-0.02em]"
+          style={{ textWrap: "balance" }}
+        >
+          {firstName(me)} saved you a seat
+        </h1>
+        <p
+          className="mt-2 text-[15px] leading-[22px] text-pg-ink"
+          style={{ textWrap: "pretty" }}
+        >
+          Join Pegasus to see your booking for {city}. Nothing to type: the invite knows who
+          you are.
+        </p>
+        <div className="pg-card mt-6 flex w-full items-center gap-3 p-4 text-left">
+          <Initials name={friend.name} size={40} />
+          <span className="flex min-w-0 flex-col">
+            <span className="caps">Joining as</span>
+            <span className="text-[16px] leading-5 font-extrabold">{friend.name}</span>
+            <span className="text-[13px] leading-[18px] text-pg-ink">
+              From {firstName(me)}&rsquo;s invite · the number he messaged
+            </span>
+          </span>
+        </div>
+        <div className="mt-auto flex w-full flex-col gap-2.5 pt-6">
+          <PrimaryButton size="lg" onClick={join}>
+            Continue with Apple
+          </PrimaryButton>
+          <SecondaryButton onClick={join}>Use my email instead</SecondaryButton>
+          <p className="mt-1 text-[12px] leading-[18px] text-pg-ink">
+            One tap makes the account. Passport at check-in, card when you pay.
+          </p>
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -520,24 +581,21 @@ function ordinal(n: number): string {
   return ["", "1st", "2nd", "3rd", "4th", "5th"][n] ?? `${n}th`;
 }
 
-/** Tom stalls: a second WhatsApp from Will, drafted by the companion, and the card is the pay button. */
+/** Tom stalls: a second WhatsApp from Will, drafted by the companion. The card opens the app. */
 export function TomStallsScreen() {
   const router = useNav();
-  const { me, city, organiser, state, itinerary, friend, seat, update } = useInvitee("tom");
+  const { me, city, organiser, state, itinerary, seat } = useInvitee("tom");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
   const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
   const left = itinerary.out?.flight.seatsLeft ?? 9;
   const departs = itinerary.out?.flight.departs ?? "06:10";
   const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
-  // The card is the pay button: one tap installs the app and books him.
-  const pay = () => {
-    bookInvitee(update, friend, seat);
-    router.push("/invite/tom/confirmation");
-  };
+  // The card is the way in: the app opens on the sign-up, then his ticket.
+  const open = () => router.push("/invite/tom/signup");
   return (
     <WhatsAppChat me={me}>
       <DayDivider>{INVITE.sentLong}</DayDivider>
-      <InviteBubble me={me} city={city} span={span} seat={seat} onTap={pay} />
+      <InviteBubble me={me} city={city} span={span} seat={seat} onTap={open} />
       <div className="mt-5">
         <DayDivider>Thursday 5 March</DayDivider>
       </div>
@@ -545,7 +603,7 @@ export function TomStallsScreen() {
         <CardBubble
           title={`Book the same flight as ${firstName(me)}`}
           detail={`${span} · ${seat ?? "a seat"} still next to ${firstName(me) === "Will" ? "him" : "them"} · ${left} seats left on the ${departs}`}
-          cta="Get Pegasus and book in one tap"
+          cta="Get Pegasus and book the same flight"
           text={
             <>
               {archie}&rsquo;s in. Just you now mate. The {departs}&rsquo;s down to {left}{" "}
@@ -553,13 +611,13 @@ export function TomStallsScreen() {
             </>
           }
           time="09:15"
-          onTap={pay}
+          onTap={open}
         />
       )}
       {ready && (
         <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
           Drafted by the companion, sent from {firstName(me)}&rsquo;s phone with one tap. The
-          link installs the app and opens his booking, paid for in one more.
+          link installs the app: one tap to join, then his booking, one tap to pay.
         </p>
       )}
     </WhatsAppChat>

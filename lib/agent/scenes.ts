@@ -42,7 +42,7 @@ export const ACTS: Act[] = [
       {
         href: "/invite/tom",
         title: "Tom doesn't",
-        note: "A WhatsApp from Will",
+        note: "A WhatsApp from Will, a sign-up with nothing to type",
         agent: "Group",
       },
       {
@@ -54,7 +54,7 @@ export const ACTS: Act[] = [
       {
         href: "/invite/tom/stalls",
         title: "Tom stalls",
-        note: "Nudge in Will's name, card declined",
+        note: "A second WhatsApp in Will's name",
         agent: "Moments",
       },
       {
@@ -112,6 +112,7 @@ export const ACTS: Act[] = [
 const ALIASES: Record<string, string> = {
   "/invite/archie/checkout": "/invite/archie/ticket",
   "/invite/archie/confirmation": "/invite/archie/ticket",
+  "/invite/tom/signup": "/invite/tom",
   "/invite/tom/ticket": "/invite/tom",
   "/invite/tom/checkout": "/invite/tom",
   "/invite/tom/confirmation": "/invite/tom",

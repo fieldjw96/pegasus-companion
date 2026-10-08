@@ -10,6 +10,7 @@ import {
   InviteeCheckout,
   InviteeConfirmation,
   InviteeTicketScreen,
+  TomSignUpScreen,
   TomStallsScreen,
   TomWhatsAppScreen,
 } from "./screens/invitee";
@@ -47,6 +48,8 @@ function screenFor(route: string): ReactNode {
       return <InviteeConfirmation id="archie" />;
     case "/invite/tom":
       return <TomWhatsAppScreen />;
+    case "/invite/tom/signup":
+      return <TomSignUpScreen />;
     case "/invite/tom/ticket":
       return <InviteeTicketScreen id="tom" />;
     case "/invite/tom/checkout":
