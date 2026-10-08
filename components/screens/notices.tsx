@@ -143,6 +143,7 @@ export function SquadCancelledScreen() {
 
 /** After the week: fares to somewhere else in Turkey drop, and the squad hears first. */
 export function NextTripScreen() {
+  const router = useNav();
   const { state } = useJourney();
   const draft = state.draft ?? willDraft();
   const mates = FRIENDS.map((f) => firstName(f.name));
@@ -184,10 +185,10 @@ export function NextTripScreen() {
                 />
               ),
             )}
-            <span className="ml-3 text-[13px] text-pg-ink">
-              Say the word and I&rsquo;ll build it for {mates.join(" and ")} too.
-            </span>
           </div>
+          <PrimaryButton className="mt-3.5 w-full" onClick={() => router.push("/group")}>
+            Ask {mates.join(" and ")}
+          </PrimaryButton>
         </LockCard>
       )}
     </LockScreen>

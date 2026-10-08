@@ -1008,6 +1008,12 @@ function nextTripTrace(state: TraceState): Trace {
         `${gbp(drop.savingEach)} each is a line in a sale email. ${gbp(drop.savingSquad)} for the three of them, same row, is a plan. So the card says the squad's number, and the saving is computed from the two fares, not quoted.`,
       ),
       step(
+        "Group",
+        "act",
+        "Made it one tap",
+        `"Ask ${FRIENDS.map((f) => firstName(f.name)).join(" and ")}" opens the squad, not a search: the three of them, the weekend, the price each.`,
+      ),
+      step(
         "Moments",
         "quiet",
         "One card, then quiet",
