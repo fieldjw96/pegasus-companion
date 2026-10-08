@@ -1,7 +1,7 @@
 import { AIRPORTS, type AirportCode, type FareFamily, inventory } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
 import { partyOf, type Profile } from "./profiles";
-import type { Field, Stop, TripDraft } from "./draft";
+import type { DraftKey, Field, Stop, TripDraft } from "./draft";
 
 /**
  * Turning a sentence plus a profile into a filled-in trip.
@@ -225,7 +225,7 @@ export function extract(prompt: string): Extracted {
   const budget = budgetMatch?.[1] !== undefined ? Number(budgetMatch[1]) : null;
 
   const noBag =
-    /\b(no|without)\s+(checked|hold)\s+(bag|luggage)|hand luggage only|carry.?on only\b/.test(
+    /\b(no|without)\s+(a\s+)?((checked|hold)\s+)?(bags?|luggage|suitcase)|hand luggage only|carry.?on only\b/.test(
       text,
     );
   const wantsBag =
@@ -464,4 +464,95 @@ export function buildDraft(prompt: string, profile: Profile): TripDraft {
     ),
     notes: [],
   };
+}
+
+/** An existing trip with a sentence applied to it, and which fields the sentence moved. */
+export type Amendment = { draft: TripDraft; changed: DraftKey[] };
+
+/**
+ * Apply a sentence to a trip that already exists: "Make it the 20th instead",
+ * "no bag", "aisle seat". Only what the sentence names moves; everything else
+ * keeps its value and its provenance. A sentence that names a place is a new
+ * trip, not a change, and comes back null so the caller rebuilds.
+ */
+export function amendDraft(draft: TripDraft, text: string): Amendment | null {
+  const said = extract(text);
+  if (said.destination !== null || said.discovery) return null;
+  const why = `You said so: "${text.trim()}".`;
+  const say = <T>(value: T): Field<T> => ({ value, source: "said", why });
+  const next: TripDraft = { ...draft, notes: [...draft.notes] };
+  const changed: DraftKey[] = [];
+
+  if (said.origin !== null && said.origin !== draft.origin.value) {
+    next.origin = say(said.origin);
+    changed.push("origin");
+  }
+
+  // Dates. A bare "the 20th" is a day in the month the trip already has.
+  let depart = said.departDate;
+  if (depart === null) {
+    const bare = text.toLowerCase().match(/\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b/);
+    const day = bare?.[1] !== undefined ? Number(bare[1]) : null;
+    if (day !== null && day >= 1 && day <= 28) {
+      const d = new Date(`${draft.departDate.value}T00:00:00Z`);
+      d.setUTCDate(day);
+      depart = d.toISOString().slice(0, 10);
+    }
+  }
+  const oldNights =
+    draft.returnDate.value === null
+      ? null
+      : Math.round(
+          (Date.parse(`${draft.returnDate.value}T00:00:00Z`) -
+            Date.parse(`${draft.departDate.value}T00:00:00Z`)) /
+            86400000,
+        );
+  const nights = said.nights ?? oldNights;
+  if (depart !== null && depart !== draft.departDate.value) {
+    next.departDate = say(depart);
+    changed.push("departDate");
+  }
+  const back =
+    said.departDate !== null && said.returnDate !== null && said.nights === null
+      ? said.returnDate
+      : nights === null
+        ? draft.returnDate.value
+        : addDays(next.departDate.value, nights);
+  if (back !== draft.returnDate.value) {
+    next.returnDate = say<string | null>(back);
+    changed.push("returnDate");
+  }
+  if (said.nights !== null && said.nights !== oldNights && draft.stops.value.length > 0) {
+    const route = stopsFor(draft.destination.value, said.nights, "backpacking");
+    next.stops = { ...draft.stops, value: route?.stops ?? [], why: route?.why ?? "" };
+    changed.push("stops");
+  }
+
+  // Bags. "No bag" is LIGHT; "a bag" is SAVER, which includes one.
+  if (said.checkedBag === false && draft.checkedKg.value !== 0) {
+    next.checkedKg = say<0 | 12 | 20 | 25>(0);
+    next.package = say<FareFamily>("light");
+    next.cabinBag = say(said.cabinBag === true);
+    changed.push("checkedKg", "package");
+  } else if (said.checkedBag === true && draft.checkedKg.value === 0) {
+    next.checkedKg = say<0 | 12 | 20 | 25>(25);
+    next.package = say<FareFamily>(
+      draft.package.value === "light" ? "saver" : draft.package.value,
+    );
+    next.cabinBag = say(true);
+    changed.push("checkedKg", "package");
+  } else if (said.cabinBag === true && !draft.cabinBag.value) {
+    next.cabinBag = say(true);
+    changed.push("cabinBag");
+  }
+
+  if (said.seating !== null && said.seating !== draft.seating.value) {
+    next.seating = say(said.seating);
+    changed.push("seating");
+  }
+  if (said.flexibility !== null && said.flexibility !== draft.flexibility.value) {
+    next.flexibility = say(said.flexibility);
+    changed.push("flexibility");
+  }
+  return { draft: next, changed };
 }

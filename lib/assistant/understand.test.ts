@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bestWeekIn, buildDraft, extract, stopsFor } from "./understand";
+import { amendDraft, bestWeekIn, buildDraft, extract, stopsFor } from "./understand";
+import { WILL_PROMPT } from "@/lib/demo/personas";
 import { PROFILES, profileById } from "./profiles";
 import { visibleKeys } from "./draft";
 
@@ -153,5 +154,32 @@ describe("a warm start", () => {
     const draft = buildDraft("Trabzon on 12 June, hand luggage only", EMRE);
     expect(draft.checkedKg.value).toBe(0);
     expect(draft.checkedKg.source).toBe("said");
+  });
+});
+
+describe("a change said in a sentence", () => {
+  const amend = amendDraft;
+  const week = () => buildDraft(WILL_PROMPT, WILL);
+
+  it("moves the dates and keeps the week, the route and the bag", () => {
+    const out = amend(week(), "Make it the 20th instead");
+    expect(out?.changed).toEqual(["departDate", "returnDate"]);
+    expect(out?.draft.departDate.value.slice(8)).toBe("20");
+    expect(out?.draft.departDate.source).toBe("said");
+    expect(out?.draft.stops.value).toEqual(week().stops.value);
+    expect(out?.draft.checkedKg.value).toBe(25);
+  });
+
+  it("drops the bag and the fare with it, leaving everything else alone", () => {
+    const out = amend(week(), "no bag, aisle seat");
+    expect(out?.changed).toEqual(["checkedKg", "package", "seating"]);
+    expect(out?.draft.package.value).toBe("light");
+    expect(out?.draft.seating.value).toBe("aisle");
+    expect(out?.draft.departDate).toEqual(week().departDate);
+  });
+
+  it("is a new trip, not a change, when a place is named", () => {
+    expect(amend(week(), "Istanbul for the weekend")).toBeNull();
+    expect(amend(week(), "somewhere warm")).toBeNull();
   });
 });

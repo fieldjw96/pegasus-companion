@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import type { TripDraft } from "@/lib/assistant/draft";
+import type { DraftKey, TripDraft } from "@/lib/assistant/draft";
 
 /**
  * What the passenger has done so far in this demo, carried across screens.
@@ -17,6 +17,8 @@ export type JourneyState = {
   persona: "will" | "emre";
   prompt: string | null;
   draft: TripDraft | null;
+  /** The last change said in a sentence, and which fields it moved. */
+  edit: { said: string; changed: DraftKey[] } | null;
   /** Will has paid. */
   booked: boolean;
   /** "Did we get your trip right?" */
@@ -62,6 +64,7 @@ const INITIAL: JourneyState = {
   persona: "will",
   prompt: null,
   draft: null,
+  edit: null,
   booked: false,
   thumbs: null,
   invited: [],

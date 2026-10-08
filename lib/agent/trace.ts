@@ -2,6 +2,7 @@ import {
   countBySource,
   uncertainFields,
   FIELD_LABELS,
+  type DraftKey,
   type TripDraft,
 } from "@/lib/assistant/draft";
 import { itineraryFor, type Itinerary } from "@/lib/assistant/itinerary";
@@ -108,6 +109,7 @@ export type TitledTrace = Trace & { title: string };
 export type TraceState = {
   prompt: string | null;
   draft: TripDraft | null;
+  edit: { said: string; changed: DraftKey[] } | null;
   booked: boolean;
   thumbs: "up" | "down" | null;
   invited: string[];
@@ -230,6 +232,54 @@ function heardSteps(w: Will): Step[] {
       missing.length === 0
         ? "Everything I need is in the sentence."
         : `Not said: ${missing.join(", ")}. ${WILL.coldStart ? "No history to remember from, so each of those is a prediction and gets a dotted underline." : "I'll fill those from past trips."}`,
+    ),
+  ];
+}
+
+/** What a field reads as after a change, for the panel. */
+function fieldValue(draft: TripDraft, key: DraftKey): string {
+  switch (key) {
+    case "origin":
+      return cityOf(draft.origin.value);
+    case "destination":
+      return cityOf(draft.destination.value);
+    case "stops":
+      return draft.stops.value.map((s) => `${cityOf(s.code)} ${s.nights}n`).join(", ");
+    case "departDate":
+      return shortDate(draft.departDate.value);
+    case "returnDate":
+      return draft.returnDate.value === null ? "one way" : shortDate(draft.returnDate.value);
+    case "party":
+      return `${draft.party.value.adults + draft.party.value.children}`;
+    case "package":
+      return FARE_RULES[draft.package.value].label;
+    case "checkedKg":
+      return draft.checkedKg.value === 0 ? "none" : `${draft.checkedKg.value} kg`;
+    case "cabinBag":
+      return draft.cabinBag.value ? "yes" : "underseat only";
+    case "seating":
+      return draft.seating.value;
+    case "flexibility":
+      return draft.flexibility.value;
+  }
+}
+
+/** A change said in a sentence: what moved, and that nothing else did. */
+function editSteps(w: Will, edit: { said: string; changed: DraftKey[] }): Step[] {
+  const facts = edit.changed.map((k) => `${FIELD_LABELS[k]}: ${fieldValue(w.draft, k)}`);
+  return [
+    step(
+      "Trip",
+      "read",
+      edit.changed.length === 0 ? "Heard a change, found nothing to move" : "Heard a change",
+      `"${edit.said}"${edit.changed.length === 0 ? " names nothing on the ticket. It stays as it is." : ""}`,
+      facts.length === 0 ? undefined : facts,
+    ),
+    step(
+      "Trip",
+      "think",
+      "Kept the rest",
+      `Only what the sentence names moves. The trip is still "${w.prompt}": the other ${countBySource(w.draft).said + countBySource(w.draft).predicted - edit.changed.length} fields keep their value and where it came from, so the changed ones carry a solid underline and the guesses stay dotted.`,
     ),
   ];
 }
@@ -483,7 +533,10 @@ function homeTrace(state: TraceState): Trace {
     return discoveryTrace(state);
   }
   const w = will(state);
-  const steps = [...heardSteps(w), ...builtSteps(w)];
+  const steps =
+    state.edit === null
+      ? [...heardSteps(w), ...builtSteps(w)]
+      : [...editSteps(w, state.edit), ...builtSteps(w)];
   const thumbs = thumbsStep(state, w);
   if (thumbs !== null) steps.push(thumbs);
   else

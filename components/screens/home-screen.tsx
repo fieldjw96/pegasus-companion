@@ -12,7 +12,7 @@ import { useJourney } from "@/components/journey-provider";
 import { SeatSheet } from "./seat-sheet";
 import { Ticket } from "./ticket";
 import { Suggestions } from "./suggestions";
-import { buildDraft, extract } from "@/lib/assistant/understand";
+import { amendDraft, buildDraft, extract } from "@/lib/assistant/understand";
 import { suggest, type Suggestion } from "@/lib/assistant/discover";
 import { firstOpen, pitches } from "@/lib/agent/first-open";
 import { traceFor } from "@/lib/agent/trace";
@@ -66,7 +66,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
       : discovery
         ? `home:discovery:${state.prompt}`
         : draft !== null
-          ? `home:trip:${state.prompt ?? ""}:${draft.stops.value.length}`
+          ? `home:trip:${state.prompt ?? ""}:${draft.stops.value.length}:${state.edit?.said ?? ""}`
           : null;
   const tripDone = useAgentRun(tripKey, () =>
     traceFor(persona === "emre" ? "/emre" : "/", state),
@@ -115,13 +115,28 @@ export function HomeScreen({ persona }: { persona: Persona }) {
       return;
     }
     setSuggestions([]);
+    // A sentence with no place in it changes the trip on screen; one with a
+    // place is a new trip.
+    const amended = draft === null ? null : amendDraft(draft, text);
     if (persona === "emre") {
       update((prev) => ({
-        prompt: text,
-        emre: { ...prev.emre, draft: buildDraft(text, profile) },
+        prompt: amended === null ? text : prev.prompt,
+        emre: { ...prev.emre, draft: amended?.draft ?? buildDraft(text, profile) },
       }));
+    } else if (amended !== null) {
+      update({
+        draft: amended.draft,
+        edit: { said: text, changed: amended.changed },
+        thumbs: null,
+      });
     } else {
-      update({ prompt: text, thumbs: null, draft: buildDraft(text, profile), booked: false });
+      update({
+        prompt: text,
+        edit: null,
+        thumbs: null,
+        draft: buildDraft(text, profile),
+        booked: false,
+      });
     }
   }
 
@@ -482,6 +497,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         compact
       />
       {persona === "will" ? willIntro : null}
+      <SentenceSection onSubmit={run} />
     </AppShell>
   );
 }

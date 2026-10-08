@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ACTS } from "./scenes";
 import { traceFor, type TraceState } from "./trace";
 import { MOMENT, momentDates } from "@/lib/moments/moments";
-import { WILL_PROMPT } from "@/lib/demo/personas";
+import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
+import { amendDraft, buildDraft } from "@/lib/assistant/understand";
 
 /**
  * The agent panel narrates the screens from the same calls the screens make.
@@ -12,6 +13,7 @@ import { WILL_PROMPT } from "@/lib/demo/personas";
 const COLD: TraceState = {
   prompt: null,
   draft: null,
+  edit: null,
   booked: false,
   thumbs: null,
   invited: [],
@@ -137,5 +139,26 @@ describe("the agent trace", () => {
         inviteesBooked: { ...complete.inviteesBooked, "Tom Baker": "14C" },
       }),
     ).toContain("22.50 GBP");
+  });
+});
+
+describe("a change said in a sentence", () => {
+  it("narrates what moved and rebuilds the rest from the same draft", () => {
+    const week = buildDraft(WILL_PROMPT, WILL);
+    const amended = amendDraft(week, "Make it the 20th instead");
+    const changed = traceFor("/", {
+      ...COLD,
+      prompt: WILL_PROMPT,
+      draft: amended?.draft ?? null,
+      edit: { said: "Make it the 20th instead", changed: amended?.changed ?? [] },
+    });
+    const heard = changed.steps[0];
+    expect(heard?.did).toBe("Heard a change");
+    expect(heard?.facts?.[0]).toMatch(/^Out: [A-Z][a-z]{2} 20 May$/);
+    expect(changed.steps[1]?.did).toBe("Kept the rest");
+    expect(changed.steps.some((s) => s.did === "Heard the sentence")).toBe(false);
+    expect(changed.steps.find((s) => s.did.startsWith("Priced it"))?.did).toBe(
+      "Priced it at 409.40 GBP",
+    );
   });
 });
