@@ -31,6 +31,7 @@ function willJumps(out: string, back: string): Jump[] {
   return [
     { label: "Waiting window", when: "4 Mar, 20:14", href: "/squad/waiting" },
     { label: "Tom stalls", when: "5 Mar, 09:15", href: "/invite/tom/stalls" },
+    { label: "Hostel", when: "6 Mar, 19:40", href: "/squad/hostel" },
     { label: "Check-in", when: `${dayMonth(shift(out, -2))}, 05:30`, href: "/squad/check-in" },
     { label: "Cancelled", when: `${dayMonth(out)}, 04:50`, href: "/squad/cancelled" },
     { label: "Next trip", when: dayMonth(shift(back, 60)), href: "/squad/next-trip" },

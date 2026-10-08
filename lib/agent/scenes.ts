@@ -63,6 +63,12 @@ export const ACTS: Act[] = [
         note: "Breakfast for the squad",
         agent: "Offer",
       },
+      {
+        href: "/squad/hostel",
+        title: "Looking to book a hostel?",
+        note: "One place for the balloon nights, priced for three",
+        agent: "Trip",
+      },
       { href: "/squad/check-in", title: "Checked in for them", agent: "Moments" },
       { href: "/squad/cancelled", title: "Unhappy path: flight cancelled" },
       {

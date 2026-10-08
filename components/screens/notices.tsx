@@ -11,9 +11,11 @@ import { Notice } from "./invitee";
 import { traceFor } from "@/lib/agent/trace";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { formatFare, inventory } from "@/lib/journey/flights";
-import { HOME } from "@/lib/journey/script";
+import { HOME, HOSTEL } from "@/lib/journey/script";
 import { FRIENDS, firstName } from "@/lib/group/group";
 import { fareDrop } from "@/lib/group/next-trip";
+import { stayFor } from "@/lib/group/stay";
+import type { TripDraft } from "@/lib/assistant/draft";
 import { MOMENT, momentDates, nextYearMoment, usualTrip } from "@/lib/moments/moments";
 import {
   EMRE,
@@ -122,6 +124,96 @@ export function CheckInScreen() {
 }
 
 /** The 06:10 is cancelled. The whole squad is rebooked together before anyone queues. */
+/**
+ * The evening after the squad is complete: three flights, three people and no
+ * bed. One hostel for the balloon nights, priced for three from the nights on
+ * the ticket. Booked for all of them in one tap, or declined for this trip and
+ * never mentioned again.
+ */
+export function HostelScreen() {
+  const { state, update } = useJourney();
+  const draft = state.draft ?? willDraft();
+  const stay = stayFor(draft);
+  const mates = FRIENDS.map((f) => firstName(f.name));
+  const ready = useAgentRun(`squad:hostel:${state.hostel ?? "offered"}`, () =>
+    traceFor("/squad/hostel", state),
+  );
+  return (
+    <LockScreen date="Friday 6 March" time="19:40" bottom={150}>
+      {ready && (
+        <LockCard label="Notification from Pegasus" radius={24} className="bg-white/95 !p-3.5">
+          <div className="flex items-start gap-3">
+            <Avatar size={38} mood={state.hostel === "booked" ? "wink" : "idle"} />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="text-[13px] leading-[18px] font-extrabold tracking-[0.04em]">
+                  PEGASUS
+                </span>
+                <span className="text-[13px] leading-[18px] text-pg-ink">now</span>
+              </span>
+              {state.hostel === "booked" ? (
+                <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
+                  <strong className="font-extrabold">Booked for the three of you.</strong>{" "}
+                  {stay.name}, {stay.nights} nights from {dayMonth(stopStart(draft))}.{" "}
+                  {mates.join(" and ")} have the details.
+                </span>
+              ) : state.hostel === "declined" ? (
+                <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
+                  <strong className="font-extrabold">Not this trip.</strong> No stay mentioned
+                  again.
+                </span>
+              ) : (
+                <>
+                  <span className="text-[15px] leading-5" style={{ textWrap: "pretty" }}>
+                    <strong className="font-extrabold">Looking to book a hostel?</strong>{" "}
+                    Nothing&rsquo;s booked for the {stay.nights} nights in {stay.town}.
+                  </span>
+                  <span className="mt-2 flex flex-col gap-0.5 rounded-[12px] bg-pg-surface px-3 py-2.5">
+                    <span className="text-[15px] leading-5 font-extrabold">{stay.name}</span>
+                    <span className="text-[13px] leading-[18px] text-pg-ink">
+                      {stay.room} · {stay.town}, by the balloon pick-up
+                    </span>
+                    <span className="tabular mt-1 text-[14px] leading-5">
+                      <strong className="font-extrabold">
+                        {formatFare(stay.perNight)} a night
+                      </strong>{" "}
+                      each · {formatFare(stay.each)} for {stay.nights} nights
+                    </span>
+                  </span>
+                  <PrimaryButton
+                    size="sm"
+                    className="mt-2.5 w-full"
+                    onClick={() => update({ hostel: "booked" })}
+                  >
+                    Book for three · {formatFare(stay.total)} GBP
+                  </PrimaryButton>
+                  <button
+                    type="button"
+                    onClick={() => update({ hostel: "declined" })}
+                    className="mt-1.5 self-start text-[13px] font-bold text-pg-orange"
+                  >
+                    Not this trip
+                  </button>
+                </>
+              )}
+            </span>
+          </div>
+        </LockCard>
+      )}
+    </LockScreen>
+  );
+}
+
+/** The date the balloons stop begins: the outbound date plus the nights before it. */
+function stopStart(draft: TripDraft): string {
+  let days = 0;
+  for (const stop of draft.stops.value) {
+    if (stop.code === HOSTEL.stop) break;
+    days += stop.nights;
+  }
+  return shift(draft.departDate.value, days);
+}
+
 export function SquadCancelledScreen() {
   const { state } = useJourney();
   const draft = state.draft ?? willDraft();

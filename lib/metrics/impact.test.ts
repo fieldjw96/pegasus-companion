@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { impactOf, openingFare, type ImpactState } from "./impact";
 import { priceOf } from "@/lib/assistant/price";
 import { emreDraft, willDraft } from "@/lib/demo/personas";
+import { stayFor } from "@/lib/group/stay";
 
 /**
  * The impact column is arithmetic over the same drafts the screens print. If
@@ -14,6 +15,7 @@ const COLD: ImpactState = {
   invited: [],
   inviteesBooked: {},
   breakfast: false,
+  hostel: null,
   emre: { draft: null, booked: false, gifts: false, nextYear: false, dadTold: false },
 };
 
@@ -59,5 +61,23 @@ describe("the impact column", () => {
     expect(companion.revenue).toBe(Math.round((priceOf(emreDraft()) + 30.5) * 100) / 100);
     expect(companion.newUsers).toBe(1);
     expect(today.newUsers).toBe(0);
+  });
+});
+
+describe("the stay", () => {
+  it("counts the commission on a hostel booked for three, and nothing when declined", () => {
+    const stay = stayFor(willDraft());
+    expect(stay.nights).toBe(3);
+    expect(stay.each).toBe(55.5);
+    expect(stay.total).toBe(166.5);
+    expect(stay.commission).toBe(19.98);
+    const booked = impactOf({ ...COLD, booked: true, hostel: "booked" });
+    const plain = impactOf({ ...COLD, booked: true });
+    expect(booked.companion.revenue).toBe(
+      Math.round((plain.companion.revenue + 19.98) * 100) / 100,
+    );
+    expect(impactOf({ ...COLD, booked: true, hostel: "declined" }).companion).toEqual(
+      plain.companion,
+    );
   });
 });

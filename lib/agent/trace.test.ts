@@ -20,6 +20,7 @@ const COLD: TraceState = {
   shared: [],
   sent: false,
   inviteesBooked: {},
+  hostel: null,
   emre: {
     draft: null,
     booked: false,

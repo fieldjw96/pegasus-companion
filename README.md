@@ -95,6 +95,9 @@ Will, 26, London. A cold start: no history, no profile.
    to pay.
 8. **Squad complete.** All three booked, seats together, one group offer that
    makes sense for three: breakfast for the 06:10, to the organiser only.
+   That evening, one more: "Looking to book a hostel?", one cave dorm in
+   Göreme for the balloon nights, priced for three, booked in a tap or
+   declined for the trip.
 9. **Checked in for them**, **the next trip** (a new route offered first to the
    group), and the unhappy path of a cancelled flight.
 

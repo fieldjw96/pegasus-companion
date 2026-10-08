@@ -11,6 +11,7 @@ import { extract } from "@/lib/assistant/understand";
 import { suggest } from "@/lib/assistant/discover";
 import { firstOpen, pitches } from "./first-open";
 import { fareDrop } from "@/lib/group/next-trip";
+import { stayFor } from "@/lib/group/stay";
 import { sceneFor } from "./scenes";
 import {
   BREAKFAST,
@@ -118,6 +119,7 @@ export type TraceState = {
   shared: string[];
   sent: boolean;
   inviteesBooked: Record<string, string | null>;
+  hostel: "booked" | "declined" | null;
   emre: {
     draft: TripDraft | null;
     booked: boolean;
@@ -1063,6 +1065,66 @@ function nextTripTrace(state: TraceState): Trace {
   };
 }
 
+function hostelTrace(state: TraceState): Trace {
+  const w = will(state);
+  const stay = stayFor(w.draft);
+  const squad = [w.me, ...w.invited].map(firstName);
+  const ending =
+    state.hostel === "booked"
+      ? step(
+          "Trip",
+          "act",
+          `Booked ${stay.people} beds in the cave dorm`,
+          `${gbp(stay.total)} on Will's card, ${gbp(stay.each)} each, ${squad.slice(1).join(" and ")} told. One booking for the squad, like the breakfast.`,
+        )
+      : state.hostel === "declined"
+        ? step(
+            "Moments",
+            "quiet",
+            "Not this trip",
+            "No stay is mentioned again, here or at check-in. A no is an answer, not a delay.",
+          )
+        : step(
+            "Moments",
+            "wait",
+            "Waiting on Will",
+            "Book it for three, or not this trip. Either way I don't ask twice.",
+          );
+  return {
+    who: "Will's lock screen",
+    when: "The evening after the squad was complete",
+    steps: [
+      step(
+        "Moments",
+        "read",
+        "Three flights, no bed",
+        `${stay.people} people, ${w.itinerary.legs.length} sectors each, and no stay on any booking. No hotel email in the inbox either, with permission. ${stay.town} is the stop that matters: ${stay.nights} nights for the balloons.`,
+        [`${stay.town}: ${stay.nights} nights`, `Squad: ${squad.join(", ")}`],
+      ),
+      step(
+        "Trip",
+        "think",
+        "Picked one, not a list",
+        `A backpacking squad of three on a ${w.itinerary.out?.flight.departs ?? "06:10"}: a cave dorm in ${stay.town}, walking distance from the balloon pick-up, ${gbp(stay.perNight)} a night a bed. One place, one price. A list is a search, and he didn't ask for a search.`,
+        [stay.name, stay.room, `${gbp(stay.perNight)} a night each`],
+      ),
+      step(
+        "Offer",
+        "think",
+        "Said the squad's number",
+        `${gbp(stay.perNight)} × ${stay.nights} nights = ${gbp(stay.each)} each; × ${stay.people} = ${gbp(stay.total)} for the three of them. Computed from the nights on the ticket, not quoted.`,
+      ),
+      step(
+        "Moments",
+        "quiet",
+        "Once, the evening after Tom booked",
+        "Not at checkout, where it would have been a fourth upsell, and not before the squad was complete, when the plan could still change. One card, no reminder.",
+      ),
+      ending,
+    ],
+  };
+}
+
 function squadCancelledTrace(state: TraceState): Trace {
   const w = will(state);
   const out = w.itinerary.out;
@@ -1691,6 +1753,8 @@ function untitled(pathname: string, state: TraceState): Trace {
       return stallsTrace(state);
     case "/squad/waiting":
       return waitingTrace(state);
+    case "/squad/hostel":
+      return hostelTrace(state);
     case "/squad/check-in":
       return checkInTrace(state);
     case "/squad/next-trip":

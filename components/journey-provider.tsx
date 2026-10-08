@@ -33,6 +33,8 @@ export type JourneyState = {
   inviteesBooked: Record<string, string | null>;
   /** Will took the one group offer: breakfast for the three of them. */
   breakfast: boolean;
+  /** The hostel for the balloon nights: booked for three, or declined for this trip. */
+  hostel: "booked" | "declined" | null;
   /** Emre's side. */
   emre: {
     draft: TripDraft | null;
@@ -74,6 +76,7 @@ const INITIAL: JourneyState = {
   sent: false,
   inviteesBooked: {},
   breakfast: false,
+  hostel: null,
   emre: {
     draft: null,
     booked: false,

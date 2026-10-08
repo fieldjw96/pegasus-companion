@@ -59,6 +59,25 @@ export const NEXT_TRIP = {
   lastWeek: { out: 125, back: 130 },
 } as const;
 
+/**
+ * Journey 1's stay. Three flights, three people and no bed on the booking:
+ * the companion offers one hostel in Göreme for the balloon nights, priced
+ * from the nights on the ticket. The rate and the commission are pinned here.
+ * The hostel is invented, like the passengers.
+ */
+export const HOSTEL = {
+  /** The stop the stay is for: the balloons. */
+  stop: "ASR",
+  fallbackNights: 3,
+  name: "Fairy Chimney Cave Hostel",
+  town: "Göreme",
+  room: "6-bed cave dorm",
+  /** GBP per bed per night. */
+  perNight: 18.5,
+  /** What Pegasus earns on a stay booked through the app. */
+  commission: 0.12,
+} as const;
+
 /** Journey 2: Emre's usual trip home. */
 export const HOME = {
   origin: "SAW",

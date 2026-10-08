@@ -1,6 +1,7 @@
 import type { TripDraft } from "@/lib/assistant/draft";
 import { breakdown } from "@/lib/assistant/price";
 import { BREAKFAST, FRIENDS, buildInviteeDraft, inviteeExtras } from "@/lib/group/group";
+import { stayFor } from "@/lib/group/stay";
 import { GIFTS } from "@/lib/moments/moments";
 import { EMRE, WILL, emreDraft, willDraft } from "@/lib/demo/personas";
 
@@ -39,6 +40,7 @@ export type ImpactState = {
   invited: string[];
   inviteesBooked: Record<string, string | null>;
   breakfast: boolean;
+  hostel: "booked" | "declined" | null;
   emre: {
     draft: TripDraft | null;
     booked: boolean;
@@ -87,6 +89,7 @@ export const ASSUMPTIONS = [
   "Today's app sells the fare it opens on, LIGHT, and offers the bag and seat at the till.",
   "Today's app sells one return to Istanbul; the onward legs are bought elsewhere.",
   "The three friends book today too, on LIGHT, without the app. Nobody joins.",
+  "A stay booked through the app counts its commission, 12% of the total. Today's app sells no stays.",
   "Today, Emre books late in May on LIGHT; nobody messages Dad.",
 ];
 
@@ -123,6 +126,11 @@ export function impactOf(state: ImpactState): Impact {
       revenue: BREAKFAST.each * squad,
       addOns: BREAKFAST.each * squad,
     });
+  }
+
+  if (state.hostel === "booked") {
+    const stay = stayFor(state.draft ?? willDraft());
+    companion = add(companion, { revenue: stay.commission, addOns: stay.commission });
   }
 
   // Journey 2: Emre.
