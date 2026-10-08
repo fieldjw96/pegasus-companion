@@ -22,6 +22,7 @@ import {
   friendByName,
   groupMembers,
   inviteeExtras,
+  listNames,
   seatBeside,
   type Friend,
 } from "@/lib/group/group";
@@ -114,6 +115,7 @@ export type TraceState = {
   booked: boolean;
   thumbs: "up" | "down" | null;
   invited: string[];
+  shared: string[];
   sent: boolean;
   inviteesBooked: Record<string, string | null>;
   emre: {
@@ -640,18 +642,28 @@ function confirmationTrace(state: TraceState): Trace {
       "Picked each friend's channel",
       friends.map((f) => inviteePlan(f, w)).join(" "),
     ),
+    ...(state.sent && state.shared.length > 0
+      ? [
+          step(
+            "Group",
+            "read",
+            `Will added ${listNames(state.shared)}`,
+            `Found by name in his contacts, not by me: I suggest two and guess no further. ${listNames(state.shared)} ${state.shared.length === 1 ? "gets" : "get"} the same link in Will's name, with no seat held: the row has two seats beside him, and he said two mates.`,
+          ),
+        ]
+      : []),
     state.sent
       ? step(
           "Group",
           "act",
-          `Sent to ${w.invited.map(firstName).join(" and ")}`,
+          `Sent to ${listNames([...w.invited, ...state.shared])}`,
           "A booking built for each, in Will's name. They pay their own way; nobody sees anybody else's fare.",
         )
       : step(
           "Group",
           "wait",
           "Waiting on Will",
-          "Untick anyone, or send to nobody. If he sends to nobody, I don't ask again.",
+          "Untick anyone, add anyone from his contacts, or send to nobody. If he sends to nobody, I don't ask again.",
         ),
   ];
   return { who: "Will's phone", when: "Confirmation", steps };

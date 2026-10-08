@@ -67,6 +67,44 @@ export const INVITE = {
   sentLong: "Tuesday 3 March",
 } as const;
 
+/**
+ * The rest of Will's contacts, for the search under the two suggestions. The
+ * companion suggests two and guesses no further; anyone else is Will's call,
+ * found by name. A contact added here gets the same link in Will's name, but
+ * no seat is held: the row has two seats beside him, and he said two mates.
+ */
+export type Contact = { name: string; note: string };
+
+export const CONTACTS: Contact[] = [
+  { name: "Sam Reed", note: "No app" },
+  { name: "Priya Nair", note: "On Pegasus" },
+  { name: "Jonny Hale", note: "No app" },
+  { name: "Ben Okafor", note: "On Pegasus" },
+  { name: "Chloe Marsh", note: "No app" },
+  { name: "Dan Whitlock", note: "On Pegasus" },
+  { name: "Maya Lindqvist", note: "No app" },
+  { name: "Ollie Grant", note: "No app" },
+];
+
+/** Contacts matching a search, by the start of any name, up to four. Empty for an empty search. */
+export function searchContacts(query: string, limit = 4): Contact[] {
+  const q = query.trim().toLowerCase();
+  if (q === "") return [];
+  return CONTACTS.filter((c) =>
+    c.name
+      .toLowerCase()
+      .split(" ")
+      .some((part) => part.startsWith(q) || c.name.toLowerCase().startsWith(q)),
+  ).slice(0, limit);
+}
+
+/** "Archie and Tom", "Archie, Tom and Sam". */
+export function listNames(names: string[]): string {
+  const first = names.map(firstName);
+  if (first.length <= 1) return first.join("");
+  return `${first.slice(0, -1).join(", ")} and ${first[first.length - 1]}`;
+}
+
 /** Pegasus Café's hot meal, as remembered on Archie's bookings. */
 export const MEAL_PRICE = 6.5;
 

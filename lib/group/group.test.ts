@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { FRIENDS, buildInviteeDraft, groupMembers, inviteeExtras, seatBeside } from "./group";
+import {
+  FRIENDS,
+  buildInviteeDraft,
+  groupMembers,
+  inviteeExtras,
+  listNames,
+  searchContacts,
+  seatBeside,
+} from "./group";
 import { countBySource } from "@/lib/assistant/draft";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { breakdown, priceOf, withLines } from "@/lib/assistant/price";
@@ -78,5 +86,15 @@ describe("the squad", () => {
     });
     expect(members.every((m) => m.status === "booked")).toBe(true);
     expect(members.map((m) => m.seat)).toEqual(["14A", "14B", "14C"]);
+  });
+});
+
+describe("the contact search", () => {
+  it("finds by the start of a name, never the two suggestions, and nothing for nothing", () => {
+    expect(searchContacts("").length).toBe(0);
+    expect(searchContacts("sa").map((c) => c.name)).toEqual(["Sam Reed"]);
+    expect(searchContacts("re").map((c) => c.name)).toEqual(["Sam Reed"]);
+    expect(searchContacts("arch").length).toBe(0);
+    expect(listNames(["Archie Bell", "Tom Baker", "Sam Reed"])).toBe("Archie, Tom and Sam");
   });
 });

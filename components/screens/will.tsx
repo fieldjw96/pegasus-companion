@@ -3,11 +3,18 @@
 import { useState } from "react";
 import { useNav } from "@/components/phone-nav";
 import { useJourney } from "@/components/journey-provider";
-import { Initials, PrimaryButton, TextButton } from "@/components/ui/primitives";
+import { Initials, PrimaryButton, SearchIcon, TextButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
 import { traceFor } from "@/lib/agent/trace";
-import { FRIENDS, firstName, friendByName, seatBeside } from "@/lib/group/group";
+import {
+  FRIENDS,
+  firstName,
+  friendByName,
+  listNames,
+  searchContacts,
+  seatBeside,
+} from "@/lib/group/group";
 import { WILL, willDraft } from "@/lib/demo/personas";
 
 /**
@@ -56,6 +63,10 @@ export function WillConfirmation() {
     state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name),
   );
   const chosen = FRIENDS.filter((f) => picked.includes(f.name));
+  const [query, setQuery] = useState("");
+  const [extras, setExtras] = useState<string[]>(state.shared);
+  const found = searchContacts(query).filter((c) => !extras.includes(c.name));
+  const everyone = [...chosen.map((f) => f.name), ...extras];
 
   function toggle(name: string): void {
     setPicked((prev) =>
@@ -84,7 +95,10 @@ export function WillConfirmation() {
         {state.sent ? (
           <>
             <p className="text-[14px] font-bold">
-              Sent to {state.invited.map(firstName).join(" and ")}.
+              Sent to {listNames(state.invited)}.
+              {state.shared.length > 0
+                ? ` The link went to ${listNames(state.shared)} too.`
+                : ""}
             </p>
             <TextButton onClick={() => router.push("/group")} className="min-h-0">
               See the squad
@@ -127,14 +141,79 @@ export function WillConfirmation() {
                 );
               })}
             </div>
+            <h3 className="caps mt-2">Anyone else</h3>
+            <div className="flex h-11 items-center gap-2.5 rounded-[14px] bg-pg-surface px-3.5">
+              <SearchIcon />
+              <input
+                type="search"
+                aria-label="Search your contacts"
+                placeholder="Search your contacts"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-full min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:text-pg-ink"
+              />
+            </div>
+            {found.length > 0 && (
+              <ul className="fade flex flex-col gap-1" aria-label="Contacts found">
+                {found.map((c) => (
+                  <li key={c.name}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExtras((prev) => [...prev, c.name]);
+                        setQuery("");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-left hover:bg-pg-surface"
+                    >
+                      <Initials name={c.name} size={32} tone="surface" />
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-[15px] leading-5 font-bold">{c.name}</span>
+                        <span className="text-[12px] leading-4 text-pg-ink">{c.note}</span>
+                      </span>
+                      <span
+                        aria-hidden
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-pg-ink shadow-[0_1px_2px_rgba(31,42,55,0.08)]"
+                      >
+                        +
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {query.trim() !== "" && found.length === 0 && (
+              <p className="px-1 text-[13px] text-pg-ink">
+                Nobody called that in your contacts.
+              </p>
+            )}
+            {extras.length > 0 && (
+              <div className="flex flex-wrap gap-2" aria-label="Also sending to">
+                {extras.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    aria-label={`Remove ${name}`}
+                    onClick={() => setExtras((prev) => prev.filter((n) => n !== name))}
+                    className="flex h-8 items-center gap-1.5 rounded-full bg-pg-navy pr-2.5 pl-1 text-[13px] font-bold text-white"
+                  >
+                    <Initials name={name} size={24} tone="surface" />
+                    {firstName(name)}
+                    <span aria-hidden className="text-white/70">
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
             <PrimaryButton
               className="mt-1 w-full"
-              disabled={chosen.length === 0}
+              disabled={everyone.length === 0}
               onClick={() => {
                 const invited = chosen.map((f) => f.name);
                 const lead = friendByName(invited[0] ?? "");
                 update({
                   invited,
+                  shared: extras,
                   sent: true,
                   aside:
                     lead === null
@@ -146,9 +225,7 @@ export function WillConfirmation() {
                 router.push("/group");
               }}
             >
-              {chosen.length === 0
-                ? "Pick someone"
-                : `Send to ${chosen.map((f) => firstName(f.name)).join(" and ")}`}
+              {everyone.length === 0 ? "Pick someone" : `Send to ${listNames(everyone)}`}
             </PrimaryButton>
           </>
         )}

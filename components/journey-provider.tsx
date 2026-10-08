@@ -23,8 +23,10 @@ export type JourneyState = {
   booked: boolean;
   /** "Did we get your trip right?" */
   thumbs: "up" | "down" | null;
-  /** Who the trip was sent to, by name. */
+  /** Who the trip was sent to, by name: the squad, with seats beside Will. */
   invited: string[];
+  /** Anyone else Will found in his contacts: the same link, no seat held. */
+  shared: string[];
   /** The invites have gone out. */
   sent: boolean;
   /** Invitees who have paid, with the seat they took. */
@@ -68,6 +70,7 @@ const INITIAL: JourneyState = {
   booked: false,
   thumbs: null,
   invited: [],
+  shared: [],
   sent: false,
   inviteesBooked: {},
   breakfast: false,

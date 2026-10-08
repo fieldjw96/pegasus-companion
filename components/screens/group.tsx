@@ -16,11 +16,12 @@ import { itineraryFor } from "@/lib/assistant/itinerary";
 import { formatFare } from "@/lib/journey/flights";
 import {
   BREAKFAST,
-  INVITE,
-  FRIENDS,
   firstName,
   friendByName,
+  FRIENDS,
   groupMembers,
+  INVITE,
+  listNames,
 } from "@/lib/group/group";
 import { WILL, willDraft } from "@/lib/demo/personas";
 import { cityOf } from "./ticket";
@@ -171,6 +172,12 @@ export function GroupStatusScreen() {
             </div>
           ))}
         </div>
+        {state.shared.length > 0 && (
+          <p className="border-t border-pg-line px-5 py-3 text-[13px] leading-[18px] text-pg-ink">
+            The link went to {listNames(state.shared)} too. No seat held; they book anywhere,
+            or don&rsquo;t.
+          </p>
+        )}
         {!complete && waiting !== undefined && (
           <div className="mx-3 mt-1.5 mb-3 flex items-start gap-3 rounded-[14px] bg-pg-surface p-3.5">
             <Avatar size={36} />

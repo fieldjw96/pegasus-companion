@@ -326,6 +326,15 @@ export function ClockIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+export function SearchIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden className="shrink-0">
+      <circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M13 13l4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function PlusIcon({ size = 18 }: { size?: number }) {
   return (
     <svg
