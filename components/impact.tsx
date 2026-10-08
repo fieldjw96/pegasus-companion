@@ -68,16 +68,25 @@ export function Impact() {
    * is in the state the moment Pay is tapped, but the phone shows "Booking…"
    * until the agents' run is done; the figures wait for the same moment. The
    * next screen starts its run a beat after the tap, so new figures are held
-   * for that beat too: a run that starts inside it keeps the hold.
+   * for that beat too: a run that starts inside it keeps the hold. Only
+   * growth waits: a reset or a journey switch drops to zero at once, whatever
+   * the first screen's run is doing.
    */
   const live = useMemo(() => impactOf(state), [state]);
   const settled = agents.active.every((run) => run.done);
   const [shown, setShown] = useState(live);
   useEffect(() => {
+    if (
+      live.companion.revenue + live.companion.newUsers <
+      shown.companion.revenue + shown.companion.newUsers
+    ) {
+      setShown(live);
+      return;
+    }
     if (!settled) return;
     const timer = setTimeout(() => setShown(live), HOLD);
     return () => clearTimeout(timer);
-  }, [settled, live]);
+  }, [settled, live, shown]);
   const { companion, today } = shown;
   return (
     <aside
@@ -123,7 +132,7 @@ export function Impact() {
             <li key={tile.key} className="rounded-2xl bg-white/[0.06] px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[12px] font-semibold text-white/60">{tile.label}</span>
-                {delta > 0 && b > 0 && (
+                {delta > 0 && (
                   <span className="tabular text-[11px] font-bold text-pg-yellow">
                     +{tile.money ? formatFare(delta) : delta}
                   </span>
