@@ -107,7 +107,7 @@ export function ConfirmationScreen({
           </div>
 
           {says !== undefined && (
-            <Says big className="mt-6">
+            <Says big mood="wink" className="mt-6">
               {says}
             </Says>
           )}

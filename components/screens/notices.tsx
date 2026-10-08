@@ -5,6 +5,7 @@ import { useNav } from "@/components/phone-nav";
 import { useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
 import { LockCard, LockScreen } from "@/components/ui/lock-screen";
+import { Avatar } from "@/components/ui/avatar";
 import { AppIcon, Initials, PrimaryButton, SecondaryButton } from "@/components/ui/primitives";
 import { Notice } from "./invitee";
 import { traceFor } from "@/lib/agent/trace";
@@ -122,6 +123,7 @@ export function SquadCancelledScreen() {
     <LockScreen date={longDate(draft.departDate.value)} time="04:50" bottom={150}>
       {ready && (
         <Notice
+          mood="sad"
           lead={`${first?.flight.departs ?? "06:10"} cancelled.`}
           rest={` All 3 of you are on the 13:30, seats 21A–C together. Archie and Tom have been told the same second.`}
         />
@@ -200,7 +202,7 @@ export function DadFollowsScreen({ cancelled = false }: { cancelled?: boolean })
       {ready && (
         <LockCard label="Message from Pegasus" radius={24} className="bg-white/95 !p-3.5">
           <div className="flex items-start gap-3">
-            <AppIcon size={38} />
+            {cancelled ? <Avatar size={38} mood="sad" /> : <AppIcon size={38} />}
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="text-[13px] leading-[18px] font-extrabold tracking-[0.04em]">
@@ -252,6 +254,7 @@ export function EmreCancelledScreen() {
       {ready && (
         <>
           <Notice
+            mood="sad"
             lead="Your 19:05 is cancelled."
             rest={` You're on the 21:15, seat ${seat}. Dad's been told the new landing time.`}
           />

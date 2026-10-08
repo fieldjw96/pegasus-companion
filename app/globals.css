@@ -252,9 +252,9 @@ body {
 /*
  * Motion, per the canvas's micro-motion notes.
  *
- * Thinking: the near wing rotates -16° to +10° about the shoulder, 520ms,
- * alternating; the avatar bobs on the same clock; the halo pulses every second
- * beat. Reduce Motion swaps all of it for fades.
+ * Thinking: each wing rotates -16° to +10° about its shoulder, 520ms,
+ * alternating, the left one mirrored; the avatar bobs on the same clock; the
+ * halo pulses every second beat. Reduce Motion swaps all of it for fades.
  */
 @keyframes wingbeat {
   from {
@@ -282,10 +282,20 @@ body {
     opacity: 0;
   }
 }
-.wing {
-  transform-box: view-box;
-  transform-origin: 62px 58px;
+@keyframes wingbeat-left {
+  from {
+    transform: rotate(16deg);
+  }
+  to {
+    transform: rotate(-10deg);
+  }
+}
+/* Each wing pivots at its own shoulder; the origin is set inline by the avatar. */
+.wing-r {
   animation: wingbeat 0.52s ease-in-out infinite alternate;
+}
+.wing-l {
+  animation: wingbeat-left 0.52s ease-in-out infinite alternate;
 }
 .bob {
   animation: bob 0.52s ease-in-out infinite alternate;
@@ -377,7 +387,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wing,
+  .wing-r,
+  .wing-l,
   .bob,
   .halo,
   .seatpulse {

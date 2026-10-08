@@ -6,6 +6,7 @@ import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
 import { traceFor } from "@/lib/agent/trace";
 import { AppHeader, AppShell, TotalFooter } from "@/components/ui/app-shell";
+import { Avatar, type AvatarMood } from "@/components/ui/avatar";
 import { LockCard, LockScreen } from "@/components/ui/lock-screen";
 import { AppIcon, Initials, PrimaryButton } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
@@ -476,12 +477,15 @@ export function Notice({
   when = "now",
   onTap,
   from = "PEGASUS",
+  mood,
 }: {
   lead: string;
   rest: string;
   when?: string;
   onTap?: () => void;
   from?: string;
+  /** The companion's face instead of the app icon, when the news is its own. */
+  mood?: AvatarMood;
 }) {
   const body = (
     <LockCard
@@ -489,7 +493,7 @@ export function Notice({
       radius={24}
       className="!flex-row items-start gap-3 bg-white/95 !p-3.5"
     >
-      <AppIcon size={38} />
+      {mood === undefined ? <AppIcon size={38} /> : <Avatar size={38} mood={mood} />}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex items-baseline justify-between gap-2">
           <span className="text-[13px] leading-[18px] font-extrabold tracking-[0.04em]">
