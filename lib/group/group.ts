@@ -14,7 +14,7 @@ import { SQUAD, ownerOf } from "@/lib/journey/script";
  * Nothing is frozen or held: the seat beside is an offer, not a reservation.
  *
  * Two kinds of invitee: Archie has the app, so his booking is built from his
- * saved preferences and arrives as a push. Tom does not, so a WhatsApp link
+ * saved preferences and arrives as a push. Jess does not, so a WhatsApp link
  * opens the same booking on the web and brings him into the app.
  */
 
@@ -44,10 +44,10 @@ export const FRIENDS: Friend[] = [
     },
   },
   {
-    name: "Tom Baker",
+    name: "Jess Carter",
     account: false,
     channel: "whatsapp",
-    pronoun: { subject: "he", object: "him", possessive: "his" },
+    pronoun: { subject: "she", object: "her", possessive: "her" },
     because: "In the group chat you message most. No app, so a WhatsApp link.",
     remembered: null,
   },
@@ -98,7 +98,7 @@ export function searchContacts(query: string, limit = 4): Contact[] {
   ).slice(0, limit);
 }
 
-/** "Archie and Tom", "Archie, Tom and Sam". */
+/** "Archie and Jess", "Archie, Jess and Sam". */
 export function listNames(names: string[]): string {
   const first = names.map(firstName);
   if (first.length <= 1) return first.join("");
@@ -188,7 +188,7 @@ export function seatBeside(
   if (first === undefined) return null;
   const who = ownerOf(friend.name);
   if (who === "archie") return SQUAD.seats.archie;
-  if (who === "tom") return SQUAD.seats.tom;
+  if (who === "jess") return SQUAD.seats.jess;
   const row = first.slice(0, -1);
   const letter = first.slice(-1);
   const next = String.fromCharCode(

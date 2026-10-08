@@ -2,8 +2,7 @@ import type { TripDraft } from "@/lib/assistant/draft";
 import { breakdown } from "@/lib/assistant/price";
 import { BREAKFAST, FRIENDS, buildInviteeDraft, inviteeExtras } from "@/lib/group/group";
 import { stayFor } from "@/lib/group/stay";
-import { GIFTS } from "@/lib/moments/moments";
-import { EMRE, WILL, emreDraft, willDraft } from "@/lib/demo/personas";
+import { WILL, willDraft } from "@/lib/demo/personas";
 
 /**
  * What the companion is worth, in numbers that move as the demo moves.
@@ -22,7 +21,7 @@ export type Figures = {
   revenue: number;
   /** GBP of fare uplift, seats, bags, meals and gifts: everything above the opening fare. */
   addOns: number;
-  /** People who joined the app because of the companion: Tom, Dad. */
+  /** People who joined the app because of the companion: Jess, Mum. */
   newUsers: number;
 };
 
@@ -41,13 +40,7 @@ export type ImpactState = {
   inviteesBooked: Record<string, string | null>;
   breakfast: boolean;
   hostel: "booked" | "declined" | null;
-  emre: {
-    draft: TripDraft | null;
-    booked: boolean;
-    gifts: boolean;
-    nextYear: boolean;
-    dadTold: boolean;
-  };
+  mumTold: boolean;
 };
 
 const ZERO: Figures = { bookings: 0, revenue: 0, addOns: 0, newUsers: 0 };
@@ -90,7 +83,7 @@ export const ASSUMPTIONS = [
   "Today's app sells one return to Istanbul; the onward legs are bought elsewhere.",
   "The three friends book today too, on LIGHT, without the app. Nobody joins.",
   "A stay booked through the app counts its commission, 12% of the total. Today's app sells no stays.",
-  "Today, Emre books late in May on LIGHT; nobody messages Dad.",
+  "Today, nobody messages Mum.",
 ];
 
 export function impactOf(state: ImpactState): Impact {
@@ -133,19 +126,9 @@ export function impactOf(state: ImpactState): Impact {
     companion = add(companion, { revenue: stay.commission, addOns: stay.commission });
   }
 
-  // Journey 2: Emre.
-  if (state.emre.booked) {
-    const draft = state.emre.draft ?? emreDraft();
-    const gifts = state.emre.gifts ? GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg : 0;
-    const total = breakdown(draft).total + gifts;
-    const base = openingFare(draft);
-    companion = add(companion, { bookings: 1, revenue: total, addOns: total - base });
-    today = add(today, { bookings: 1, revenue: base });
-  }
-  if (state.emre.dadTold) {
+  if (state.mumTold) {
     companion = add(companion, { newUsers: 1 });
   }
 
-  void EMRE;
   return { companion, today, assumptions: ASSUMPTIONS };
 }

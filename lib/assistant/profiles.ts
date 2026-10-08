@@ -42,6 +42,8 @@ export type Profile = {
   remembers: string[];
   /** Things on file that fill in a form nobody has to see. */
   onFile: { passport: string; from: string; payment: string };
+  /** Who is at home: the parent the companion can keep posted, with permission. */
+  parent: { name: string; relation: string; city: string } | null;
 };
 
 export const PROFILES: Profile[] = [
@@ -67,6 +69,7 @@ export const PROFILES: Profile[] = [
       from: "From your Wallet, with permission",
       payment: "Apple Pay",
     },
+    parent: { name: "Mum", relation: "mum", city: "Norwich" },
   },
   {
     id: "emre",
@@ -90,6 +93,7 @@ export const PROFILES: Profile[] = [
       from: "On file from your last trip",
       payment: "VISA •••• 2210",
     },
+    parent: null,
   },
 ];
 

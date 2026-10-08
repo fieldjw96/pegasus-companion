@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNav } from "@/components/phone-nav";
 import { useJourney } from "@/components/journey-provider";
 import { Initials, PrimaryButton, SearchIcon, TextButton } from "@/components/ui/primitives";
+import { shortDate } from "@/lib/demo/personas";
 import { CheckoutScreen } from "./checkout-screen";
 import { ConfirmationScreen } from "./confirmation-screen";
 import { traceFor } from "@/lib/agent/trace";
@@ -26,7 +27,8 @@ import { WILL, willDraft } from "@/lib/demo/personas";
  * The confirmation is where the group starts. The sentence said mates, not
  * who, so the companion asks whether to send the trip on and suggests two
  * people from his contacts. Each gets a nudge in Will's name with the seat
- * next to his offered. Nothing is frozen or held.
+ * next to his offered. Nothing is frozen or held. Under it, his mum: the
+ * dates and the landing time, if he says so, and told if a flight moves.
  */
 function useWill() {
   const { state, update } = useJourney();
@@ -45,6 +47,13 @@ export function WillCheckout() {
       onFile={WILL.onFile}
       backHref="/"
       nextHref="/confirmation"
+      note={
+        <>
+          <strong className="font-extrabold">Passport checked:</strong> valid to Mar 2032, well
+          past the 150 days Türkiye asks for after{" "}
+          {shortDate(draft.returnDate.value ?? draft.departDate.value)}. Nothing to renew.
+        </>
+      }
       onPay={() => update({ draft, booked: true })}
       thinking={{
         key: "checkout:will",
@@ -220,7 +229,7 @@ export function WillConfirmation() {
                       ? null
                       : lead.account
                         ? { who: "archie", route: "/invite/archie" }
-                        : { who: "tom", route: "/invite/tom" },
+                        : { who: "jess", route: "/invite/jess" },
                 });
                 router.push("/group");
               }}
@@ -230,6 +239,41 @@ export function WillConfirmation() {
           </>
         )}
       </section>
+      {WILL.parent !== null && (
+        <section
+          aria-label="Keep Mum posted"
+          className="pg-card mt-4 flex flex-col gap-2.5 p-5"
+        >
+          <div className="flex items-center gap-3">
+            <Initials name={WILL.parent.name} size={36} />
+            <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
+              Keep {WILL.parent.name} posted?
+            </h2>
+          </div>
+          <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
+            {state.mumTold
+              ? `${WILL.parent.name} has the dates, who you're with and when you land. If a flight moves, she hears the same second you do. Never an offer.`
+              : `The dates, who you're with and when you land. If a flight moves, she hears the same second you do. Never an offer.`}
+          </p>
+          {state.mumTold ? (
+            <TextButton
+              onClick={() => update({ aside: { who: "mum", route: "/follow/mum" } })}
+              className="min-h-0"
+            >
+              See what {WILL.parent.name} got
+            </TextButton>
+          ) : (
+            <PrimaryButton
+              className="mt-1 w-full"
+              onClick={() =>
+                update({ mumTold: true, aside: { who: "mum", route: "/follow/mum" } })
+              }
+            >
+              Keep {WILL.parent.name} updated
+            </PrimaryButton>
+          )}
+        </section>
+      )}
     </ConfirmationScreen>
   );
 }

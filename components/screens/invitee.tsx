@@ -38,23 +38,23 @@ import {
 } from "@/lib/group/group";
 
 /**
- * The invitee's side: Archie's phone, then Tom's.
+ * The invitee's side: Archie's phone, then Jess's.
  *
  * Neither said anything. Archie has the app, so a push in Will's name opens a
  * booking already built: the flights from Will, the fare and seat predicted,
  * the passport, payment and his usual hot meal remembered. He checks and pays.
- * Tom has no app, so a WhatsApp from Will opens the same booking on the web
- * and brings him into the app. When he stalls, the companion finishes the
- * booking up to the pay button and nudges him in Will's name.
+ * Jess has no app, so a WhatsApp from Will opens the same booking on the web
+ * and brings her into the app. When she stalls, the companion finishes the
+ * booking up to the pay button and nudges her in Will's name.
  */
-export type FriendId = "archie" | "tom";
+export type FriendId = "archie" | "jess";
 
 function useInvitee(id: FriendId) {
   const { state, update } = useJourney();
   const organiser = state.draft ?? willDraft();
   const me = WILL.travellers[0]?.name ?? "Will Parker";
   const friend: Friend =
-    friendByName(id === "archie" ? "Archie Bell" : "Tom Baker") ?? FRIENDS[0]!;
+    friendByName(id === "archie" ? "Archie Bell" : "Jess Carter") ?? FRIENDS[0]!;
   const draft = buildInviteeDraft(organiser, friend, me);
   const seat = seatBeside(organiser, friend, me);
   const extras = inviteeExtras(organiser, friend, me);
@@ -144,12 +144,12 @@ export function ArchiePushScreen() {
   );
 }
 
-/** Tom's WhatsApp: an invite from Will that opens the trip, pre-filled. */
-export function TomWhatsAppScreen() {
+/** Jess's WhatsApp: an invite from Will that opens the trip, pre-filled. */
+export function JessWhatsAppScreen() {
   const router = useNav();
-  const { me, city, organiser, seat, state } = useInvitee("tom");
+  const { me, city, organiser, seat, state } = useInvitee("jess");
   const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
-  const ready = useAgentRun("invite:tom:arrive", () => traceFor("/invite/tom", state));
+  const ready = useAgentRun("invite:jess:arrive", () => traceFor("/invite/jess", state));
   return (
     <WhatsAppChat me={me}>
       <DayDivider>{INVITE.sentLong}</DayDivider>
@@ -159,7 +159,7 @@ export function TomWhatsAppScreen() {
           city={city}
           span={span}
           seat={seat}
-          onTap={() => router.push("/invite/tom/signup")}
+          onTap={() => router.push("/invite/jess/signup")}
         />
       )}
       <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
@@ -171,17 +171,19 @@ export function TomWhatsAppScreen() {
 }
 
 /**
- * Tom's first screen in the app: a sign-up with nothing to type. The invite
- * link carries who he is, so the account is one tap and the form is skipped.
+ * Jess's first screen in the app: a sign-up with nothing to type. The invite
+ * link carries who she is, so the account is one tap and the form is skipped.
  * The booking, already built from Will's, is the reason to join; it is the
  * next screen, not a reward after a form.
  */
-export function TomSignUpScreen() {
+export function JessSignUpScreen() {
   const router = useNav();
-  const { me, friend, city, state } = useInvitee("tom");
-  const ready = useAgentRun("invite:tom:signup", () => traceFor("/invite/tom/signup", state));
+  const { me, friend, city, state } = useInvitee("jess");
+  const ready = useAgentRun("invite:jess:signup", () =>
+    traceFor("/invite/jess/signup", state),
+  );
   if (!ready) return <Thinking label="Opening your invite…" header={null} />;
-  const join = () => router.push("/invite/tom/ticket");
+  const join = () => router.push("/invite/jess/ticket");
   return (
     <div className="flex h-full flex-col bg-pg-surface text-pg-navy">
       <StatusBar />
@@ -225,7 +227,7 @@ export function TomSignUpScreen() {
   );
 }
 
-/** The WhatsApp chrome: Will's chat, as Tom sees it. */
+/** The WhatsApp chrome: Will's chat, as Jess sees it. */
 function WhatsAppChat({ me, children }: { me: string; children: ReactNode }) {
   return (
     <div className="flex h-full flex-col bg-[#EFE7DD] text-pg-navy">
@@ -318,7 +320,7 @@ function InviteBubble({
       title={`${firstName(me)} invited you to ${city} ✈︎`}
       detail={`${span} · seat ${seat} saved next to ${him}`}
       cta={`Join ${firstName(me)}'s trip on Pegasus`}
-      text={<>Lads. Booked it. Seat next to mine&rsquo;s free if you&rsquo;re quick 🎈</>}
+      text={<>Booked it! Seat next to mine&rsquo;s free if you&rsquo;re quick 🎈</>}
       time="18:51"
       onTap={onTap}
     />
@@ -360,9 +362,9 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
         >
           <PrimaryButton
             onClick={() => {
-              // Tom has nothing on file to check, so the tap is the booking.
+              // Jess has nothing on file to check, so the tap is the booking.
               // Archie's checkout is the receipt of what was remembered for him.
-              if (id === "tom") {
+              if (id === "jess") {
                 bookInvitee(update, friend, seat);
                 router.push(`/invite/${id}/confirmation`);
               } else {
@@ -370,7 +372,7 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
               }
             }}
           >
-            {id === "tom"
+            {id === "jess"
               ? `Book and pay · ${formatFare(price.total)} GBP`
               : "Book in one tap"}
           </PrimaryButton>
@@ -390,8 +392,8 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
               },
               {
                 letter: "C",
-                name: id === "tom" ? friend.name : (FRIENDS[1]?.name ?? null),
-                held: id !== "tom",
+                name: id === "jess" ? friend.name : (FRIENDS[1]?.name ?? null),
+                held: id !== "jess",
               },
               { letter: "D", name: null },
               { letter: "E", name: null },
@@ -581,17 +583,19 @@ function ordinal(n: number): string {
   return ["", "1st", "2nd", "3rd", "4th", "5th"][n] ?? `${n}th`;
 }
 
-/** Tom stalls: a second WhatsApp from Will, drafted by the companion. The card opens the app. */
-export function TomStallsScreen() {
+/** Jess stalls: a second WhatsApp from Will, drafted by the companion. The card opens the app. */
+export function JessStallsScreen() {
   const router = useNav();
-  const { me, city, organiser, state, itinerary, seat } = useInvitee("tom");
+  const { me, city, organiser, state, itinerary, seat } = useInvitee("jess");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
   const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
   const left = itinerary.out?.flight.seatsLeft ?? 9;
   const departs = itinerary.out?.flight.departs ?? "06:10";
-  const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
-  // The card is the way in: the app opens on the sign-up, then his ticket.
-  const open = () => router.push("/invite/tom/signup");
+  const ready = useAgentRun("invite:jess:stalls", () =>
+    traceFor("/invite/jess/stalls", state),
+  );
+  // The card is the way in: the app opens on the sign-up, then her ticket.
+  const open = () => router.push("/invite/jess/signup");
   return (
     <WhatsAppChat me={me}>
       <DayDivider>{INVITE.sentLong}</DayDivider>
@@ -617,7 +621,7 @@ export function TomStallsScreen() {
       {ready && (
         <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
           Drafted by the companion, sent from {firstName(me)}&rsquo;s phone with one tap. The
-          link installs the app: one tap to join, then his booking, one tap to pay.
+          link installs the app: one tap to join, then her booking, one tap to pay.
         </p>
       )}
     </WhatsAppChat>

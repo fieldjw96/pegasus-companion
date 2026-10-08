@@ -107,7 +107,7 @@ export function AppHeader({
 
 const TABS = [
   { label: "Home", href: "/", icon: HomeIcon },
-  { label: "My Flights", href: "/flights", icon: FlightsIcon },
+  { label: "My Flights", href: "/group", icon: FlightsIcon },
   { label: "Check-in", href: "/", icon: CheckInIcon },
   { label: "Special Offers", href: "/", icon: OffersIcon },
   { label: "More", href: "/", icon: MoreIcon },

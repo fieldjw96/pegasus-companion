@@ -57,24 +57,24 @@ describe("Archie's booking", () => {
   });
 });
 
-describe("Tom's booking", () => {
+describe("Jess's booking", () => {
   const will = willDraft();
   const me = WILL.travellers[0]!.name;
-  const tom = FRIENDS[1]!;
+  const jess = FRIENDS[1]!;
 
   it("is built from Will alone, with nothing remembered", () => {
-    const draft = buildInviteeDraft(will, tom, me);
+    const draft = buildInviteeDraft(will, jess, me);
     expect(countBySource(draft).profile).toBe(0);
-    expect(seatBeside(will, tom, me)).toBe("14C");
-    expect(inviteeExtras(will, tom, me)).toEqual([]);
-    expect(itineraryFor(draft, tom.name).reference).toBe("X7K2PQ");
+    expect(seatBeside(will, jess, me)).toBe("14C");
+    expect(inviteeExtras(will, jess, me)).toEqual([]);
+    expect(itineraryFor(draft, jess.name).reference).toBe("X7K2PQ");
   });
 });
 
 describe("the squad", () => {
   const invited = FRIENDS.map((f) => f.name);
 
-  it("starts with only Will booked, Archie opened, Tom unopened", () => {
+  it("starts with only Will booked, Archie opened, Jess unopened", () => {
     const members = groupMembers("Will Parker", "14A", invited, {});
     expect(members.map((m) => m.status)).toEqual(["booked", "opened", "unopened"]);
   });
@@ -82,7 +82,7 @@ describe("the squad", () => {
   it("fills in as people pay, with their seats", () => {
     const members = groupMembers("Will Parker", "14A", invited, {
       "Archie Bell": "14B",
-      "Tom Baker": "14C",
+      "Jess Carter": "14C",
     });
     expect(members.every((m) => m.status === "booked")).toBe(true);
     expect(members.map((m) => m.seat)).toEqual(["14A", "14B", "14C"]);
@@ -95,6 +95,6 @@ describe("the contact search", () => {
     expect(searchContacts("sa").map((c) => c.name)).toEqual(["Sam Reed"]);
     expect(searchContacts("re").map((c) => c.name)).toEqual(["Sam Reed"]);
     expect(searchContacts("arch").length).toBe(0);
-    expect(listNames(["Archie Bell", "Tom Baker", "Sam Reed"])).toBe("Archie, Tom and Sam");
+    expect(listNames(["Archie Bell", "Jess Carter", "Sam Reed"])).toBe("Archie, Jess and Sam");
   });
 });

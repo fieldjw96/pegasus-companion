@@ -18,12 +18,11 @@ import { firstOpen, pitches } from "@/lib/agent/first-open";
 import { traceFor } from "@/lib/agent/trace";
 import type { TripDraft } from "@/lib/assistant/draft";
 import { itineraryFor, nights } from "@/lib/assistant/itinerary";
-import { breakdown, withLines, type PriceLine } from "@/lib/assistant/price";
+import { breakdown } from "@/lib/assistant/price";
 import { AIRPORTS, formatFare } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
 import { firstName } from "@/lib/group/group";
-import { GIFTS, MOMENT, nextYearMoment } from "@/lib/moments/moments";
-import { EMRE, WILL, emreDraft, shift, shortDate, type Persona } from "@/lib/demo/personas";
+import { WILL } from "@/lib/demo/personas";
 
 /**
  * Home: the greeting, the thinking beat, and the ticket.
@@ -33,21 +32,19 @@ import { EMRE, WILL, emreDraft, shift, shortDate, type Persona } from "@/lib/dem
  * rather than being walked through nine screens of questions the app could
  * mostly have answered itself.
  *
- * Two people use it. Will has never been here: everything he did not say is a
- * prediction, and the first thing under his sentence is what the companion
- * heard, as editable chips. Emre arrives from a nudge with his usual trip
- * already rebuilt, and the first question is whether it got it right.
+ * Will has never been here: everything he did not say is a prediction, and
+ * the first question under the ticket is whether the companion got it right.
  */
 
 type Phase = "idle" | "thinking" | "discovery" | "trip";
 
-export function HomeScreen({ persona }: { persona: Persona }) {
+export function HomeScreen() {
   const router = useNav();
   const { state, update } = useJourney();
-  const profile = persona === "emre" ? EMRE : WILL;
-  const draft = persona === "emre" ? (state.emre.draft ?? emreDraft()) : state.draft;
+  const profile = WILL;
+  const draft = state.draft;
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const discovery = persona === "will" && state.prompt !== null && draft === null;
+  const discovery = state.prompt !== null && draft === null;
 
   /*
    * The agents run before anything shows. On a first open, the Trip agent
@@ -55,25 +52,18 @@ export function HomeScreen({ persona }: { persona: Persona }) {
    * it builds the trip. The phone shows the result when the run finishes.
    */
   const firstOpenDone = useAgentRun(
-    persona === "will" && state.prompt === null && draft === null ? "home:first-open" : null,
+    state.prompt === null && draft === null ? "home:first-open" : null,
     () => traceFor("/", state),
   );
-  // The presents are an add-on, not a change to the trip: taking them updates
-  // the ticket and the price in place, without the agents running again.
-  const tripKey =
-    persona === "emre"
-      ? `home:emre:${state.emre.nextYear}:${state.emre.corrected ?? ""}`
-      : discovery
-        ? `home:discovery:${state.prompt}`
-        : draft !== null
-          ? `home:trip:${state.prompt ?? ""}:${draft.stops.value.length}:${state.edit?.said ?? ""}`
-          : null;
-  const tripDone = useAgentRun(tripKey, () =>
-    traceFor(persona === "emre" ? "/emre" : "/", state),
-  );
+  const tripKey = discovery
+    ? `home:discovery:${state.prompt}`
+    : draft !== null
+      ? `home:trip:${state.prompt ?? ""}:${draft.stops.value.length}:${state.edit?.said ?? ""}`
+      : null;
+  const tripDone = useAgentRun(tripKey, () => traceFor("/", state));
   const picks = useMemo(() => pitches(firstOpen()), []);
   const phase: Phase =
-    persona === "will" && state.prompt === null && draft === null
+    state.prompt === null && draft === null
       ? "idle"
       : !tripDone
         ? "thinking"
@@ -95,8 +85,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   const first = firstName(names[0] ?? "");
 
   function setDraft(next: TripDraft | null): void {
-    if (persona === "emre") update((prev) => ({ emre: { ...prev.emre, draft: next } }));
-    else update({ draft: next });
+    update({ draft: next });
   }
 
   function run(text: string): void {
@@ -118,12 +107,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     // A sentence with no place in it changes the trip on screen; one with a
     // place is a new trip.
     const amended = draft === null ? null : amendDraft(draft, text);
-    if (persona === "emre") {
-      update((prev) => ({
-        prompt: amended === null ? text : prev.prompt,
-        emre: { ...prev.emre, draft: amended?.draft ?? buildDraft(text, profile) },
-      }));
-    } else if (amended !== null) {
+    if (amended !== null) {
       update({
         draft: amended.draft,
         edit: { said: text, changed: amended.changed },
@@ -225,13 +209,11 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         <div role="status" className="flex flex-col items-center gap-7 pt-20 pb-10">
           <ThinkingAvatar />
           <p className="text-center text-[17px] leading-6 font-semibold">
-            {profile.coldStart
-              ? discovery
-                ? "Looking at the network…"
-                : (extract(state.prompt ?? "").nights ?? 0) >= 5
-                  ? "Building your week…"
-                  : "Building your trip…"
-              : "Rebuilding your usual…"}
+            {discovery
+              ? "Looking at the network…"
+              : (extract(state.prompt ?? "").nights ?? 0) >= 5
+                ? "Building your week…"
+                : "Building your trip…"}
           </p>
         </div>
       </AppShell>
@@ -260,22 +242,7 @@ export function HomeScreen({ persona }: { persona: Persona }) {
   }
 
   const itinerary = itineraryFor(draft, names[0]);
-  const gifts: PriceLine[] =
-    persona === "emre" && state.emre.gifts
-      ? [
-          {
-            label: GIFTS.extraWeight.label,
-            detail: `${GIFTS.extraWeight.perLeg.toFixed(2)} on the way home`,
-            amount: GIFTS.extraWeight.perLeg,
-          },
-          {
-            label: GIFTS.delight.label,
-            detail: `${GIFTS.delight.perLeg.toFixed(2)}, ready at your seat`,
-            amount: GIFTS.delight.perLeg,
-          },
-        ]
-      : [];
-  const price = withLines(breakdown(draft), gifts);
+  const price = breakdown(draft);
   const away = nights(draft);
   const people = draft.party.value.adults + draft.party.value.children;
   const seatLegs = itinerary.legs.length;
@@ -300,119 +267,6 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     />
   );
 
-  const moment = state.emre.nextYear ? nextYearMoment(MOMENT) : MOMENT;
-  const birthday = moment.occasion;
-  const afterBirthday = shift(birthday, 1);
-  const returnOptions = [
-    {
-      value: moment.back,
-      label: `${shortDate(moment.back)} · your usual`,
-      pick: () => {
-        setDraft({
-          ...draft,
-          returnDate: {
-            value: moment.back,
-            source: "predicted",
-            why: "The Sunday, as on your usual weekend.",
-          },
-        });
-        update((prev) => ({ emre: { ...prev.emre, corrected: null } }));
-      },
-    },
-    {
-      value: afterBirthday,
-      label: `${shortDate(afterBirthday)} · after the birthday`,
-      pick: () => {
-        setDraft({
-          ...draft,
-          returnDate: {
-            value: afterBirthday,
-            source: "said",
-            why: "You're staying for the birthday. Next time I'll start here.",
-          },
-        });
-        update((prev) => ({ emre: { ...prev.emre, corrected: "return date" } }));
-        setThumbsDown(false);
-      },
-    },
-  ];
-  const emreIntro = (
-    <>
-      <div className="mt-1 flex flex-col gap-2 px-1">
-        <span className="text-[13px] font-semibold text-pg-ink">Back</span>
-        <div className="flex flex-wrap gap-2">
-          {returnOptions.map((o) => {
-            const on = draft.returnDate.value === o.value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={on}
-                onClick={o.pick}
-                className={`tabular h-9 rounded-full px-3.5 text-[13px] font-bold ${
-                  on
-                    ? "bg-pg-navy text-white"
-                    : "bg-white shadow-[0_1px_2px_rgba(31,42,55,0.08)]"
-                }`}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <Thumbs
-        question="Did we get it right?"
-        value={state.emre.corrected === null ? null : "down"}
-        onPick={(v) => setThumbsDown(v === "down")}
-        open={thumbsDown}
-        prefix="Not quite:"
-        options={[
-          { label: "return date", onPick: () => returnOptions[1]?.pick() },
-          { label: "seat", onPick: () => setThumbsDown(false) },
-          { label: "bags", onPick: () => setThumbsDown(false) },
-          { label: "flight time", onPick: () => setThumbsDown(false) },
-        ]}
-        reply={
-          state.emre.corrected !== null && !thumbsDown
-            ? `Changed: back on ${shortDate(draft.returnDate.value ?? "")}, the day after the birthday. Next time I'll ask about the return.`
-            : null
-        }
-      />
-    </>
-  );
-
-  // Left once, the presents are not offered again: next year the card is silent.
-  const giftsIgnored = state.emre.nextYear && !state.emre.giftsLastYear;
-  const giftsOffer =
-    persona === "emre" && !state.emre.gifts && !giftsIgnored ? (
-      <section aria-label="Room for presents" className="pg-card mt-3 flex flex-col gap-3 p-5">
-        <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
-          Room for presents?
-        </h2>
-        <div className="flex flex-col gap-2.5">
-          <OfferLine
-            title="Taking gifts home? Add 15 kg to your bag."
-            price={GIFTS.extraWeight.perLeg}
-          />
-          <OfferLine
-            title="Turkish delight for Mum 🎂"
-            detail="Pre-order from Pegasus Café, ready at your seat."
-            price={GIFTS.delight.perLeg}
-          />
-        </div>
-        <PrimaryButton
-          className="w-full"
-          onClick={() => update((prev) => ({ emre: { ...prev.emre, gifts: true } }))}
-        >
-          Add both · +{formatFare(GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg)} GBP
-        </PrimaryButton>
-        <p className="text-[12px] leading-[18px] text-pg-ink">
-          Offered because it&rsquo;s a birthday trip. Ignore it and I won&rsquo;t ask again.
-        </p>
-      </section>
-    ) : null;
-
   const seatLetter = itinerary.out?.seats[0]?.slice(-1) ?? "A";
   const squadRow = itinerary.out?.seats[0]?.slice(0, -1) ?? String(SQUAD.row);
 
@@ -425,38 +279,23 @@ export function HomeScreen({ persona }: { persona: Persona }) {
           line={`${people} travelling${away === null ? "" : `, ${away} nights`}`}
           total={`${formatFare(price.total)} GBP`}
         >
-          <PrimaryButton
-            onClick={() => router.push(persona === "emre" ? "/emre/checkout" : "/checkout")}
-          >
-            {persona === "emre" ? "Confirm" : "Checkout"}
-          </PrimaryButton>
+          <PrimaryButton onClick={() => router.push("/checkout")}>Checkout</PrimaryButton>
         </TotalFooter>
       }
       overlay={
         seatSheet && itinerary.out !== null ? (
           <SeatSheet
-            title={persona === "will" ? "Grab the window?" : `Keep ${itinerary.out.seats[0]}?`}
+            title="Grab the window?"
             row={Number(squadRow)}
-            seats={
-              persona === "will"
-                ? ["A", "B", "C", "D", "E", "F"].map((letter) => ({
-                    letter,
-                    name: letter === "A" ? (names[0] ?? null) : null,
-                  }))
-                : ["A", "B", "C", "D", "E", "F"].map((letter) => ({
-                    letter,
-                    name: letter === seatLetter ? (names[0] ?? null) : null,
-                  }))
-            }
+            seats={["A", "B", "C", "D", "E", "F"].map((letter) => ({
+              letter,
+              name: letter === "A" ? (names[0] ?? null) : null,
+            }))}
             you={seatLetter}
             perLeg={7}
             legs={seatLegs}
             included={draft.seating.value !== "none"}
-            says={
-              persona === "will"
-                ? `${itinerary.out.flight.departs} departure. Grab the window and sleep.`
-                : "Your usual. Say if you'd rather sit anywhere this time."
-            }
+            says={`${itinerary.out.flight.departs} departure. Grab the window and sleep.`}
             cta={
               draft.seating.value === "none"
                 ? `Take ${squadRow}${seatLetter} · +${formatFare(7 * seatLegs)} GBP`
@@ -483,7 +322,6 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         ) : undefined
       }
     >
-      {persona === "emre" ? emreIntro : null}
       <Ticket
         draft={draft}
         onChange={setDraft}
@@ -492,35 +330,11 @@ export function HomeScreen({ persona }: { persona: Persona }) {
         onSeat={() => setSeatSheet(true)}
         seatLabel={draft.seating.value === "none" ? "At check-in" : undefined}
         seatDotted={draft.seating.source !== "said"}
-        between={giftsOffer}
-        extraLines={gifts}
         compact
       />
-      {persona === "will" ? willIntro : null}
+      {willIntro}
       <SentenceSection onSubmit={run} />
     </AppShell>
-  );
-}
-
-function OfferLine({
-  title,
-  detail,
-  price,
-}: {
-  title: string;
-  detail?: string;
-  price: number;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3 rounded-[14px] bg-pg-surface px-4 py-3">
-      <span className="flex flex-col gap-0.5">
-        <span className="text-[15px] leading-5 font-bold">{title}</span>
-        {detail !== undefined && (
-          <span className="text-[13px] leading-[18px] text-pg-ink">{detail}</span>
-        )}
-      </span>
-      <span className="tabular shrink-0 text-[15px] font-bold">{formatFare(price)}</span>
-    </div>
   );
 }
 

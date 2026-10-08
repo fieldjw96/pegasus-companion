@@ -23,7 +23,7 @@ export type ScriptedFlight = {
   light: number;
 };
 
-/** Journey 1: Will, Archie and Tom's week. Four sectors each. */
+/** Journey 1: Will, Archie and Jess's week. Four sectors each. */
 export const SQUAD = {
   origin: "STN",
   /** The headline place. The route runs through Istanbul and out via Antalya. */
@@ -33,11 +33,29 @@ export const SQUAD = {
     { code: "ASR", nights: 3 },
     { code: "AYT", nights: 2 },
   ],
-  references: { will: "K4T7QX", archie: "M2PR8V", tom: "X7K2PQ" },
+  references: { will: "K4T7QX", archie: "M2PR8V", jess: "X7K2PQ" },
   row: 14,
-  seats: { will: "14A", archie: "14B", tom: "14C" },
+  seats: { will: "14A", archie: "14B", jess: "14C" },
   seatPricePerLeg: 7,
   gate: "B12",
+} as const;
+
+/**
+ * The companion's opening move. Will has never said a word to it; what it has
+ * is what the phone and the app give away, with permission, and it speaks
+ * once. These are the signals, pinned, so the card and the panel agree.
+ */
+export const TRIP_NUDGE = {
+  /** The morning it speaks: the day Will then books. */
+  date: "Tuesday 3 March",
+  time: "08:30",
+  /** In-app searches for the place, and when. */
+  searches: 2,
+  searchedIn: "February",
+  /** The fare feed's word on May. */
+  lowSince: "October",
+  /** Unasked messages allowed a quarter. */
+  budget: 1,
 } as const;
 
 /**
@@ -208,11 +226,11 @@ export function isScriptedRoute(origin: string, destination: string): boolean {
 }
 
 /** Who a pinned seat or reference belongs to, by first name, lower case. */
-export type Owner = "will" | "archie" | "tom" | "emre";
+export type Owner = "will" | "archie" | "jess" | "emre";
 
 export function ownerOf(name: string | undefined): Owner | null {
   const first = (name ?? "").split(" ")[0]?.toLowerCase();
-  return first === "will" || first === "archie" || first === "tom" || first === "emre"
+  return first === "will" || first === "archie" || first === "jess" || first === "emre"
     ? first
     : null;
 }

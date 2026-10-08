@@ -12,6 +12,7 @@ import { suggest } from "@/lib/assistant/discover";
 import { firstOpen, pitches } from "./first-open";
 import { fareDrop } from "@/lib/group/next-trip";
 import { stayFor } from "@/lib/group/stay";
+import { tripNudge } from "@/lib/group/trip-nudge";
 import { sceneFor } from "./scenes";
 import {
   BREAKFAST,
@@ -34,30 +35,14 @@ import {
   inventory,
   type AirportCode,
 } from "@/lib/journey/flights";
-import { HOME, NEXT_TRIP, SQUAD } from "@/lib/journey/script";
+import { NEXT_TRIP, SQUAD, TRIP_NUDGE } from "@/lib/journey/script";
 import {
-  GIFTS,
-  MOMENT,
-  checkMorning,
-  momentDates,
-  mornings,
-  nextYearMoment,
-  nudgeDate,
-  reminderDate,
-  watchStart,
-  type Moment,
-  type MomentState,
-} from "@/lib/moments/moments";
-import {
-  EMRE,
   WILL,
   WILL_PROMPT,
   daysBetween,
-  emreDraft,
   longDate,
   shift,
   shortDate,
-  weekdayName,
   willDraft,
 } from "@/lib/demo/personas";
 
@@ -120,22 +105,8 @@ export type TraceState = {
   sent: boolean;
   inviteesBooked: Record<string, string | null>;
   hostel: "booked" | "declined" | null;
-  emre: {
-    draft: TripDraft | null;
-    booked: boolean;
-    corrected: string | null;
-    gifts: boolean;
-    surprise: boolean;
-    nextYear: boolean;
-    giftsLastYear: boolean;
-  };
-  moment: {
-    set: boolean;
-    declined: boolean;
-    never: boolean;
-    approved: boolean;
-    spoken: number;
-  };
+  mumTold: boolean;
+  nudge: { declined: boolean; never: boolean; spoken: number };
 };
 
 const cityOf = (code: string): string => AIRPORTS[code as AirportCode]?.city ?? code;
@@ -331,7 +302,7 @@ function builtSteps(w: Will): Step[] {
         : [
             `${firstName(w.me)}: ${itinerary.out.seats[0] ?? "—"} on every leg`,
             ...(w.companions > 0
-              ? [`Held beside: ${SQUAD.seats.archie}, ${SQUAD.seats.tom}`]
+              ? [`Held beside: ${SQUAD.seats.archie}, ${SQUAD.seats.jess}`]
               : []),
           ],
     ),
@@ -559,7 +530,7 @@ function homeTrace(state: TraceState): Trace {
 function checkoutTrace(state: TraceState): Trace {
   const w = will(state);
   const price = breakdown(w.draft);
-  const free = [SQUAD.seats.archie, SQUAD.seats.tom];
+  const free = [SQUAD.seats.archie, SQUAD.seats.jess];
   return {
     who: "Will's phone",
     when: "Checkout",
@@ -636,7 +607,7 @@ function confirmationTrace(state: TraceState): Trace {
       "Offer",
       "think",
       "Made the seat the nudge",
-      `${SQUAD.seats.archie} and ${SQUAD.seats.tom} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free. That's the line each friend gets, in Will's name: the seat beside him, ${formatFare(SQUAD.seatPricePerLeg)} a leg, if they're quick. Nothing is frozen; the fare is today's fare.`,
+      `${SQUAD.seats.archie} and ${SQUAD.seats.jess} next to ${w.itinerary.out?.seats[0] ?? "14A"} are free. That's the line each friend gets, in Will's name: the seat beside him, ${formatFare(SQUAD.seatPricePerLeg)} a leg, if they're quick. Nothing is frozen; the fare is today's fare.`,
     ),
     step(
       "Group",
@@ -667,13 +638,26 @@ function confirmationTrace(state: TraceState): Trace {
           "Waiting on Will",
           "Untick anyone, add anyone from his contacts, or send to nobody. If he sends to nobody, I don't ask again.",
         ),
+    state.mumTold
+      ? step(
+          "Moments",
+          "act",
+          `Sent ${WILL.parent?.name ?? "Mum"} the dates and the landing time`,
+          "Will said keep her posted. She gets the trip and when he lands, a follow link and STOP; never an offer. If a flight moves she hears the same second he does.",
+        )
+      : step(
+          "Moments",
+          "quiet",
+          `Asked about ${WILL.parent?.name ?? "Mum"}, sent nothing`,
+          `${WILL.parent?.name ?? "Mum"} is in his contacts. Whether she hears is his call, so the card asks once; nothing goes to her until he says so.`,
+        ),
   ];
   return { who: "Will's phone", when: "Confirmation", steps };
 }
 
 function inviteeTrace(
   state: TraceState,
-  id: "archie" | "tom",
+  id: "archie" | "jess",
   stage: "arrive" | "signup" | "ticket" | "checkout" | "confirmation",
 ): Trace {
   const w = will(state);
@@ -710,7 +694,7 @@ function inviteeTrace(
             "Group",
             "think",
             "Chose WhatsApp",
-            `${first} has no account. A link from Will's number opens the app on a sign-up that already knows him, and the same booking right after. The account is a tap, not a form.`,
+            `${first} has no account. A link from Will's number opens the app on a sign-up that already knows ${friend.pronoun.object}, and the same booking right after. The account is a tap, not a form.`,
           ),
       step(
         "Offer",
@@ -738,7 +722,7 @@ function inviteeTrace(
         "Group",
         "read",
         "Opened from Will's link",
-        `The link carries the invite: ${friend.name}, Will's trip, ${seat ?? "a seat"} held. So the app opens knowing who he is, before any account exists.`,
+        `The link carries the invite: ${friend.name}, Will's trip, ${seat ?? "a seat"} held. So the app opens knowing who ${friend.pronoun.subject} is, before any account exists.`,
         [
           `Name: ${friend.name}`,
           "Number: the one Will messaged",
@@ -858,35 +842,35 @@ function inviteeTrace(
 
 function stallsTrace(state: TraceState): Trace {
   const w = will(state);
-  const tom = FRIENDS[1]!;
+  const jess = FRIENDS[1]!;
   const left = w.itinerary.out?.flight.seatsLeft ?? 9;
   return {
-    who: "Tom's phone, then Will's",
+    who: "Jess's phone, then Will's",
     when: "The next day",
     steps: [
       step(
         "Moments",
         "read",
         "Watched the flight, not a clock",
-        `Tom opened the link and didn't pay. The ${w.itinerary.out?.flight.departs ?? "06:10"} is down to ${left} seats, so the reason to nudge is real.`,
+        `Jess opened the link and didn't pay. The ${w.itinerary.out?.flight.departs ?? "06:10"} is down to ${left} seats, so the reason to nudge is real.`,
       ),
       step(
         "Moments",
         "think",
         "Chose who speaks, and where",
-        "A push from Pegasus is marketing, and Tom has no app to push to. The same words from Will on WhatsApp are a mate. So Will is asked first whether to nudge, and the message goes from his phone in his name.",
+        "A push from Pegasus is marketing, and Jess has no app to push to. The same words from Will on WhatsApp are a mate. So Will is asked first whether to nudge, and the message goes from his phone in his name.",
       ),
       step(
         "Moments",
         "quiet",
         "One nudge, not three",
-        "If Tom ignores it, nothing else arrives. I don't chase.",
+        "If Jess ignores it, nothing else arrives. I don't chase.",
       ),
       step(
         "Trip",
         "act",
         "Made the card the way in",
-        `The card in the message installs the app and opens it on a sign-up that already knows him, then Will's flight with ${seatBeside(w.draft, tom, w.me) ?? "his seat"} held. One tap to join, one to pay, nothing to type on either. A form here is where the squad is lost.`,
+        `The card in the message installs the app and opens it on a sign-up that already knows ${jess.pronoun.object}, then Will's flight with ${seatBeside(w.draft, jess, w.me) ?? `${jess.pronoun.possessive} seat`} held. One tap to join, one to pay, nothing to type on either. A form here is where the squad is lost.`,
       ),
     ],
   };
@@ -922,7 +906,7 @@ function waitingTrace(state: TraceState): Trace {
       step(
         "Offer",
         "quiet",
-        "Nothing for Tom",
+        "Nothing for Jess",
         "He hasn't paid. An extra on top of an unpaid fare is noise.",
       ),
     ],
@@ -1000,13 +984,13 @@ function checkInTrace(state: TraceState): Trace {
             "Group",
             "read",
             "Checked the seats",
-            `All three took the seats beside each other when they booked: ${out?.seats[0] ?? "14A"}, ${SQUAD.seats.archie}, ${SQUAD.seats.tom}. Nothing to fix.`,
+            `All three took the seats beside each other when they booked: ${out?.seats[0] ?? "14A"}, ${SQUAD.seats.archie}, ${SQUAD.seats.jess}. Nothing to fix.`,
           )
         : step(
             "Group",
             "read",
-            "Noticed Tom has no seat",
-            `He skipped seat selection, so he'd be placed randomly. ${SQUAD.seats.tom} next to ${out?.seats[0] ?? "14A"} is still free, so I ask Will, not Tom.`,
+            "Noticed Jess has no seat",
+            `${FRIENDS[1]?.pronoun.subject === "she" ? "She" : "He"} skipped seat selection, so ${FRIENDS[1]?.pronoun.subject ?? "she"}'d be placed randomly. ${SQUAD.seats.jess} next to ${out?.seats[0] ?? "14A"} is still free, so I ask Will, not Jess.`,
           ),
       step(
         "Moments",
@@ -1117,7 +1101,7 @@ function hostelTrace(state: TraceState): Trace {
       step(
         "Moments",
         "quiet",
-        "Once, the evening after Tom booked",
+        "Once, the evening after Jess booked",
         "Not at checkout, where it would have been a fourth upsell, and not before the squad was complete, when the plan could still change. One card, no reminder.",
       ),
       ending,
@@ -1156,554 +1140,170 @@ function squadCancelledTrace(state: TraceState): Trace {
       step(
         "Moments",
         "act",
-        "Told Archie and Tom the same second",
-        "Three phones, one message each, with the new flight already in it. Nobody got an apology without a plan.",
+        state.mumTold
+          ? "Told Archie, Jess and Mum the same second"
+          : "Told Archie and Jess the same second",
+        `Three phones, one message each, with the new flight already in it. ${
+          state.mumTold ? "Mum follows the trip, so she got the new landing time too." : ""
+        }Nobody got an apology without a plan.`,
       ),
     ],
   };
 }
 
 /* ------------------------------------------------------------------ */
-/* Journey 2                                                            */
+/* The opening nudge, and Mum                                            */
 /* ------------------------------------------------------------------ */
 
-type Emre = {
-  me: string;
-  draft: TripDraft;
-  itinerary: Itinerary;
-  momentState: MomentState;
-};
-
-function emre(state: TraceState): Emre {
-  const me = EMRE.travellers[0]?.name ?? "Emre Kaya";
-  const draft = state.emre.draft ?? emreDraft();
-  return {
-    me,
-    draft,
-    itinerary: itineraryFor(draft, me),
-    momentState: {
-      declined: state.moment.declined,
-      never: state.moment.never,
-      booked: state.emre.booked || state.moment.approved,
-      spoken: state.moment.spoken,
-    },
-  };
-}
-
-/** The three gates, one step each, as they were evaluated for one morning. */
-function gateSteps(
-  moment: Moment,
-  date: string,
-  momentState: MomentState,
-  spokenBefore: number,
-): Step[] {
-  const nudge = nudgeDate(moment);
-  const remind = reminderDate(moment);
-  const isMoment = date === nudge || date === remind;
-  const day = daysBetween(watchStart(moment), date) + 1;
-  return [
+function nudgeTrace(state: TraceState): Trace {
+  const nudge = tripNudge(state.nudge);
+  const w = will(state);
+  const steps: Step[] = [
     step(
       "Moments",
-      isMoment ? "think" : "quiet",
-      "Gate 1: is it the moment?",
-      isMoment
-        ? `${longDate(date)} is ${date === remind ? `${daysBetween(date, moment.occasion)} days out and nothing is booked` : `${moment.nudgeDaysBefore} days before ${moment.title}: fares are lowest about now`}. Yes.`
-        : `${longDate(date)} is not ${shortDate(nudge)} and not ${shortDate(remind)}. No. Day ${day} of checking.`,
+      "read",
+      "Three signals, no form",
+      `Will has typed nothing. What the phone and the app give away, with permission: ${nudge.why.join(" ")}`,
+      nudge.facts.slice(0, 3),
     ),
     step(
       "Moments",
-      momentState.never || momentState.declined || momentState.booked ? "quiet" : "think",
-      "Gate 2: was I told not to?",
-      momentState.never
-        ? '"Don\'t suggest again." That holds for good.'
-        : momentState.declined
-          ? '"Not this year." That holds until next April.'
-          : momentState.booked
-            ? "Already booked. Nothing to say."
-            : "Nothing on file says no.",
-    ),
-    step(
-      "Moments",
-      spokenBefore >= moment.interruptionBudget ? "quiet" : "think",
-      "Gate 3: any budget left?",
-      `Spoken ${spokenBefore} of ${moment.interruptionBudget} times about this moment. ${spokenBefore >= moment.interruptionBudget ? "Spent: silent whatever the fares do." : `${moment.interruptionBudget - spokenBefore} left.`}`,
+      "think",
+      "Checked the gates",
+      `${TRIP_NUDGE.budget} unasked message a quarter, and only if he hasn't said not this time or never. ${
+        nudge.quiet ?? "All three open: it may speak, once."
+      }`,
+      [nudge.facts[3] ?? ""],
     ),
   ];
-}
-
-function flightsTrace(state: TraceState): Trace {
-  const e = emre(state);
-  return {
-    who: "Emre's phone",
-    when: "My Flights",
-    steps: [
-      step(
-        "Moments",
-        "read",
-        "Learned a pattern",
-        `Two Junes running: ${HOME.origin} to ${HOME.destination} on the Friday 19:05, SAVER, seat ${HOME.seat}, back the Sunday. That's ${MOMENT.title}, ${shortDate(MOMENT.occasion)}.`,
-      ),
-      step(
-        "Moments",
-        "think",
-        "Made it a Moment, not a search",
-        `A saved search waits to be run. A Moment is checked every morning from ${shortDate(watchStart(MOMENT))} and speaks ${MOMENT.nudgeDaysBefore} days out, once.`,
-      ),
-      state.moment.set
-        ? step(
-            "Moments",
-            "act",
-            "Watching",
-            `Set. Buy rule: ${MOMENT.buyRule === "ask" ? "ask, never book" : "book"}. Budget: ${MOMENT.interruptionBudget} interruptions.`,
-          )
-        : step(
-            "Moments",
-            "wait",
-            "Not set until Emre taps it",
-            "Learned is not the same as allowed. He confirms what I remembered first.",
-          ),
-      step(
-        "Trip",
-        "think",
-        "Rebuilt the usual",
-        `${gbp(priceOf(e.draft))} all in, so the price is in the first sentence, not after a search.`,
-      ),
-    ],
-  };
-}
-
-function momentSheetTrace(state: TraceState): Trace {
-  const e = emre(state);
-  const counts = countBySource(e.draft);
-  return {
-    who: "Emre's phone",
-    when: "What I remembered",
-    steps: [
-      step(
-        "Moments",
-        "read",
-        "Showed its memory",
-        `Who: ${MOMENT.who.join(", ")}. Must-haves: ${MOMENT.mustHave.join(", ")}. Out the Friday before, back the Sunday.`,
-      ),
-      step(
-        "Moments",
-        "think",
-        "Set the rules on itself",
-        `Buy rule "${MOMENT.buyRule}": I propose, Emre approves. ${MOMENT.interruptionBudget} interruptions, then silence.`,
-      ),
-      step(
-        "Trip",
-        "think",
-        "Rebuilt the usual",
-        `${counts.profile} fields remembered, ${counts.predicted} predicted and flagged: ${
-          uncertainFields(e.draft)
-            .map((k) => FIELD_LABELS[k].toLowerCase())
-            .join(", ") || "none"
-        }.`,
-        [
-          `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} ${e.itinerary.out?.flight.departs ?? "19:05"}`,
-          `Seat ${e.itinerary.out?.seats[0] ?? HOME.seat}`,
-          gbp(priceOf(e.draft)),
-        ],
-      ),
-      state.moment.set
-        ? step(
-            "Moments",
-            "act",
-            "Watching",
-            `From ${shortDate(watchStart(MOMENT))}, every morning.`,
-          )
-        : step("Moments", "wait", "Waiting on Emre", '"Watch this" is his tap.'),
-    ],
-  };
-}
-
-function morningTrace(state: TraceState, date: string, who: string): Trace {
-  const e = emre(state);
-  const history = mornings(MOMENT, shift(date, -1), { ...e.momentState, booked: false });
-  const spokenBefore = history.filter((m) => m.verdict !== "silent").length;
-  const morning = checkMorning(MOMENT, date, { ...e.momentState, spoken: spokenBefore });
-  const steps = gateSteps(MOMENT, date, e.momentState, spokenBefore);
-  if (morning.verdict === "silent") {
+  if (nudge.verdict === "silent") {
     steps.push(
       step(
         "Moments",
         "quiet",
         "Said nothing",
-        `${morning.quiet ?? "Not the moment."} One gate is enough. The phone stayed dark.`,
+        `${nudge.quiet ?? "Not the moment."} One gate is enough. The phone stayed dark.`,
       ),
     );
-  } else {
-    steps.push(
-      step(
-        "Moments",
-        "act",
-        morning.verdict === "nudge" ? "Spoke, once, on the lock screen" : "Reminded, once",
-        `At 08:30, where he'll see it. "Why I spoke" is on the card so he can check me.`,
-        morning.why,
-      ),
-      step(
-        "Trip",
-        "think",
-        "Had the usual ready",
-        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} ${e.itinerary.out?.flight.departs ?? "19:05"}, ${FARE_RULES[e.draft.package.value].label}, seat ${e.itinerary.out?.seats[0] ?? HOME.seat}, ${gbp(priceOf(e.draft))} all in. One tap opens it, with the return date as a choice rather than a guess.`,
-      ),
-      step(
-        "Offer",
-        "quiet",
-        "No extras yet",
-        "Gifts come after he says yes, built around the occasion. Not on the nudge.",
-      ),
-      e.momentState.booked
-        ? step("Trip", "act", `Booked ${e.itinerary.reference}`, "He tapped. Done in one.")
-        : step(
-            "Moments",
-            "wait",
-            "Waiting on Emre",
-            `Yes, or Not this year. Silence counts as no: budget now ${spokenBefore + 1} of ${MOMENT.interruptionBudget}.`,
-          ),
-    );
+    return {
+      who: "Will's lock screen",
+      when: `${TRIP_NUDGE.date}, ${TRIP_NUDGE.time}`,
+      steps,
+    };
   }
-  return { who, when: `${longDate(date)}, 08:30`, steps };
-}
-
-function lookTrace(state: TraceState): Trace {
-  const e = emre(state);
-  const counts = countBySource(e.draft);
-  const flagged = uncertainFields(e.draft);
-  const steps: Step[] = [
+  steps.push(
     step(
       "Trip",
       "think",
-      state.emre.nextYear ? "Rebuilt last year's trip" : "Rebuilt last June's trip",
-      `${counts.profile} fields remembered, ${counts.predicted} predicted. ${e.draft.returnDate.why}`,
-      legFacts(e.itinerary),
+      "Built the week before asking",
+      `${routeSentence(w.draft)} ${gbp(nudge.priceEach)} each all in, so the card carries a real number, not "from".`,
+      legFacts(w.itinerary),
     ),
     step(
-      "Trip",
-      "act",
-      `Printed it at ${gbp(priceOf(e.draft))}`,
-      flagged.length === 0
-        ? "Nothing left flagged."
-        : `Flagged ${flagged.map((k) => FIELD_LABELS[k].toLowerCase()).join(", ")} with the Look tag: the one thing I'm guessing at.`,
+      "Group",
+      "think",
+      "Counted the three",
+      `${FRIENDS.map((f) => `${firstName(f.name)} ${f.account ? "has the app" : "doesn't"}`).join(", ")}. The invites are ready the moment he books; nothing goes to anyone until he does.`,
     ),
-  ];
-  steps.push(
-    state.emre.nextYear && !state.emre.giftsLastYear
-      ? step(
-          "Offer",
-          "quiet",
-          "Presents not offered",
-          "He left them last year. An add-on ignored once is not repeated; repeating it is what makes the next suggestion easy to ignore.",
-        )
-      : state.emre.gifts
-        ? step(
-            "Offer",
-            "act",
-            "Presents added",
-            `${GIFTS.extraWeight.label} and ${GIFTS.delight.label}: ${gbp(GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg)} on top of the fare.`,
-          )
-        : step(
-            "Offer",
-            "think",
-            "Built extras around the occasion",
-            `It's a birthday, so the question is presents, not bags. ${GIFTS.extraWeight.label} at ${gbp(GIFTS.extraWeight.perLeg)} on the way out, and ${GIFTS.delight.label} at ${gbp(GIFTS.delight.perLeg)}. Offered once; ignored, it isn't repeated.`,
-          ),
+    step(
+      "Moments",
+      "act",
+      "Spoke, once, on the lock screen",
+      `At ${TRIP_NUDGE.time}, where he'll see it. "Why I spoke" is on the card so he can check me.`,
+      nudge.why,
+    ),
+    step(
+      "Moments",
+      "wait",
+      "Waiting on Will",
+      "Yes builds the ticket. Not this time, or don't suggest trips, and I don't ask twice.",
+    ),
   );
-  if (state.emre.corrected !== null) {
-    steps.push(
-      step(
-        "Trip",
-        "read",
-        '"Not quite: return date"',
-        `Moved the return to ${shortDate(e.draft.returnDate.value ?? e.draft.departDate.value)}. The birthday is on the ${weekdayName(MOMENT.occasion)}, so he stays. Next year I propose that first; the thumbs told me exactly which field was wrong.`,
-      ),
-    );
-  } else {
-    steps.push(
-      step(
-        "Trip",
-        "wait",
-        "Waiting on thumbs",
-        "Did I get it right? Down opens a short list: return date, seat, bags. Not a form.",
-      ),
-    );
-  }
-  return { who: "Emre's phone", when: "One tap, his usual", steps };
+  return { who: "Will's lock screen", when: `${TRIP_NUDGE.date}, ${TRIP_NUDGE.time}`, steps };
 }
 
-function emreCheckoutTrace(state: TraceState): Trace {
-  const e = emre(state);
-  const gifts = state.emre.gifts ? GIFTS.extraWeight.perLeg + GIFTS.delight.perLeg : 0;
-  const total = priceOf(e.draft) + gifts;
-  return {
-    who: "Emre's phone",
-    when: "Checkout",
-    steps: [
-      step(
-        "Trip",
-        "read",
-        "Checked the passport before payment",
-        `${EMRE.onFile.passport}, ${EMRE.onFile.from.toLowerCase()}. Fine for June and a domestic flight; not for the September trip on file. So I say so here, with time to renew, not at the gate.`,
-        [EMRE.onFile.passport],
-      ),
-      step("Trip", "read", "Payment on file", `${EMRE.onFile.payment}. Nothing to type.`),
-      step(
-        "Offer",
-        "quiet",
-        "Nothing to add at the till",
-        state.emre.gifts
-          ? "The presents are in. Nothing else fits a weekend home."
-          : "He left the presents. Not asked again, here or anywhere.",
-      ),
-      state.emre.booked
-        ? step("Trip", "act", `Booked ${e.itinerary.reference}`, `${gbp(total)} paid.`)
-        : step(
-            "Trip",
-            "wait",
-            "Waiting on Emre to pay",
-            `${gbp(total)}, the figure on the ticket.`,
-          ),
-    ],
-  };
-}
-
-function emreConfirmationTrace(state: TraceState): Trace {
-  const e = emre(state);
-  const lands = e.itinerary.out?.flight.arrives ?? "20:50";
-  return {
-    who: "Emre's phone",
-    when: "Confirmation",
-    steps: [
-      step(
-        "Trip",
-        "act",
-        `Booked ${e.itinerary.reference}`,
-        `${shortDate(e.draft.departDate.value)}, ${e.itinerary.out?.flight.departs ?? "19:05"} to ${cityOf(e.draft.destination.value)}, seat ${e.itinerary.out?.seats[0] ?? HOME.seat}.`,
-      ),
-      step(
-        "Moments",
-        "think",
-        "Asked who should know",
-        "It's Mum's birthday and he's flying in. Someone at that end should know he lands; Mum shouldn't, or it isn't a surprise.",
-      ),
-      step(
-        "Moments",
-        "act",
-        "Dad gets the flight",
-        `The flight and the landing time (${lands}) by SMS, with a follow link. Mum gets nothing from any message, from now until he walks in.`,
-      ),
-      step(
-        "Group",
-        "think",
-        "Dad becomes a follower",
-        "One tap to install. A direct booker Pegasus didn't have, without a campaign.",
-      ),
-    ],
-  };
-}
-
-function dadTrace(state: TraceState, cancelled = false): Trace {
-  const e = emre(state);
-  const lands = e.itinerary.out?.flight.arrives ?? "20:50";
-  const later = inventory(HOME.origin, HOME.destination, e.draft.departDate.value).find(
-    (f) => f.departs === HOME.later,
-  );
+function mumTrace(state: TraceState, cancelled = false): Trace {
+  const w = will(state);
+  const first = w.itinerary.out;
+  const lands = first?.flight.arrives ?? "12:05";
+  const later = inventory(SQUAD.origin, first?.to ?? "SAW", w.draft.departDate.value)[1];
+  const parent = WILL.parent;
   if (cancelled) {
     return {
-      who: "Dad's phone",
-      when: `${longDate(e.draft.departDate.value)}, 17:03`,
+      who: "Mum's phone",
+      when: `${longDate(w.draft.departDate.value)}, 04:51`,
       steps: [
         step(
           "Moments",
           "read",
-          "Emre's flight moved",
-          `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} cancelled; ${later?.flightNo ?? "the later flight"} lands ${later?.arrives ?? "23:00"} instead of ${lands}.`,
+          "Will's flight moved",
+          `${first?.flight.flightNo ?? "PC 1164"} cancelled; ${later?.flightNo ?? "the next flight"} lands ${later?.arrives ?? "19:25"} instead of ${lands}.`,
         ),
         step(
           "Moments",
           "think",
-          "Dad is at the other end",
-          "He's the one driving to the airport. A landing time that moved two hours is his news as much as Emre's.",
+          "She asked to know",
+          `${parent?.name ?? "Mum"} follows the trip because Will said so. A flight that moved is her news as much as his; an offer never is.`,
         ),
         step(
           "Moments",
           "act",
-          "Told him the same second as Emre",
-          "The new landing, nothing else. Mum still hears nothing: the surprise holds through a cancellation.",
+          "Told her the same second as Will",
+          "The new flight and landing time, nothing else, and that he knows. No apology without a plan.",
         ),
       ],
     };
   }
   return {
-    who: "Dad's phone",
-    when: `${longDate(e.draft.departDate.value)}, ${lands}`,
+    who: "Mum's phone",
+    when: `${INVITE.sentLong}, 18:33`,
     steps: [
       step(
         "Moments",
         "read",
-        "Emre is booked home",
-        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"}, landing ${lands} on ${shortDate(e.draft.departDate.value)}.`,
+        "Will said keep her posted",
+        `${parent?.name ?? "Mum"} in ${parent?.city ?? "Norwich"}, from his contacts, with permission. ${first?.flight.flightNo ?? "PC 1164"} lands ${cityOf(first?.to ?? "SAW")} ${lands} on ${shortDate(w.draft.departDate.value)}.`,
       ),
       step(
         "Moments",
         "think",
-        "Who should know",
-        "It's Mum's birthday and he's flying in. Dad gets the landing time so he's at arrivals; Mum gets nothing from any booking, and the message says so.",
+        "What a parent wants to know",
+        "The dates, who he's with, and when he lands. Not the fare, not the seat, not the hostel.",
       ),
       step(
         "Moments",
         "act",
         "Sent one message",
-        "The flight, the landing, a follow link, and STOP in the same breath. One tap installs the app: a direct customer Pegasus didn't have.",
-      ),
-    ],
-  };
-}
-
-function emreCancelledTrace(state: TraceState): Trace {
-  const e = emre(state);
-  const later = inventory(HOME.origin, HOME.destination, e.draft.departDate.value).find(
-    (f) => f.departs === HOME.later,
-  );
-  return {
-    who: "Emre's lock screen",
-    when: `${longDate(e.draft.departDate.value)}, 17:02`,
-    steps: [
-      step(
-        "Trip",
-        "read",
-        `${e.itinerary.out?.flight.flightNo ?? "PC 2652"} cancelled`,
-        `The ${e.itinerary.out?.flight.departs ?? "19:05"} is off, two hours before departure.`,
-      ),
-      step(
-        "Trip",
-        "think",
-        "Found the next one home",
-        later === undefined
-          ? `The ${HOME.later}, same route.`
-          : `${later.flightNo} at ${later.departs}, lands ${later.arrives}. ${later.seatsLeft} seats left; his ${e.itinerary.out?.seats[0] ?? HOME.seat} is free on it.`,
-      ),
-      step(
-        "Trip",
-        "act",
-        "Rebooked first, told second",
-        "The message he gets already has the new flight and seat in it. No queue, no refund form.",
-      ),
-      step(
-        "Moments",
-        "act",
-        "Told Dad the new landing",
-        `${later?.arrives ?? "23:00"}, not ${e.itinerary.out?.flight.arrives ?? "20:50"}. Surprise mode still holds: Mum hears nothing.`,
-      ),
-    ],
-  };
-}
-
-function notThisYearTrace(state: TraceState): Trace {
-  const next = nextYearMoment(MOMENT);
-  const date = nudgeDate(next);
-  const clean: MomentState = { declined: false, never: false, booked: false, spoken: 0 };
-  const thisYear = checkMorning(MOMENT, nudgeDate(MOMENT), { ...clean, declined: true });
-  const yearAfter = checkMorning(next, date, { ...clean, declined: false });
-  const never = checkMorning(next, date, { ...clean, never: true });
-  return {
-    who: "Emre's phone",
-    when: "Opt-outs",
-    steps: [
-      step(
-        "Moments",
-        "read",
-        "Two ways to say no",
-        '"Not this year" and "Don\'t suggest again" are different answers and get different silences.',
+        "The trip, the landing, a follow link, and STOP in the same breath. One tap installs the app: a direct customer Pegasus didn't have.",
       ),
       step(
         "Moments",
         "quiet",
-        "Not this year",
-        `Silent until next April. ${shortDate(nudgeDate(MOMENT))}: ${thisYear.verdict === "silent" ? `quiet, "${thisYear.quiet}"` : "would speak"}. ${shortDate(date)}, flag cleared: ${yearAfter.verdict === "silent" ? "quiet" : "asks again"}.`,
+        "No offers, ever",
+        "She is on the status list, not the marketing one. The two were separate from the start.",
       ),
-      step(
-        "Moments",
-        "quiet",
-        "Don't suggest again",
-        `Silent for good. ${shortDate(date)}: ${never.verdict === "silent" ? `quiet, "${never.quiet}"` : "would speak"}. The moment can be painful; the off switch is real.`,
-      ),
-      state.moment.never
-        ? step("Moments", "act", "Off, for good", "Emre chose never.")
-        : state.moment.declined
-          ? step("Moments", "act", "Off, this year", "Emre chose not this year.")
-          : step(
-              "Moments",
-              "wait",
-              "Waiting on Emre",
-              "Either tap is honoured by every morning after.",
-            ),
     ],
   };
 }
 
-function nextYearTrace(state: TraceState): Trace {
-  const e = emre(state);
-  const next = nextYearMoment(MOMENT);
-  const date = nudgeDate(next);
-  const momentState: MomentState = { ...e.momentState, booked: false, spoken: 0 };
-  const morning = checkMorning(next, date, momentState);
-  const steps = gateSteps(next, date, momentState, 0);
-  steps.push(
-    morning.verdict === "silent"
-      ? step(
-          "Moments",
-          "quiet",
-          "Said nothing",
-          `"${morning.quiet}" ${e.momentState.never ? "Last year's answer still stands." : "It asks again the year after."}`,
-        )
-      : step(
-          "Moments",
-          "act",
-          "Asked, once",
-          "Same again? Last year's plan, with the corrected return remembered. Yes, Not this year, or Don't suggest again.",
-          [`Budget 1 of ${next.interruptionBudget}`],
-        ),
-  );
-  if (morning.verdict !== "silent") {
-    steps.push(
-      state.emre.gifts
-        ? step(
-            "Offer",
-            "think",
-            "Presents again, when he opens it",
-            "He took them last year, so they're worth offering once more. Not on the nudge; on the ticket.",
-          )
-        : step(
-            "Offer",
-            "quiet",
-            "No extras this year",
-            "He left the presents last year. Ignored once is not asked again.",
-          ),
-    );
-  }
-  return { who: "Emre's lock screen", when: `${longDate(date)}, 08:30`, steps };
-}
-
-function stopTrace(state: TraceState): Trace {
-  const e = emre(state);
+function mumStopTrace(state: TraceState): Trace {
+  const w = will(state);
   return {
-    who: "Dad's phone",
-    when: longDate(e.draft.departDate.value),
+    who: "Mum's phone",
+    when: INVITE.sentLong,
     steps: [
-      step("Moments", "read", "Dad replied STOP", "One word. It means what it says."),
+      step("Moments", "read", "Mum replied STOP", "One word. It means what it says."),
       step(
         "Moments",
         "act",
         "Flight status only, for good",
-        "He still hears if Emre's flight moves. He never hears an offer. The two lists were separate from the start, which is what makes this a one-line change.",
+        `She still hears if ${firstName(w.me)}'s flights move. She never hears an offer. The two lists were separate from the start, which is what makes this a one-line change.`,
       ),
       step(
         "Moments",
         "quiet",
         'No "are you sure"',
-        "Messages he never asked for would cost the family's trust.",
+        "Messages she never asked for would cost the family's trust.",
       ),
     ],
   };
@@ -1721,8 +1321,9 @@ export function traceFor(pathname: string, state: TraceState): TitledTrace {
 }
 
 function untitled(pathname: string, state: TraceState): Trace {
-  const dates = momentDates();
   switch (pathname) {
+    case "/nudge":
+      return nudgeTrace(state);
     case "/":
       return homeTrace(state);
     case "/checkout":
@@ -1739,17 +1340,17 @@ function untitled(pathname: string, state: TraceState): Trace {
       return inviteeTrace(state, "archie", "checkout");
     case "/invite/archie/confirmation":
       return inviteeTrace(state, "archie", "confirmation");
-    case "/invite/tom":
-      return inviteeTrace(state, "tom", "arrive");
-    case "/invite/tom/signup":
-      return inviteeTrace(state, "tom", "signup");
-    case "/invite/tom/ticket":
-      return inviteeTrace(state, "tom", "ticket");
-    case "/invite/tom/checkout":
-      return inviteeTrace(state, "tom", "checkout");
-    case "/invite/tom/confirmation":
-      return inviteeTrace(state, "tom", "confirmation");
-    case "/invite/tom/stalls":
+    case "/invite/jess":
+      return inviteeTrace(state, "jess", "arrive");
+    case "/invite/jess/signup":
+      return inviteeTrace(state, "jess", "signup");
+    case "/invite/jess/ticket":
+      return inviteeTrace(state, "jess", "ticket");
+    case "/invite/jess/checkout":
+      return inviteeTrace(state, "jess", "checkout");
+    case "/invite/jess/confirmation":
+      return inviteeTrace(state, "jess", "confirmation");
+    case "/invite/jess/stalls":
       return stallsTrace(state);
     case "/squad/waiting":
       return waitingTrace(state);
@@ -1761,30 +1362,12 @@ function untitled(pathname: string, state: TraceState): Trace {
       return nextTripTrace(state);
     case "/squad/cancelled":
       return squadCancelledTrace(state);
-    case "/flights":
-      return flightsTrace(state);
-    case "/flights/moment":
-      return momentSheetTrace(state);
-    case "/moment/nudge":
-      return morningTrace(state, dates.nudge, "Emre's lock screen");
-    case "/emre":
-      return lookTrace(state);
-    case "/emre/checkout":
-      return emreCheckoutTrace(state);
-    case "/emre/confirmation":
-      return emreConfirmationTrace(state);
-    case "/moment/dad":
-      return dadTrace(state);
-    case "/moment/dad/cancelled":
-      return dadTrace(state, true);
-    case "/moment/cancelled":
-      return emreCancelledTrace(state);
-    case "/moment/not-this-year":
-      return notThisYearTrace(state);
-    case "/moment/next-year":
-      return nextYearTrace(state);
-    case "/moment/stop":
-      return stopTrace(state);
+    case "/follow/mum":
+      return mumTrace(state);
+    case "/follow/mum/cancelled":
+      return mumTrace(state, true);
+    case "/follow/mum/stop":
+      return mumStopTrace(state);
     default:
       return homeTrace(state);
   }

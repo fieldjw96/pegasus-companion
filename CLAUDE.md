@@ -1,8 +1,9 @@
 # pegasus-companion
 
 A mock of the Pegasus Airlines mobile app with an agentic companion built into it,
-as a web app. Four agents behind one face (Trip, Offer, Group, Moments), two
-storyboarded journeys (the lads go to Cappadocia; home for Mum's birthday). Built
+as a web app. Four agents behind one face (Trip, Offer, Group, Moments), one
+storyboarded journey: three mates go to Cappadocia, and the companion speaks
+first. Built
 by Team Winging It for the Pegasus x Berkeley Haas **AI Travel Companion
 Hackathon** (Build Day 3 October 2026).
 
@@ -51,8 +52,7 @@ later day is on the time strip under the main phone. Screens navigate with
 `useNav()`, never `next/navigation` directly, so they work in either phone.
 
 **Every screen must open cold.** There is no server state. A screen opened
-directly falls back to the persona's starting trip (Will's week, Emre's usual), so
-a presenter can start the demo anywhere.
+directly falls back to Will's week, so a presenter can start the demo anywhere.
 
 ## Stack
 

@@ -101,7 +101,7 @@ export function Impact() {
             // Everything back to zero: the phones, the passengers and the agents.
             reset();
             agents.reset();
-            router.push("/");
+            router.push("/nudge");
           }}
           className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white/70 hover:bg-white/15 hover:text-white"
         >

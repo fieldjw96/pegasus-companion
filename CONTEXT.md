@@ -15,7 +15,7 @@ _Avoid_: assistant, chatbot, bot
 
 **Trip agent**:
 Turns a wish into a full itinerary on Pegasus's network, and rebuilds repeat
-trips. Will's week and Emre's usual are both its work.
+trips. Will's week is its work, before and after he says yes.
 _Avoid_: planner, search
 
 **Offer agent**:
@@ -29,8 +29,8 @@ friend's booking in the organiser's name, and nudges the last straggler once.
 _Avoid_: sharing, referral
 
 **Moments agent**:
-Picks the moment and the channel: a birthday two months out, check-in opening, a
-cancellation, a new route. Everything it sends arrives on a lock screen.
+Picks the moment and the channel: a free week it noticed, check-in opening, a
+cancellation, a fare drop. Everything it sends arrives on a lock screen.
 _Avoid_: notifications, marketing
 
 ### The trip
@@ -67,7 +67,8 @@ prediction and is tagged as one. Will.
 _Avoid_: new user, anonymous
 
 **Warm start**:
-A passenger whose past bookings fill most of the ticket. Emre.
+A passenger whose past bookings fill most of the ticket. Not in this demo; the
+libraries still know how (`usualTrip`).
 _Avoid_: returning user, profile
 
 **Thumbs**:
@@ -86,7 +87,7 @@ _Avoid_: host, leader, admin
 **Invitee**:
 Someone the organiser invited. With the app, the companion builds their booking
 from what Pegasus knows about them and sends a push in the organiser's name.
-Without it, a WhatsApp link opens the same booking on the web. Archie and Tom.
+Without it, a WhatsApp link opens the same booking on the web. Archie and Jess.
 _Avoid_: guest, member
 
 **Suggested friends**:
@@ -110,8 +111,8 @@ _Avoid_: upsell, add-on
 ### The moment
 
 **Moment**:
-A recurring trip the companion knows about and brings up at the right time,
-before anyone searches. Mum's birthday, every June.
+A trip the companion sees coming and brings up at the right time, before anyone
+searches. In this demo, a free week in May and two searches for Cappadocia.
 _Avoid_: alert, saved search, watch
 
 **Usual trip**:
@@ -121,9 +122,9 @@ A year on, it starts from the option he took and leaves out the extras he left.
 _Avoid_: default, template
 
 **Nudge**:
-The companion speaking two months out, on the lock screen, with Why I spoke. One
-tap opens the usual, with the return date as a choice. "Not this year" keeps it
-quiet until next April.
+The companion speaking first, on the lock screen, with Why I spoke. One tap
+builds the week; "Not this time" keeps it quiet until the next free week it
+finds, "Don't suggest trips" for good. One unasked message a quarter.
 _Avoid_: reminder, push, campaign
 
 **The three gates**:
@@ -144,15 +145,16 @@ sentence. Restraint nobody can see reads as no restraint at all, and a proposal
 nobody can check reads as a push.
 _Avoid_: explanation, rationale
 
-**Surprise mode**:
-Dad follows the flight; Mum gets nothing from anyone's booking and finds out when
-Emre walks in. A setting on the confirmation, honoured by every message after.
-_Avoid_: privacy setting, sharing
+**Keep Mum posted**:
+A parent follows the trip because the passenger said so: the dates, who he's
+with, when he lands, told the same second if a flight moves, never an offer.
+A card on the confirmation, honoured by every message after; STOP ends it.
+_Avoid_: sharing, notifications
 
 ### The demo
 
 **Scene**:
-One beat of either journey, reachable from the panel beside the phone. Scenes
+One beat of the journey, reachable from the panel beside the phone. Scenes
 exist because a phone cannot show a different morning or a different person's
 phone on its own.
 _Avoid_: step, page, slide
@@ -169,8 +171,8 @@ and the phone shows its result when the last step lands. One run per phone.
 _Avoid_: loading state, spinner
 
 **Second phone**:
-The phone that appears on the left when the story moves to Archie's, Tom's or
-Dad's device, and goes away when their part is done.
+The phone that appears on the left when the story moves to Archie's, Jess's or
+Mum's device, and goes away when their part is done.
 _Avoid_: modal, popup, aside
 
 **Time strip**:
@@ -179,6 +181,6 @@ phone cannot move its own.
 _Avoid_: timeline, scrubber
 
 **Journey**:
-One of the two end-to-end stories the prototype carries: the lads go to
-Cappadocia (cold start) and home for Mum's birthday (warm start).
+The end-to-end story the prototype carries: three mates go to Cappadocia, from
+the companion speaking first to the next trip.
 _Avoid_: flow, funnel, path

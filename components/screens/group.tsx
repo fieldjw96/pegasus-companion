@@ -189,7 +189,9 @@ export function GroupStatusScreen() {
               </p>
               <PrimaryButton
                 size="sm"
-                onClick={() => update({ aside: { who: "tom", route: "/invite/tom/stalls" } })}
+                onClick={() =>
+                  update({ aside: { who: "jess", route: "/invite/jess/stalls" } })
+                }
               >
                 Nudge {firstName(waiting.name)}
               </PrimaryButton>

@@ -140,7 +140,7 @@ export function seatsFor(
       }
     }
     const letters = ["A", "B", "C", "D", "E", "F"];
-    const start = who === "archie" ? 1 : who === "tom" ? 2 : 0;
+    const start = who === "archie" ? 1 : who === "jess" ? 2 : 0;
     return Array.from(
       { length: people },
       (_, i) => `${SQUAD.row}${letters[(start + i) % letters.length] ?? "A"}`,

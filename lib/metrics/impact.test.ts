@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { impactOf, openingFare, type ImpactState } from "./impact";
 import { priceOf } from "@/lib/assistant/price";
-import { emreDraft, willDraft } from "@/lib/demo/personas";
+import { willDraft } from "@/lib/demo/personas";
 import { stayFor } from "@/lib/group/stay";
 
 /**
@@ -16,7 +16,7 @@ const COLD: ImpactState = {
   inviteesBooked: {},
   breakfast: false,
   hostel: null,
-  emre: { draft: null, booked: false, gifts: false, nextYear: false, dadTold: false },
+  mumTold: false,
 };
 
 describe("the impact column", () => {
@@ -36,12 +36,12 @@ describe("the impact column", () => {
     expect(today.addOns).toBe(0);
   });
 
-  it("adds each friend who books, on both sides, and Tom as a new user", () => {
+  it("adds each friend who books, on both sides, and Jess as a new user", () => {
     const { companion, today } = impactOf({
       ...COLD,
       booked: true,
-      invited: ["Archie Bell", "Tom Baker"],
-      inviteesBooked: { "Archie Bell": "14B", "Tom Baker": "14C" },
+      invited: ["Archie Bell", "Jess Carter"],
+      inviteesBooked: { "Archie Bell": "14B", "Jess Carter": "14C" },
       breakfast: true,
     });
     expect(companion.bookings).toBe(3);
@@ -52,13 +52,8 @@ describe("the impact column", () => {
     expect(companion.addOns).toBeGreaterThan(3 * 7 * 2 + 22.5);
   });
 
-  it("counts Emre's trip with the presents, and Dad once told", () => {
-    const { companion, today } = impactOf({
-      ...COLD,
-      emre: { ...COLD.emre, booked: true, gifts: true, dadTold: true },
-    });
-    expect(companion.bookings).toBe(1);
-    expect(companion.revenue).toBe(Math.round((priceOf(emreDraft()) + 30.5) * 100) / 100);
+  it("counts Mum as a new user once Will keeps her posted", () => {
+    const { companion, today } = impactOf({ ...COLD, booked: true, mumTold: true });
     expect(companion.newUsers).toBe(1);
     expect(today.newUsers).toBe(0);
   });

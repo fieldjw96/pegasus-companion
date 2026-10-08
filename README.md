@@ -41,15 +41,15 @@ with the figures it used. On a first open that is the Trip agent working out
 three trips from what the phone and the sign-up give away (locale, location,
 the weather widget, a free weekend on the calendar, the network from Stansted,
 what passengers like Will book in aggregate), with every input named.
-**Scenes** lists every beat of both journeys and jumps straight to it.
+**Scenes** lists every beat of the journey and jumps straight to it.
 
 Two more things stand in for what a phone cannot do. When the story moves to
-someone else's device (Archie's push, Tom's WhatsApp, Dad's message) a **second
+someone else's device (Archie's push, Jess's WhatsApp, Mum's message) a **second
 phone** appears on the left, is used like any other, and goes away when that
 person's part is done. The **time strip** under the main phone jumps its clock
-to the later moments: the waiting window, check-in, the April morning. Both
-journeys run end to end by tapping inside the phones. Every screen also works
-when opened cold; it falls back to the persona's starting trip.
+to the later moments: the morning the companion speaks, the waiting window,
+check-in. The journey runs end to end by tapping inside the phones. Every
+screen also works when opened cold; it falls back to Will's week.
 
 The Agent view is computed, not written. `lib/agent/trace.ts` builds each step
 from the same calls the screen made, so the panel cannot say one thing while
@@ -62,70 +62,55 @@ stated model of today's app. `lib/metrics/impact.ts` computes it from the same
 drafts and prices the screens print, and says at its foot how "today" is
 counted.
 
-### Journey 1 · The lads go to Cappadocia
+### The journey · Three mates go to Cappadocia
 
-Will, 26, London. A cold start: no history, no profile.
+Will, 26, London, with Archie and Jess. A cold start: no history, no profile.
 
-1. **A wish becomes a week.** He says "Balloons in Cappadocia, backpacking, a
-   week in May". The companion builds a four-flight route on Pegasus's network
-   (in through Istanbul, the balloons, out via Antalya), picks the week, prices
-   it, and prints a ticket: flights, seat, fare and baggage, with the breakdown
-   and every field changeable underneath. Everything it guessed carries a
-   dotted underline and a reason. Four sectors where today's app sells one.
-   The bag and the seat are decided here too: from "backpacking" it puts SAVER
-   on the ticket (a 40L pack won't fit under the seat, and the bag costs less
-   inside the fare than at the airport), and the seat sheet gives a reason to
-   take the window on a 06:10.
-2. **Nothing to type.** Checkout fills the passport from his Wallet and pays with
-   Apple Pay. The Offer agent adds nothing at the till: insurance, a car and the
-   lounge don't fit a backpacker, so they aren't there.
-3. **Send it to your friends?** A backpacking trip is rarely solo, and the
-   sentence didn't say who. The confirmation asks whether to send the trip on
-   and suggests two people from his contacts. Each gets it in Will's name, with the seat next to his offered
-   at 7 GBP a leg. Nothing is frozen or held.
-4. **Archie has the app.** A push in Will's name leads with the seat and opens a
+1. **The companion speaks first.** Will has typed nothing. On a Tuesday morning
+   it speaks once on his lock screen: "Balloons in Cappadocia with Archie and
+   Jess?", 409.40 GBP each all in, with _Why I spoke_ a tap away: two searches
+   for Cappadocia in February, a week in May free in his calendar and in the
+   three of theirs, May fares at their lowest since October. One unasked
+   message a quarter. "Not this time" keeps it quiet until the next free week;
+   "Don't suggest trips" keeps it quiet for good.
+2. **A wish becomes a week.** Yes builds the week he would have asked for: a
+   four-flight route on Pegasus's network (in through Istanbul, the balloons,
+   out via Antalya), the week, the price, and a ticket: flights, seat, fare and
+   baggage, with the breakdown and every field changeable underneath, or
+   changed in a sentence. Everything it guessed carries a dotted underline and
+   a reason. Four sectors where today's app sells one. From "backpacking" it
+   puts SAVER on the ticket (a 40L pack won't fit under the seat) and the seat
+   sheet gives a reason to take the window on a 06:10.
+3. **Nothing to type.** Checkout fills the passport from his Wallet, checks it
+   against the 150 days Türkiye asks for, and pays with Apple Pay. The Offer
+   agent adds nothing at the till: insurance, a car and the lounge don't fit a
+   backpacker, so they aren't there.
+4. **Send it to your friends?** The confirmation suggests two people from his
+   contacts and lets him search for more. Each gets it in Will's name, with the
+   seat next to his offered at 7 GBP a leg. Under it, **keep Mum posted?**:
+   the dates, who he's with and when he lands, a follow link and STOP, never
+   an offer. Her phone appears beside his.
+5. **Archie has the app.** A push in Will's name leads with the seat and opens a
    booking already built: flights from Will, fare and seat predicted, passport,
    payment and his usual hot meal remembered. He checks and pays.
-5. **Tom doesn't.** A WhatsApp from Will opens the app on a sign-up with
+6. **Jess doesn't.** A WhatsApp from Will opens the app on a sign-up with
    nothing to type, then the same booking, ready to pay.
-6. **The waiting window.** A lock-screen tracker shows who has booked and sells
+7. **The waiting window.** A lock-screen tracker shows who has booked and sells
    extras to the ones already in.
-7. **Tom stalls.** When everyone else is in, one WhatsApp from Will, drafted
+8. **Jess stalls.** When everyone else is in, one WhatsApp from Will, drafted
    by the companion: get the app, book the same flight. One tap to join, one
    to pay.
-8. **Squad complete.** All three booked, seats together, one group offer that
+9. **Squad complete.** All three booked, seats together, one group offer that
    makes sense for three: breakfast for the 06:10, to the organiser only.
    That evening, one more: "Looking to book a hostel?", one cave dorm in
    Göreme for the balloon nights, priced for three, booked in a tap or
    declined for the trip.
-9. **Checked in for them**, **the next trip** (a new route offered first to the
-   group), and the unhappy path of a cancelled flight.
-
-### Journey 2 · Home for Mum's birthday
-
-Emre, 34, Istanbul. A warm start: he has flown it before.
-
-1. **Two months out.** The companion learned last June's trip on its own and
-   speaks on the lock screen on 14 April, with _Why I spoke_, while he is most
-   likely to book: "Mum's birthday is 14 June. Your usual Friday flight to
-   Trabzon?"
-2. **One tap, his usual.** The trip is rebuilt from last year: the Friday 19:05,
-   SAVER, seat 3A, all-in price up front. The return date is a choice, not a
-   guess: the Sunday he usually takes, or the day after the birthday. Thumbs
-   say whether it got it right, and teach it.
-3. **Room for presents.** On the same screen, extras built around the occasion:
-   weight for gifts and Turkish delight from Pegasus Café. He takes them or
-   leaves them; left once, they are not offered again.
-4. **The passport, before payment.** It expires in August: fine for this trip,
-   needed for the September flight. Said here, with time to renew.
-5. **Dad's in on the surprise.** Dad's phone appears beside Emre's with the
-   flight and the landing time, a follow link, and one tap to install. Mum gets
-   nothing from any message. Dad can reply STOP and keep flight status only.
-6. **The flight is cancelled.** Rebooked first, told second, and Dad's phone
-   shows the new landing time the same second.
-7. **Next year.** The same nudge, two months out, starting from the return he
-   corrected and leaving out what he left. It stays quiet if told to: "not this
-   year" holds for a year, "don't suggest again" for good.
+10. **Checked in for them**, then the unhappy path: the 06:10 is cancelled,
+    all three rebooked before anyone queued, told second, and Mum's phone
+    shows the new landing time the same second.
+11. **The next trip.** Two months after they get home, fares to Bodrum drop
+    10%: same three, a long weekend in September, 76.50 GBP less than last
+    week for the squad, offered to Will first. One card, then quiet.
 
 ## Design
 
@@ -142,17 +127,16 @@ trademark.
 
 ```
 app/                       One route per screen. Server components rendering client islands.
+  nudge/                   The first screen: the companion speaks first, on Will's lock screen.
   page.tsx                 Will's home: greeting, thinking, the week as a ticket.
   checkout/ confirmation/  Will's checkout and confirmation (send it to your friends).
   group/                   Organiser side: who's coming, review, squad status.
-  invite/archie/ tom/      Invitee side: push or WhatsApp, ticket, checkout, confirmation, stalls.
-  squad/                   Lock-screen moments: waiting window, check-in, next trip, cancelled.
-  emre/                    Emre's usual trip, checkout, confirmation.
-  flights/                 My Flights: trips I'm watching, the moment sheet.
-  moment/                  Lock-screen mornings: nudge, quiet, look, reminder, opt-outs, Dad.
+  invite/archie/ jess/      Invitee side: push or WhatsApp, ticket, checkout, confirmation, stalls.
+  squad/                   Lock-screen moments: waiting window, hostel, check-in, cancelled, next trip.
+  follow/mum/              Mum's phone: the landing time, the cancellation, STOP.
 components/
   phone-frame.tsx          The device, and the stage: second phone, main phone, panel.
-  companion-phone.tsx      The second phone: Archie's, Tom's or Dad's, when the story is there.
+  companion-phone.tsx      The second phone: Archie's, Jess's or Mum's, when the story is there.
   time-strip.tsx           Jumps the main phone's clock to the later moments.
   agent-provider.tsx       The agents running: one streaming run per phone, and the wait.
   phone-nav.tsx            Where a tap goes: the browser's router, or the second phone's screen.
@@ -166,11 +150,12 @@ lib/
   journey/script.ts        The demo's routes, pinned, so every screen prints the same numbers.
   assistant/               Sentence → trip: understand, draft (provenance), price, itinerary.
   group/group.ts           Friends and why they're suggested, the invitee's booking, the seat beside.
-  moments/moments.ts       Mum's birthday: the usual trip, the nudge rule, the three gates.
+  group/trip-nudge.ts      The opening nudge: three signals, the gates, Why I spoke.
+  group/stay.ts, next-trip.ts  The hostel for three, and the fare drop, as figures.
   agent/trace.ts           What each agent read, thought and did on every screen, computed.
   agent/first-open.ts      The first open: the device and sign-up signals, and the three pitches.
   metrics/impact.ts        Revenue, add-ons, bookings and new users, companion against today.
-  agent/scenes.ts          Every beat of both journeys, with its route.
+  agent/scenes.ts          Every beat of the journey, with its route.
 ```
 
 **Everything the companion says is arithmetic, in code.** "112.00 GBP cheaper",

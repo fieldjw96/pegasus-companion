@@ -10,11 +10,9 @@ import type { DraftKey, TripDraft } from "@/lib/assistant/draft";
  * Kept in session storage rather than the URL: a trip is a dozen fields with
  * provenance on each, which is more than a query string should carry, and a
  * presenter refreshing the page mid-demo should land where they were. Every
- * screen still works cold, by falling back to the persona's starting trip.
+ * screen still works cold, by falling back to Will's week.
  */
 export type JourneyState = {
-  /** Whose phone this is. */
-  persona: "will" | "emre";
   prompt: string | null;
   draft: TripDraft | null;
   /** The last change said in a sentence, and which fields it moved. */
@@ -35,37 +33,25 @@ export type JourneyState = {
   breakfast: boolean;
   /** The hostel for the balloon nights: booked for three, or declined for this trip. */
   hostel: "booked" | "declined" | null;
-  /** Emre's side. */
-  emre: {
-    draft: TripDraft | null;
-    booked: boolean;
-    /** "Not quite: return date". */
-    corrected: string | null;
-    gifts: boolean;
-    surprise: boolean;
-    /** Next year's nudge was taken: the usual is rebuilt a year on. */
-    nextYear: boolean;
-    /** Whether the presents were taken last year. Left once, they are not offered again. */
-    giftsLastYear: boolean;
-    /** Dad was sent the flight: a new user. */
-    dadTold: boolean;
-  };
-  moment: {
-    set: boolean;
+  /** Mum was sent the flight: a new user, and told if it moves. */
+  mumTold: boolean;
+  /** The companion's opening nudge, and what Will said to it. */
+  nudge: {
+    /** "Not this time": quiet until the next free week it finds. */
     declined: boolean;
+    /** "Don't suggest trips": quiet for good. */
     never: boolean;
-    approved: boolean;
+    /** How many times it has spoken unasked. */
     spoken: number;
   };
   /**
    * The second phone, when the story is on someone else's device: whose it
    * is and which screen it shows. Null when the main phone is the only one.
    */
-  aside: { who: "archie" | "tom" | "dad"; route: string } | null;
+  aside: { who: "archie" | "jess" | "mum"; route: string } | null;
 };
 
 const INITIAL: JourneyState = {
-  persona: "will",
   prompt: null,
   draft: null,
   edit: null,
@@ -77,22 +63,12 @@ const INITIAL: JourneyState = {
   inviteesBooked: {},
   breakfast: false,
   hostel: null,
-  emre: {
-    draft: null,
-    booked: false,
-    corrected: null,
-    gifts: false,
-    surprise: true,
-    nextYear: false,
-    giftsLastYear: false,
-    dadTold: false,
-  },
-  // The companion learned the moment itself, from last June: it is set from the start.
-  moment: { set: true, declined: false, never: false, approved: false, spoken: 0 },
+  mumTold: false,
+  nudge: { declined: false, never: false, spoken: 0 },
   aside: null,
 };
 
-const KEY = "pegasus-companion-journey-v3";
+const KEY = "pegasus-companion-journey-v4";
 
 type Journey = {
   state: JourneyState;
@@ -120,12 +96,7 @@ function load(): JourneyState {
     const raw = window.sessionStorage.getItem(KEY);
     if (raw !== null) {
       const parsed = JSON.parse(raw) as Partial<JourneyState>;
-      loaded = {
-        ...INITIAL,
-        ...parsed,
-        emre: { ...INITIAL.emre, ...parsed.emre },
-        moment: { ...INITIAL.moment, ...parsed.moment },
-      };
+      loaded = { ...INITIAL, ...parsed, nudge: { ...INITIAL.nudge, ...parsed.nudge } };
     }
   } catch {
     // A corrupt entry is not worth a broken demo: start clean.

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ACTS } from "./scenes";
 import { traceFor, type TraceState } from "./trace";
-import { MOMENT, momentDates } from "@/lib/moments/moments";
 import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
 import { amendDraft, buildDraft } from "@/lib/assistant/understand";
 
@@ -21,16 +20,8 @@ const COLD: TraceState = {
   sent: false,
   inviteesBooked: {},
   hostel: null,
-  emre: {
-    draft: null,
-    booked: false,
-    corrected: null,
-    gifts: false,
-    surprise: true,
-    nextYear: false,
-    giftsLastYear: false,
-  },
-  moment: { set: true, declined: false, never: false, approved: false, spoken: 0 },
+  mumTold: false,
+  nudge: { declined: false, never: false, spoken: 0 },
 };
 
 const text = (path: string, state: TraceState = COLD) =>
@@ -80,65 +71,52 @@ describe("the agent trace", () => {
     expect(home.steps.map((s) => s.agent)).toContain("Offer");
   });
 
-  it("does not offer the presents next year when he left them last year", () => {
-    const ignored = {
-      ...COLD,
-      emre: { ...COLD.emre, booked: true, nextYear: true, giftsLastYear: false },
-    };
-    const offer = traceFor("/emre", ignored).steps.find((s) => s.agent === "Offer");
-    expect(offer?.kind).toBe("quiet");
-    const taken = {
-      ...COLD,
-      emre: { ...COLD.emre, booked: true, nextYear: true, giftsLastYear: true },
-    };
-    expect(traceFor("/emre", taken).steps.find((s) => s.agent === "Offer")?.kind).toBe(
-      "think",
-    );
-  });
-
-  it("tells Dad about a cancellation the same second", () => {
-    const dad = traceFor("/moment/dad/cancelled", COLD);
-    expect(dad.title).toBe("Unhappy path: the flight is cancelled");
-    expect(dad.steps[dad.steps.length - 1]?.thought).toContain("Mum still hears nothing");
-  });
-
-  it("carries Why I spoke onto the nudge, word for word", () => {
-    const nudge = traceFor("/moment/nudge", COLD);
+  it("speaks first, once, with Why I spoke, and stays quiet when told", () => {
+    const nudge = traceFor("/nudge", COLD);
+    expect(nudge.title).toBe("The companion speaks first");
     const spoke = nudge.steps.find((s) => s.kind === "act");
+    expect(spoke?.did).toBe("Spoke, once, on the lock screen");
     expect(spoke?.facts).toHaveLength(3);
-    expect(spoke?.facts?.[2]).toContain(`seat 3A`);
-    expect(momentDates().nudge.slice(5)).toBe("04-14");
-    expect(nudge.when).toMatch(/^[A-Z][a-z]+day 14 April, 08:30$/);
-  });
-
-  it("stays quiet next year when told never", () => {
-    const never = traceFor("/moment/next-year", {
+    expect(spoke?.facts?.[2]).toContain("89.40 GBP LIGHT");
+    expect(
+      nudge.steps.find((s) => s.did === "Built the week before asking")?.thought,
+    ).toContain("409.40 GBP each");
+    const never = traceFor("/nudge", {
       ...COLD,
-      moment: { ...COLD.moment, never: true },
+      nudge: { declined: false, never: true, spoken: 1 },
     });
-    const last = never.steps[never.steps.length - 1];
-    expect(last?.kind).toBe("quiet");
-    expect(last?.thought).toContain("Told never to suggest this.");
+    expect(never.steps[never.steps.length - 1]?.kind).toBe("quiet");
+    expect(never.steps[never.steps.length - 1]?.thought).toContain("never to suggest trips");
+    const declined = traceFor("/nudge", {
+      ...COLD,
+      nudge: { declined: true, never: false, spoken: 1 },
+    });
+    expect(declined.steps.some((s) => s.kind === "act")).toBe(false);
   });
 
-  it("speaks next year when nothing was said against it", () => {
-    const again = traceFor("/moment/next-year", COLD);
-    const asked = again.steps.find((s) => s.kind === "act");
-    expect(asked?.did).toBe("Asked, once");
-    expect(asked?.facts?.[0]).toBe(`Budget 1 of ${MOMENT.interruptionBudget}`);
-    expect(again.steps[again.steps.length - 1]?.agent).toBe("Offer");
+  it("tells Mum about a cancellation the same second, once Will said keep her posted", () => {
+    const mum = traceFor("/follow/mum/cancelled", { ...COLD, mumTold: true });
+    expect(mum.title).toBe("Unhappy path: flight cancelled");
+    expect(mum.steps[mum.steps.length - 1]?.did).toBe("Told her the same second as Will");
+    expect(text("/squad/cancelled", { ...COLD, mumTold: true })).toContain(
+      "and Mum the same second",
+    );
+    expect(text("/confirmation", COLD)).toContain("sent nothing");
+    expect(text("/confirmation", { ...COLD, mumTold: true })).toContain(
+      "the dates and the landing time",
+    );
   });
 
   it("reads the demo's state: the squad fills in as people book", () => {
     expect(text("/invite/archie/confirmation")).toContain("2 of 3 booked");
     expect(text("/invite/archie/confirmation")).toContain("No offer yet");
     const complete = { ...COLD, inviteesBooked: { "Archie Bell": "14B" } };
-    expect(text("/invite/tom/confirmation", complete)).toContain("3 of 3 booked");
-    expect(text("/invite/tom/confirmation", complete)).toContain("Squad complete");
+    expect(text("/invite/jess/confirmation", complete)).toContain("3 of 3 booked");
+    expect(text("/invite/jess/confirmation", complete)).toContain("Squad complete");
     expect(
       text("/group", {
         ...complete,
-        inviteesBooked: { ...complete.inviteesBooked, "Tom Baker": "14C" },
+        inviteesBooked: { ...complete.inviteesBooked, "Jess Carter": "14C" },
       }),
     ).toContain("22.50 GBP");
   });
