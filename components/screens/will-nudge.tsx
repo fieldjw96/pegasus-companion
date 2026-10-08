@@ -14,11 +14,10 @@ import {
 } from "@/components/ui/primitives";
 import { Speech } from "@/components/ui/speech";
 import { traceFor } from "@/lib/agent/trace";
-import { buildDraft } from "@/lib/assistant/understand";
-import { tripNudge } from "@/lib/group/trip-nudge";
+import { nudgeDraft, tripNudge } from "@/lib/group/trip-nudge";
 import { formatFare } from "@/lib/journey/flights";
 import { TRIP_NUDGE } from "@/lib/journey/script";
-import { WILL, WILL_PROMPT, dayMonth } from "@/lib/demo/personas";
+import { WILL_PROMPT, dayMonth } from "@/lib/demo/personas";
 
 /**
  * The demo's first screen. Will has said nothing; the companion speaks first,
@@ -103,8 +102,9 @@ export function WillNudgeScreen() {
                 // Yes: the week is built as if he had said the sentence.
                 update((prev) => ({
                   prompt: WILL_PROMPT,
-                  draft: buildDraft(WILL_PROMPT, WILL),
+                  draft: nudgeDraft(),
                   edit: null,
+                  origin: "nudge",
                   booked: false,
                   thumbs: null,
                   nudge: { ...prev.nudge, spoken: prev.nudge.spoken + 1 },

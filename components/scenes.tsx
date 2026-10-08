@@ -134,6 +134,8 @@ function SceneList({ pathname }: { pathname: string }) {
                 update({
                   prompt: WILL_PROMPT,
                   draft: buildDraft(WILL_PROMPT, WILL),
+                  edit: null,
+                  origin: "sentence",
                   booked: false,
                   thumbs: null,
                 });

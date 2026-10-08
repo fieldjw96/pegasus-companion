@@ -98,6 +98,7 @@ export type TraceState = {
   prompt: string | null;
   draft: TripDraft | null;
   edit: { said: string; changed: DraftKey[] } | null;
+  origin: "nudge" | "sentence" | null;
   booked: boolean;
   thumbs: "up" | "down" | null;
   invited: string[];
@@ -260,7 +261,7 @@ function editSteps(w: Will, edit: { said: string; changed: DraftKey[] }): Step[]
   ];
 }
 
-function builtSteps(w: Will): Step[] {
+function builtSteps(w: Will, fromNudge = false): Step[] {
   const { draft, itinerary } = w;
   const counts = countBySource(draft);
   const price = breakdown(draft);
@@ -319,7 +320,7 @@ function builtSteps(w: Will): Step[] {
       "Trip",
       "act",
       "Printed the ticket",
-      `${counts.said} thing${counts.said === 1 ? "" : "s"} you said, ${counts.predicted} I predicted, each with a dotted underline and a reason.${flagged.length === 0 ? "" : ` Flagged as a guess worth a look: ${flagged.join(", ")}.`}`,
+      `${counts.said} thing${counts.said === 1 ? "" : "s"} ${fromNudge ? "from the nudge he said yes to" : "you said"}, ${counts.predicted} I predicted, each with a dotted underline and a reason.${flagged.length === 0 ? "" : ` Flagged as a guess worth a look: ${flagged.join(", ")}.`}`,
       [`Reference ${itinerary.reference}`],
     ),
   ];
@@ -509,10 +510,13 @@ function homeTrace(state: TraceState): Trace {
     return discoveryTrace(state);
   }
   const w = will(state);
+  const fromNudge = state.origin === "nudge";
   const steps =
-    state.edit === null
-      ? [...heardSteps(w), ...builtSteps(w)]
-      : [...editSteps(w, state.edit), ...builtSteps(w)];
+    state.edit !== null
+      ? [...editSteps(w, state.edit), ...builtSteps(w, fromNudge)]
+      : fromNudge
+        ? [...yesSteps(state), ...builtSteps(w, true)]
+        : [...heardSteps(w), ...builtSteps(w)];
   const thumbs = thumbsStep(state, w);
   if (thumbs !== null) steps.push(thumbs);
   else
@@ -524,7 +528,31 @@ function homeTrace(state: TraceState): Trace {
         "Did I get it right? One tap either way teaches me.",
       ),
     );
-  return { who: "Will's phone", when: "Home, after the sentence", steps };
+  return {
+    who: "Will's phone",
+    when: fromNudge ? "Home, after the yes" : "Home, after the sentence",
+    steps,
+  };
+}
+
+/** Yes on the nudge is the sentence: every field traces to a signal. */
+function yesSteps(state: TraceState): Step[] {
+  const nudge = tripNudge(state.nudge);
+  return [
+    step(
+      "Trip",
+      "read",
+      "Took the yes",
+      `He typed nothing; "Yes, plan it" is the sentence. The place from his searches, the week from the three calendars, a backpack from what the searches were for: ${TRIP_NUDGE.searchedFor}.`,
+      nudge.facts.slice(0, 3),
+    ),
+    step(
+      "Trip",
+      "think",
+      "Listed what the signals don't say",
+      "Not in any of them: where from, which fare, which seat. No history to remember from, so each of those is a prediction and gets a dotted underline.",
+    ),
+  ];
 }
 
 function checkoutTrace(state: TraceState): Trace {
@@ -541,6 +569,12 @@ function checkoutTrace(state: TraceState): Trace {
         "Filled the form nobody sees",
         `Passport ${WILL.onFile.passport}, ${WILL.onFile.from.toLowerCase()}. Paying with ${WILL.onFile.payment}. Nothing to type; a wrong guess costs one tap.`,
         [WILL.onFile.passport, WILL.onFile.payment],
+      ),
+      step(
+        "Trip",
+        "think",
+        "Checked the passport before payment",
+        `Valid to Mar 2032, well past the 150 days Türkiye asks for after ${shortDate(w.draft.returnDate.value ?? w.draft.departDate.value)}. Nothing to renew, so it is said here once and not at the gate.`,
       ),
       step(
         "Offer",
@@ -590,17 +624,26 @@ function confirmationTrace(state: TraceState): Trace {
       `Booked ${w.itinerary.reference}`,
       `Will is going. ${gbp(priceOf(w.draft))}, ${w.itinerary.legs.length} legs, seat ${w.itinerary.out?.seats[0] ?? "14A"}.`,
     ),
-    step(
-      "Group",
-      "think",
-      "Backpacking is rarely solo",
-      "Balloons and a backpack in May: trips like this are usually three or four people. The sentence didn't say who, and I don't guess who a friend is. So I ask whether to send it on, and suggest.",
-    ),
+    state.origin === "nudge"
+      ? step(
+          "Group",
+          "think",
+          "The nudge named them",
+          `${listNames(FRIENDS.map((f) => f.name))} were the free week: the card said so before he booked. So the two suggestions are the two it already counted, not a guess at who a friend is. I ask whether to send it on; I don't send on my own.`,
+        )
+      : step(
+          "Group",
+          "think",
+          "Backpacking is rarely solo",
+          "Balloons and a backpack in May: trips like this are usually three or four people. The sentence didn't say who, and I don't guess who a friend is. So I ask whether to send it on, and suggest.",
+        ),
     step(
       "Group",
       "read",
       "Looked at his contacts, with permission",
-      `Two people stand out: ${FRIENDS.map((f) => `${firstName(f.name)}, ${f.because.toLowerCase()}`).join(" ")}`,
+      state.origin === "nudge"
+        ? `For the channel, not the names: ${FRIENDS.map((f) => `${firstName(f.name)} ${f.account ? "has the app" : "has no app"}`).join(", ")}. ${FRIENDS.map((f) => `${firstName(f.name)}: ${f.because}`).join(" ")}`
+        : `Two people stand out: ${FRIENDS.map((f) => `${firstName(f.name)}, ${f.because.toLowerCase()}`).join(" ")}`,
       FRIENDS.map((f) => `${firstName(f.name)}: ${f.account ? "has the app" : "no app"}`),
     ),
     step(
@@ -676,7 +719,7 @@ function inviteeTrace(
     "Group",
     "think",
     `Built ${first}'s booking`,
-    `${counts.shared} fields from Will's booking, ${counts.profile} remembered from ${first}'s own, ${counts.predicted} predicted from Will's reasons. Same route, same dates, his own reference.`,
+    `${counts.shared} fields from Will's booking, ${counts.profile} remembered from ${first}'s own, ${counts.predicted} predicted from Will's reasons. Same route, same dates, ${friend.pronoun.possessive} own reference.`,
     [`Reference ${itinerary.reference}`, `Seat ${seat ?? "—"}, next to Will`],
   );
 
@@ -712,7 +755,7 @@ function inviteeTrace(
         "Group",
         "wait",
         `Waiting on ${first}`,
-        "He opens it or he doesn't. One nudge later, at most.",
+        `${friend.pronoun.subject === "she" ? "She" : "He"} opens it or ${friend.pronoun.subject} doesn't. One nudge later, at most.`,
       ),
     );
   }
@@ -733,7 +776,7 @@ function inviteeTrace(
         "Trip",
         "act",
         "Skipped the form",
-        "Name and number from the invite; the passport can wait for check-in and the card for the pay button. One tap on Apple or email makes the account. A form in front of a mate's seat is where he leaves.",
+        `Name and number from the invite; the passport can wait for check-in and the card for the pay button. One tap on Apple or email makes the account. A form in front of a mate's seat is where ${friend.pronoun.subject} leaves.`,
       ),
       step(
         "Offer",
@@ -759,7 +802,7 @@ function inviteeTrace(
         "Trip",
         "act",
         `Priced at ${gbp(total)}`,
-        `${first} pays his own way. Will's fare is not on this screen.`,
+        `${first} pays ${friend.pronoun.possessive} own way. Will's fare is not on this screen.`,
         base.lines.map((l) => `${l.label}: ${formatFare(l.amount)}`),
       ),
       step("Group", "wait", `Waiting on ${first}`, "Check it, change anything, pay."),
@@ -907,7 +950,7 @@ function waitingTrace(state: TraceState): Trace {
         "Offer",
         "quiet",
         "Nothing for Jess",
-        "He hasn't paid. An extra on top of an unpaid fare is noise.",
+        `${FRIENDS[1]?.pronoun.subject === "she" ? "She" : "He"} hasn't paid. An extra on top of an unpaid fare is noise.`,
       ),
     ],
   };
@@ -1144,7 +1187,7 @@ function squadCancelledTrace(state: TraceState): Trace {
           ? "Told Archie, Jess and Mum the same second"
           : "Told Archie and Jess the same second",
         `Three phones, one message each, with the new flight already in it. ${
-          state.mumTold ? "Mum follows the trip, so she got the new landing time too." : ""
+          state.mumTold ? "Mum follows the trip, so she got the new landing time too. " : ""
         }Nobody got an apology without a plan.`,
       ),
     ],

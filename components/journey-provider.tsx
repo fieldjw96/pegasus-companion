@@ -17,6 +17,8 @@ export type JourneyState = {
   draft: TripDraft | null;
   /** The last change said in a sentence, and which fields it moved. */
   edit: { said: string; changed: DraftKey[] } | null;
+  /** Where the trip came from: the nudge he said yes to, or a sentence he typed. */
+  origin: "nudge" | "sentence" | null;
   /** Will has paid. */
   booked: boolean;
   /** "Did we get your trip right?" */
@@ -55,6 +57,7 @@ const INITIAL: JourneyState = {
   prompt: null,
   draft: null,
   edit: null,
+  origin: null,
   booked: false,
   thumbs: null,
   invited: [],

@@ -3,6 +3,7 @@ import { ACTS } from "./scenes";
 import { traceFor, type TraceState } from "./trace";
 import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
 import { amendDraft, buildDraft } from "@/lib/assistant/understand";
+import { nudgeDraft } from "@/lib/group/trip-nudge";
 
 /**
  * The agent panel narrates the screens from the same calls the screens make.
@@ -13,6 +14,7 @@ const COLD: TraceState = {
   prompt: null,
   draft: null,
   edit: null,
+  origin: null,
   booked: false,
   thumbs: null,
   invited: [],
@@ -140,5 +142,32 @@ describe("a change said in a sentence", () => {
     expect(changed.steps.find((s) => s.did.startsWith("Priced it"))?.did).toBe(
       "Priced it at 409.40 GBP",
     );
+  });
+});
+
+describe("the week built from the nudge", () => {
+  it("traces every field to a signal, not to a sentence", () => {
+    const yes = {
+      ...COLD,
+      prompt: WILL_PROMPT,
+      draft: nudgeDraft(),
+      origin: "nudge" as const,
+    };
+    const home = traceFor("/", yes);
+    expect(home.when).toBe("Home, after the yes");
+    expect(home.steps[0]?.did).toBe("Took the yes");
+    expect(home.steps.some((s) => s.did === "Heard the sentence")).toBe(false);
+    expect(home.steps.find((s) => s.did === "Picked the dates")?.thought).toContain(
+      "free in your calendar",
+    );
+    expect(home.steps.find((s) => s.did === "Printed the ticket")?.thought).toContain(
+      "from the nudge he said yes to",
+    );
+    expect(home.steps.find((s) => s.did.startsWith("Priced it"))?.did).toBe(
+      "Priced it at 409.40 GBP",
+    );
+    expect(text("/confirmation", { ...yes, booked: true })).toContain("The nudge named them");
+    expect(text("/checkout", yes)).toContain("Checked the passport before payment");
+    expect(text("/invite/jess/ticket", yes)).toContain("Jess pays her own way");
   });
 });

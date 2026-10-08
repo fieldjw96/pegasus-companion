@@ -52,6 +52,8 @@ export const TRIP_NUDGE = {
   /** In-app searches for the place, and when. */
   searches: 2,
   searchedIn: "February",
+  /** What the searches were for: it is where "backpacking" comes from. */
+  searchedFor: "hostels in Göreme",
   /** The fare feed's word on May. */
   lowSince: "October",
   /** Unasked messages allowed a quarter. */

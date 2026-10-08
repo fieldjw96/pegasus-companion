@@ -117,6 +117,7 @@ export function HomeScreen() {
       update({
         prompt: text,
         edit: null,
+        origin: "sentence",
         thumbs: null,
         draft: buildDraft(text, profile),
         booked: false,
