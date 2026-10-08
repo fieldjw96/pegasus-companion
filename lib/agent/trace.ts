@@ -10,6 +10,7 @@ import { breakdown, naivePath, priceOf } from "@/lib/assistant/price";
 import { extract } from "@/lib/assistant/understand";
 import { suggest } from "@/lib/assistant/discover";
 import { firstOpen, pitches } from "./first-open";
+import { fareDrop } from "@/lib/group/next-trip";
 import { sceneFor } from "./scenes";
 import {
   BREAKFAST,
@@ -31,7 +32,7 @@ import {
   inventory,
   type AirportCode,
 } from "@/lib/journey/flights";
-import { HOME, SQUAD } from "@/lib/journey/script";
+import { HOME, NEXT_TRIP, SQUAD } from "@/lib/journey/script";
 import {
   GIFTS,
   MOMENT,
@@ -977,28 +978,40 @@ function checkInTrace(state: TraceState): Trace {
 
 function nextTripTrace(state: TraceState): Trace {
   const w = will(state);
-  const when = shift(w.draft.returnDate.value ?? w.draft.departDate.value, 60);
+  const drop = fareDrop(w.draft, 1 + FRIENDS.length);
+  const home = w.draft.returnDate.value ?? w.draft.departDate.value;
   return {
     who: "Will's lock screen",
-    when: longDate(when),
+    when: longDate(drop.when),
     steps: [
       step(
         "Moments",
         "read",
-        "A new route opened",
-        "Istanbul to Almaty. Launch news usually goes to a newsletter, where it is deleted.",
+        `${drop.city} fares down ${drop.dropPercent}%`,
+        `I watch fares on the routes the squad hasn't flown. ${cityOf(NEXT_TRIP.origin)} to ${drop.city}, a long weekend in September: ${gbp(drop.nowEach)} return this week, ${gbp(drop.wasEach)} last week. Both numbers are the fare feed's; the percentage is mine.`,
+        [
+          `Out ${drop.flights.out} · ${shortDate(drop.out)}`,
+          `Back ${drop.flights.back} · ${shortDate(drop.back)}`,
+          `Last week ${gbp(drop.wasEach)}, now ${gbp(drop.nowEach)}`,
+        ],
       ),
       step(
         "Moments",
         "think",
         "Chose who hears first",
-        `A squad that flew together is a better audience than a list. ${daysBetween(w.draft.returnDate.value ?? w.draft.departDate.value, when)} days after they got home, once, with the lads' faces on the card.`,
+        `A squad that flew together is a better audience than a list. ${daysBetween(home, drop.when)} days after they got home, once, to Will: he organised last time. ${FRIENDS.map((f) => firstName(f.name)).join(" and ")} hear it from him, not from me.`,
       ),
       step(
         "Group",
-        "act",
-        "Made it one tap",
-        '"Ask Archie and Tom" opens the squad, not a search. If Will says nothing, the card goes away. No second card.',
+        "think",
+        "Sized it for three",
+        `${gbp(drop.savingEach)} each is a line in a sale email. ${gbp(drop.savingSquad)} for the three of them, same row, is a plan. So the card says the squad's number, and the saving is computed from the two fares, not quoted.`,
+      ),
+      step(
+        "Moments",
+        "quiet",
+        "One card, then quiet",
+        "If Will says nothing, nothing follows: no reminder, no second drop. A fare drop is a reason to speak once, not a campaign.",
       ),
     ],
   };

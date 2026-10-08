@@ -10,11 +10,20 @@ import { AppIcon, Initials, PrimaryButton, SecondaryButton } from "@/components/
 import { Notice } from "./invitee";
 import { traceFor } from "@/lib/agent/trace";
 import { itineraryFor } from "@/lib/assistant/itinerary";
-import { inventory } from "@/lib/journey/flights";
+import { formatFare, inventory } from "@/lib/journey/flights";
 import { HOME } from "@/lib/journey/script";
 import { FRIENDS, firstName } from "@/lib/group/group";
+import { fareDrop } from "@/lib/group/next-trip";
 import { MOMENT, momentDates, nextYearMoment, usualTrip } from "@/lib/moments/moments";
-import { EMRE, WILL, emreDraft, longDate, shift, willDraft } from "@/lib/demo/personas";
+import {
+  EMRE,
+  WILL,
+  dayMonth,
+  emreDraft,
+  longDate,
+  shift,
+  willDraft,
+} from "@/lib/demo/personas";
 import { cityOf } from "./ticket";
 
 /**
@@ -132,32 +141,37 @@ export function SquadCancelledScreen() {
   );
 }
 
-/** A new route, offered first to a group that has travelled together. */
+/** After the week: fares to somewhere else in Turkey drop, and the squad hears first. */
 export function NextTripScreen() {
-  const router = useNav();
   const { state } = useJourney();
   const draft = state.draft ?? willDraft();
   const mates = FRIENDS.map((f) => firstName(f.name));
+  const drop = fareDrop(draft, 1 + FRIENDS.length);
   const ready = useAgentRun("squad:next-trip", () => traceFor("/squad/next-trip", state));
   return (
-    <LockScreen
-      date={longDate(shift(draft.returnDate.value ?? draft.departDate.value, 60))}
-      time="19:20"
-      bottom={150}
-    >
+    <LockScreen date={longDate(drop.when)} time="19:20" bottom={150}>
       {ready && (
-        <LockCard label="For you">
+        <LockCard label="For the squad">
           <div className="flex items-center gap-2">
-            <AppIcon />
+            <Avatar size={22} />
             <span className="text-[12px] leading-4 font-extrabold tracking-[0.06em]">
-              PEGASUS · FOR YOU
+              PEGASUS · FOR THE THREE OF YOU
             </span>
           </div>
           <p className="mt-3 text-[13px] font-bold tracking-[0.04em] text-pg-ink">
-            NEW ROUTE · ISTANBUL → ALMATY
+            FARES DOWN {drop.dropPercent}% · {drop.city.toUpperCase()}
           </p>
           <p className="mt-1 text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
-            Same lads, mountains in September?
+            Same lads, {drop.city} in {monthName(drop.out)}?
+          </p>
+          <p className="mt-2 text-[14px] leading-5" style={{ textWrap: "pretty" }}>
+            {dayMonth(drop.out)} to {dayMonth(drop.back)}, {drop.nights} nights.{" "}
+            <strong className="tabular font-extrabold">{formatFare(drop.nowEach)} each</strong>{" "}
+            return, down from {formatFare(drop.wasEach)} last week:{" "}
+            <strong className="tabular font-extrabold">
+              {formatFare(drop.savingSquad)} GBP
+            </strong>{" "}
+            less for the three of you.
           </p>
           <div className="mt-3 flex items-center">
             {[WILL.travellers[0]?.name ?? "Will", ...FRIENDS.map((f) => f.name)].map(
@@ -170,14 +184,32 @@ export function NextTripScreen() {
                 />
               ),
             )}
+            <span className="ml-3 text-[13px] text-pg-ink">
+              Say the word and I&rsquo;ll build it for {mates.join(" and ")} too.
+            </span>
           </div>
-          <PrimaryButton className="mt-3.5 w-full" onClick={() => router.push("/group")}>
-            Ask {mates.join(" and ")}
-          </PrimaryButton>
         </LockCard>
       )}
     </LockScreen>
   );
+}
+
+function monthName(iso: string): string {
+  const names = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  return names[Number(iso.slice(5, 7)) - 1] ?? "";
 }
 
 /** Dad's phone: Emre lands. Mum doesn't know yet. */

@@ -84,3 +84,17 @@ describe("Emre's usual trip", () => {
     expect(countBySource(draft).profile).toBe(9);
   });
 });
+
+describe("the next trip", () => {
+  it("is a 10% drop to the penny, for three", async () => {
+    const { fareDrop } = await import("@/lib/group/next-trip");
+    const drop = fareDrop(willDraft(), 3);
+    expect(drop.city).toBe("Bodrum");
+    expect(drop.nowEach).toBe(229.5);
+    expect(drop.wasEach).toBe(255);
+    expect(drop.dropPercent).toBe(10);
+    expect(drop.savingEach).toBe(25.5);
+    expect(drop.savingSquad).toBe(76.5);
+    expect(drop.out.slice(5, 7)).toBe("09");
+  });
+});

@@ -40,6 +40,25 @@ export const SQUAD = {
   gate: "B12",
 } as const;
 
+/**
+ * Journey 1's coda: the next trip. After the week, fares to Bodrum drop and
+ * the squad hears first. The drop is a fact of the mock world, written down:
+ * last week's LIGHT fares, and this week's, both pinned, so "down 10%" is
+ * arithmetic over two scripted numbers and not a banner.
+ */
+export const NEXT_TRIP = {
+  origin: "STN",
+  destination: "BJV",
+  /** A long weekend. */
+  nights: 3,
+  /** September, as a month index. */
+  month: 8,
+  /** Days after the squad gets home that the card appears. */
+  daysAfter: 60,
+  /** LIGHT per person, out and back, the week before the drop. */
+  lastWeek: { out: 125, back: 130 },
+} as const;
+
 /** Journey 2: Emre's usual trip home. */
 export const HOME = {
   origin: "SAW",
@@ -104,6 +123,28 @@ const SCRIPTED: Record<string, ScriptedFlight[]> = {
       aircraft: "A321neo",
       seatsLeft: 6,
       light: 101.3,
+    },
+  ],
+  "STN|BJV": [
+    {
+      flightNo: "PC 1180",
+      departs: "07:15",
+      arrives: "13:40",
+      durationMinutes: 265,
+      aircraft: "A320neo",
+      seatsLeft: 42,
+      light: 112.5,
+    },
+  ],
+  "BJV|STN": [
+    {
+      flightNo: "PC 1181",
+      departs: "14:30",
+      arrives: "17:05",
+      durationMinutes: 275,
+      aircraft: "A320neo",
+      seatsLeft: 38,
+      light: 117,
     },
   ],
   "SAW|TZX": [
