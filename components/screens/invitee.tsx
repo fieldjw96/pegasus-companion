@@ -70,6 +70,18 @@ function useInvitee(id: FriendId) {
   };
 }
 
+/** An invitee pays: the seat is taken, and the invite list is settled if it wasn't. */
+function bookInvitee(
+  update: ReturnType<typeof useJourney>["update"],
+  friend: Friend,
+  seat: string | null,
+): void {
+  update((prev) => ({
+    inviteesBooked: { ...prev.inviteesBooked, [friend.name]: seat },
+    invited: prev.invited.length > 0 ? prev.invited : FRIENDS.map((f) => f.name),
+  }));
+}
+
 function noticeText(me: string, city: string, organiser: TripDraft, seat: string | null) {
   return {
     lead: `${firstName(me)}'s booked ${city}.`,
@@ -197,7 +209,7 @@ export function TomWhatsAppScreen() {
 
 export function InviteeTicketScreen({ id }: { id: FriendId }) {
   const router = useNav();
-  const { me, friend, draft, seat, extras, itinerary, state } = useInvitee(id);
+  const { me, friend, draft, seat, extras, itinerary, state, update } = useInvitee(id);
   const [local, setLocal] = useState<TripDraft | null>(null);
   const [sheet, setSheet] = useState(false);
   const shown = local ?? draft;
@@ -228,8 +240,21 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
           line={`1 travelling${away === null ? "" : `, ${away} nights`}`}
           total={`${formatFare(price.total)} GBP`}
         >
-          <PrimaryButton onClick={() => router.push(`/invite/${id}/checkout`)}>
-            Book in one tap
+          <PrimaryButton
+            onClick={() => {
+              // Tom has nothing on file to check, so the tap is the booking.
+              // Archie's checkout is the receipt of what was remembered for him.
+              if (id === "tom") {
+                bookInvitee(update, friend, seat);
+                router.push(`/invite/${id}/confirmation`);
+              } else {
+                router.push(`/invite/${id}/checkout`);
+              }
+            }}
+          >
+            {id === "tom"
+              ? `Book and pay · ${formatFare(price.total)} GBP`
+              : "Book in one tap"}
           </PrimaryButton>
         </TotalFooter>
       }
@@ -323,7 +348,7 @@ export function InviteeCheckout({ id }: { id: FriendId }) {
   return (
     <CheckoutScreen
       thinking={{
-        key: `invite:${id}:checkout:${state.declined}`,
+        key: `invite:${id}:checkout`,
         trace: () => traceFor(`/invite/${id}/checkout`, state),
         label:
           friend.remembered === null
@@ -350,15 +375,8 @@ export function InviteeCheckout({ id }: { id: FriendId }) {
       }
       backHref={`/invite/${id}/ticket`}
       nextHref={`/invite/${id}/confirmation`}
-      declineFirst={id === "tom"}
       cta="Book"
-      onPay={() =>
-        update((prev) => ({
-          inviteesBooked: { ...prev.inviteesBooked, [friend.name]: seat },
-          declined: prev.declined || id === "tom",
-          invited: prev.invited.length > 0 ? prev.invited : FRIENDS.map((f) => f.name),
-        }))
-      }
+      onPay={() => bookInvitee(update, friend, seat)}
     />
   );
 }
@@ -448,20 +466,20 @@ function ordinal(n: number): string {
 /** Tom stalls: a nudge in Will's name, and a rescue when his card fails. */
 export function TomStallsScreen() {
   const router = useNav();
-  const { me, state, itinerary } = useInvitee("tom");
+  const { me, state, itinerary, friend, seat, update } = useInvitee("tom");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
   const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
+  // The nudge is the pay button: one tap from the lock screen books him.
+  const pay = () => {
+    bookInvitee(update, friend, seat);
+    router.push("/invite/tom/confirmation");
+  };
   return (
-    <LockScreen
-      date="Thursday 5 March"
-      time="09:15"
-      bottom={130}
-      onTap={() => router.push("/invite/tom/checkout")}
-    >
+    <LockScreen date="Thursday 5 March" time="09:15" bottom={130} onTap={pay}>
       {ready && (
         <div className="flex flex-col gap-2.5">
           <Notice
-            onTap={() => router.push("/invite/tom/checkout")}
+            onTap={pay}
             lead={`${firstName(me)} and ${archie} are waiting on you.`}
             rest={` Your booking's ready: just tap pay. The 06:10 is down to ${itinerary.out?.flight.seatsLeft ?? 9} seats.`}
           />

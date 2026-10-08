@@ -27,8 +27,6 @@ export type JourneyState = {
   sent: boolean;
   /** Invitees who have paid, with the seat they took. */
   inviteesBooked: Record<string, string | null>;
-  /** Tom's card was declined once. */
-  declined: boolean;
   /** Will took the one group offer: breakfast for the three of them. */
   breakfast: boolean;
   /** Emre's side. */
@@ -69,7 +67,6 @@ const INITIAL: JourneyState = {
   invited: [],
   sent: false,
   inviteesBooked: {},
-  declined: false,
   breakfast: false,
   emre: {
     draft: null,

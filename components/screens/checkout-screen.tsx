@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useNav } from "@/components/phone-nav";
 import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { StatusBar, BottomNav } from "@/components/ui/app-shell";
@@ -19,9 +19,6 @@ import { baggageOf, cityOf } from "./ticket";
  * What is not skipped is the receipt of the companion's work. The passport and
  * payment lines say where they came from, because "nothing to type" is a
  * claim this screen has to show rather than assert.
- *
- * Tom's card is declined once. The companion's rescue is the next line: try
- * Apple Pay, the seat is still next to them.
  */
 export function CheckoutScreen({
   draft,
@@ -32,7 +29,6 @@ export function CheckoutScreen({
   nextHref,
   extraLines = [],
   note,
-  declineFirst = false,
   onPay,
   owner,
   cta = "Pay",
@@ -49,8 +45,6 @@ export function CheckoutScreen({
   extraLines?: PriceLine[];
   /** A heads-up the companion caught before payment. */
   note?: ReactNode;
-  /** The first attempt fails, and Apple Pay is offered. */
-  declineFirst?: boolean;
   onPay: () => void;
   owner?: string;
   cta?: string;
@@ -58,7 +52,6 @@ export function CheckoutScreen({
   thinking?: { key: string; trace: () => Trace; label: string };
 }) {
   const router = useNav();
-  const [declined, setDeclined] = useState(false);
   const ready = useAgentRun(thinking?.key ?? null, thinking?.trace ?? NO_TRACE);
   const price = withLines(breakdown(draft), extraLines);
   const itinerary = itineraryFor(draft, owner);
@@ -138,9 +131,7 @@ export function CheckoutScreen({
           <div className="flex h-[52px] items-center justify-between gap-3">
             <span className="caps">Paying with</span>
             <span className="flex items-center gap-3">
-              <span className="text-[14px] font-bold">
-                {declined ? "Apple Pay" : onFile.payment}
-              </span>
+              <span className="text-[14px] font-bold">{onFile.payment}</span>
               <TextButton ariaLabel="Change payment" className="min-h-0 pl-1">
                 Change
               </TextButton>
@@ -159,31 +150,16 @@ export function CheckoutScreen({
             {note}
           </div>
         )}
-
-        {declined && (
-          <div
-            role="alert"
-            className="fade mt-4 rounded-[14px] bg-white px-4 py-3.5 text-[14px] leading-5 shadow-[inset_0_0_0_2px_#1F2A37]"
-            style={{ textWrap: "pretty" }}
-          >
-            <strong className="font-extrabold">Card declined.</strong> Try Apple Pay.{" "}
-            {seat ?? "Your seat"} is still next to them.
-          </div>
-        )}
       </main>
       <div className="shrink-0 px-5 pt-3 pb-3.5">
         <PrimaryButton
           size="lg"
           onClick={() => {
-            if (declineFirst && !declined) {
-              setDeclined(true);
-              return;
-            }
             onPay();
             router.push(nextHref);
           }}
         >
-          {declined ? "Pay with Apple Pay" : cta} {formatFare(price.total)} GBP
+          {cta} {formatFare(price.total)} GBP
         </PrimaryButton>
       </div>
       <BottomNav />

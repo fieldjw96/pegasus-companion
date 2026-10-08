@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAgents } from "./agent-provider";
 import { useJourney } from "./journey-provider";
@@ -23,6 +23,9 @@ const TILES: Tile[] = [
   { key: "bookings", label: "Bookings", money: false },
   { key: "newUsers", label: "New users", money: false },
 ];
+
+/** How long new figures wait for the next screen's run to start, in ms. */
+const HOLD = 700;
 
 /** Eases a number towards its target over a few hundred milliseconds. */
 function useCountUp(target: number): number {
@@ -60,7 +63,22 @@ export function Impact() {
   const { state, reset } = useJourney();
   const agents = useAgents();
   const router = useRouter();
-  const { companion, today } = impactOf(state);
+  /*
+   * The column moves when the screen does, not when the tap lands. A booking
+   * is in the state the moment Pay is tapped, but the phone shows "Booking…"
+   * until the agents' run is done; the figures wait for the same moment. The
+   * next screen starts its run a beat after the tap, so new figures are held
+   * for that beat too: a run that starts inside it keeps the hold.
+   */
+  const live = useMemo(() => impactOf(state), [state]);
+  const settled = agents.active.every((run) => run.done);
+  const [shown, setShown] = useState(live);
+  useEffect(() => {
+    if (!settled) return;
+    const timer = setTimeout(() => setShown(live), HOLD);
+    return () => clearTimeout(timer);
+  }, [settled, live]);
+  const { companion, today } = shown;
   return (
     <aside
       aria-label="Impact"
@@ -105,7 +123,7 @@ export function Impact() {
             <li key={tile.key} className="rounded-2xl bg-white/[0.06] px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[12px] font-semibold text-white/60">{tile.label}</span>
-                {delta > 0 && (
+                {delta > 0 && b > 0 && (
                   <span className="tabular text-[11px] font-bold text-pg-yellow">
                     +{tile.money ? formatFare(delta) : delta}
                   </span>

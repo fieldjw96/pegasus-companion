@@ -17,7 +17,6 @@ const COLD: TraceState = {
   invited: [],
   sent: false,
   inviteesBooked: {},
-  declined: false,
   emre: {
     draft: null,
     booked: false,

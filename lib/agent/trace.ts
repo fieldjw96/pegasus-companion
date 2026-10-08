@@ -113,7 +113,6 @@ export type TraceState = {
   invited: string[];
   sent: boolean;
   inviteesBooked: Record<string, string | null>;
-  declined: boolean;
   emre: {
     draft: TripDraft | null;
     booked: boolean;
@@ -702,16 +701,6 @@ function inviteeTrace(
             "Filled the form",
             `${friend.remembered.passport}; ${friend.remembered.payment}. Nothing to type.`,
           ),
-      ...(id === "tom" && state.declined
-        ? [
-            step(
-              "Offer",
-              "act",
-              "Rescued a declined card",
-              `Card declined. I offer Apple Pay on the next line and say ${seat ?? "the seat"} is still free. A dead end here loses the whole squad.`,
-            ),
-          ]
-        : []),
       booked
         ? step("Trip", "act", `Booked ${itinerary.reference}`, `${gbp(total)} paid.`)
         : step(
@@ -798,10 +787,10 @@ function stallsTrace(state: TraceState): Trace {
         "If Tom ignores it, nothing else arrives. I don't chase.",
       ),
       step(
-        "Offer",
+        "Trip",
         "act",
-        "Planned the rescue",
-        `If his card declines, Apple Pay on the next line and ${seatBeside(w.draft, tom, w.me) ?? "his seat"} still free. The offer is the way out, not another ask.`,
+        "Made the nudge the pay button",
+        `Nothing on file for Tom, so there is nothing to check: one tap on the nudge books him, ${seatBeside(w.draft, tom, w.me) ?? "his seat"} included. A second screen here is where the squad is lost.`,
       ),
     ],
   };

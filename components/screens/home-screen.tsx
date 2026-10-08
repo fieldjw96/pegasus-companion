@@ -58,9 +58,11 @@ export function HomeScreen({ persona }: { persona: Persona }) {
     persona === "will" && state.prompt === null && draft === null ? "home:first-open" : null,
     () => traceFor("/", state),
   );
+  // The presents are an add-on, not a change to the trip: taking them updates
+  // the ticket and the price in place, without the agents running again.
   const tripKey =
     persona === "emre"
-      ? `home:emre:${state.emre.nextYear}:${state.emre.corrected ?? ""}:${state.emre.gifts}`
+      ? `home:emre:${state.emre.nextYear}:${state.emre.corrected ?? ""}`
       : discovery
         ? `home:discovery:${state.prompt}`
         : draft !== null
@@ -153,12 +155,6 @@ export function HomeScreen({ persona }: { persona: Persona }) {
             onSubmit={run}
           />
         </div>
-
-        <p className="mt-3 px-1 text-[13px] leading-[18px] text-pg-ink">
-          {profile.coldStart
-            ? "First time here? Just tell me the trip. I'll fill in the rest and show you where each guess came from."
-            : `${profile.remembers.join(" · ")} · remembered from your trips home`}
-        </p>
 
         <div className="mt-7 flex flex-col gap-3">
           <h2 className="caps px-1">{firstOpenDone ? "For you" : "Thinking about where…"}</h2>
