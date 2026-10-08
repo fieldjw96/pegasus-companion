@@ -74,20 +74,18 @@ export function Impact() {
    */
   const live = useMemo(() => impactOf(state), [state]);
   const settled = agents.active.every((run) => run.done);
-  const [shown, setShown] = useState(live);
+  const [held, setHeld] = useState(live);
   useEffect(() => {
-    if (
-      live.companion.revenue + live.companion.newUsers <
-      shown.companion.revenue + shown.companion.newUsers
-    ) {
-      setShown(live);
-      return;
-    }
     if (!settled) return;
-    const timer = setTimeout(() => setShown(live), HOLD);
+    const timer = setTimeout(() => setHeld(live), HOLD);
     return () => clearTimeout(timer);
-  }, [settled, live, shown]);
-  const { companion, today } = shown;
+  }, [settled, live]);
+  // A drop is shown at once; state adjusted during render, as React allows.
+  const dropped =
+    live.companion.revenue + live.companion.newUsers <
+    held.companion.revenue + held.companion.newUsers;
+  if (dropped) setHeld(live);
+  const { companion, today } = dropped ? live : held;
   return (
     <aside
       aria-label="Impact"

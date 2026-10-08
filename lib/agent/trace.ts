@@ -777,8 +777,8 @@ function stallsTrace(state: TraceState): Trace {
       step(
         "Moments",
         "think",
-        "Chose who speaks",
-        "A nudge from Pegasus is marketing. The same words from Will are a mate. So Will is asked first whether to nudge, and the nudge carries his name.",
+        "Chose who speaks, and where",
+        "A push from Pegasus is marketing, and Tom has no app to push to. The same words from Will on WhatsApp are a mate. So Will is asked first whether to nudge, and the message goes from his phone in his name.",
       ),
       step(
         "Moments",
@@ -789,8 +789,8 @@ function stallsTrace(state: TraceState): Trace {
       step(
         "Trip",
         "act",
-        "Made the nudge the pay button",
-        `Nothing on file for Tom, so there is nothing to check: one tap on the nudge books him, ${seatBeside(w.draft, tom, w.me) ?? "his seat"} included. A second screen here is where the squad is lost.`,
+        "Made the card the pay button",
+        `The card in the message installs the app and opens Will's flight with ${seatBeside(w.draft, tom, w.me) ?? "his seat"} held. Nothing on file for Tom, so there is nothing to check: one tap books him. A second screen here is where the squad is lost.`,
       ),
     ],
   };

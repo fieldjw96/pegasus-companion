@@ -90,8 +90,9 @@ Will, 26, London. A cold start: no history, no profile.
    brings him into the app.
 6. **The waiting window.** A lock-screen tracker shows who has booked and sells
    extras to the ones already in.
-7. **Tom stalls.** When everyone else is in, one nudge in Will's name; the
-   nudge is the pay button.
+7. **Tom stalls.** When everyone else is in, one WhatsApp from Will, drafted
+   by the companion: get the app, book the same flight. The card is the pay
+   button.
 8. **Squad complete.** All three booked, seats together, one group offer that
    makes sense for three: breakfast for the 06:10, to the organiser only.
 9. **Checked in for them**, **the next trip** (a new route offered first to the

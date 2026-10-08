@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNav } from "@/components/phone-nav";
 import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
@@ -145,6 +145,28 @@ export function TomWhatsAppScreen() {
   const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
   const ready = useAgentRun("invite:tom:arrive", () => traceFor("/invite/tom", state));
   return (
+    <WhatsAppChat me={me}>
+      <DayDivider>{INVITE.sentLong}</DayDivider>
+      {ready && (
+        <InviteBubble
+          me={me}
+          city={city}
+          span={span}
+          seat={seat}
+          onTap={() => router.push("/invite/tom/ticket")}
+        />
+      )}
+      <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
+        Opens the app, or the web if it isn&rsquo;t installed. A new direct customer Pegasus
+        didn&rsquo;t have.
+      </p>
+    </WhatsAppChat>
+  );
+}
+
+/** The WhatsApp chrome: Will's chat, as Tom sees it. */
+function WhatsAppChat({ me, children }: { me: string; children: ReactNode }) {
+  return (
     <div className="flex h-full flex-col bg-[#EFE7DD] text-pg-navy">
       <div className="flex shrink-0 items-center gap-3 bg-[#075E54] px-4 pt-12 pb-3 text-white">
         <span className="text-[22px]" aria-hidden>
@@ -156,45 +178,7 @@ export function TomWhatsAppScreen() {
           <span className="text-[12px] leading-4 opacity-80">online</span>
         </span>
       </div>
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pt-6">
-        <div className="mx-auto mb-4 w-fit rounded-md bg-white/70 px-3 py-1 text-[12px] font-semibold text-pg-ink">
-          {INVITE.sentLong}
-        </div>
-        {ready && (
-          <div className="rise max-w-[300px] rounded-2xl rounded-tl-sm bg-white p-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
-            <button
-              type="button"
-              onClick={() => router.push("/invite/tom/ticket")}
-              className="block w-full overflow-hidden rounded-xl bg-pg-surface text-left"
-            >
-              <span className="flex items-center gap-2 bg-pg-yellow px-3 py-2">
-                <AppIcon size={22} />
-                <span className="text-[12px] font-extrabold tracking-[0.06em]">PEGASUS</span>
-              </span>
-              <span className="flex flex-col gap-0.5 px-3 py-2.5">
-                <span className="text-[15px] leading-5 font-extrabold">
-                  {firstName(me)} invited you to {city} ✈︎
-                </span>
-                <span className="text-[13px] leading-[18px] text-pg-ink">
-                  {span} · seat {seat} saved next to{" "}
-                  {firstName(me) === "Will" ? "him" : "them"}
-                </span>
-                <span className="mt-1 text-[13px] font-extrabold text-pg-orange">
-                  Join {firstName(me)}&rsquo;s trip on Pegasus
-                </span>
-              </span>
-            </button>
-            <p className="px-2 pt-2 pb-1 text-[15px] leading-5">
-              Lads. Booked it. Seat next to mine&rsquo;s free if you&rsquo;re quick 🎈
-            </p>
-            <span className="block pr-2 pb-1 text-right text-[11px] text-pg-ink">18:51</span>
-          </div>
-        )}
-        <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
-          Opens the app, or the web if it isn&rsquo;t installed. A new direct customer Pegasus
-          didn&rsquo;t have.
-        </p>
-      </div>
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pt-6">{children}</div>
       <div className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-8">
         <span className="h-10 flex-1 rounded-full bg-white px-4 text-[15px] leading-10 text-pg-ink">
           Message
@@ -204,6 +188,79 @@ export function TomWhatsAppScreen() {
         </span>
       </div>
     </div>
+  );
+}
+
+function DayDivider({ children }: { children: ReactNode }) {
+  return (
+    <div className="mx-auto mb-4 w-fit rounded-md bg-white/70 px-3 py-1 text-[12px] font-semibold text-pg-ink">
+      {children}
+    </div>
+  );
+}
+
+/** A message from Will with a Pegasus card in it: the card is the link. */
+function CardBubble({
+  title,
+  detail,
+  cta,
+  text,
+  time,
+  onTap,
+}: {
+  title: string;
+  detail: string;
+  cta: string;
+  text: ReactNode;
+  time: string;
+  onTap: () => void;
+}) {
+  return (
+    <div className="rise max-w-[300px] rounded-2xl rounded-tl-sm bg-white p-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
+      <button
+        type="button"
+        onClick={onTap}
+        className="block w-full overflow-hidden rounded-xl bg-pg-surface text-left"
+      >
+        <span className="flex items-center gap-2 bg-pg-yellow px-3 py-2">
+          <AppIcon size={22} />
+          <span className="text-[12px] font-extrabold tracking-[0.06em]">PEGASUS</span>
+        </span>
+        <span className="flex flex-col gap-0.5 px-3 py-2.5">
+          <span className="text-[15px] leading-5 font-extrabold">{title}</span>
+          <span className="text-[13px] leading-[18px] text-pg-ink">{detail}</span>
+          <span className="mt-1 text-[13px] font-extrabold text-pg-orange">{cta}</span>
+        </span>
+      </button>
+      <p className="px-2 pt-2 pb-1 text-[15px] leading-5">{text}</p>
+      <span className="block pr-2 pb-1 text-right text-[11px] text-pg-ink">{time}</span>
+    </div>
+  );
+}
+
+function InviteBubble({
+  me,
+  city,
+  span,
+  seat,
+  onTap,
+}: {
+  me: string;
+  city: string;
+  span: string;
+  seat: string | null;
+  onTap: () => void;
+}) {
+  const him = firstName(me) === "Will" ? "him" : "them";
+  return (
+    <CardBubble
+      title={`${firstName(me)} invited you to ${city} ✈︎`}
+      detail={`${span} · seat ${seat} saved next to ${him}`}
+      cta={`Join ${firstName(me)}'s trip on Pegasus`}
+      text={<>Lads. Booked it. Seat next to mine&rsquo;s free if you&rsquo;re quick 🎈</>}
+      time="18:51"
+      onTap={onTap}
+    />
   );
 }
 
@@ -463,29 +520,49 @@ function ordinal(n: number): string {
   return ["", "1st", "2nd", "3rd", "4th", "5th"][n] ?? `${n}th`;
 }
 
-/** Tom stalls: a nudge in Will's name, and a rescue when his card fails. */
+/** Tom stalls: a second WhatsApp from Will, drafted by the companion, and the card is the pay button. */
 export function TomStallsScreen() {
   const router = useNav();
-  const { me, state, itinerary, friend, seat, update } = useInvitee("tom");
+  const { me, city, organiser, state, itinerary, friend, seat, update } = useInvitee("tom");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
+  const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
+  const left = itinerary.out?.flight.seatsLeft ?? 9;
+  const departs = itinerary.out?.flight.departs ?? "06:10";
   const ready = useAgentRun("invite:tom:stalls", () => traceFor("/invite/tom/stalls", state));
-  // The nudge is the pay button: one tap from the lock screen books him.
+  // The card is the pay button: one tap installs the app and books him.
   const pay = () => {
     bookInvitee(update, friend, seat);
     router.push("/invite/tom/confirmation");
   };
   return (
-    <LockScreen date="Thursday 5 March" time="09:15" bottom={130} onTap={pay}>
+    <WhatsAppChat me={me}>
+      <DayDivider>{INVITE.sentLong}</DayDivider>
+      <InviteBubble me={me} city={city} span={span} seat={seat} onTap={pay} />
+      <div className="mt-5">
+        <DayDivider>Thursday 5 March</DayDivider>
+      </div>
       {ready && (
-        <div className="flex flex-col gap-2.5">
-          <Notice
-            onTap={pay}
-            lead={`${firstName(me)} and ${archie} are waiting on you.`}
-            rest={` Your booking's ready: just tap pay. The 06:10 is down to ${itinerary.out?.flight.seatsLeft ?? 9} seats.`}
-          />
-        </div>
+        <CardBubble
+          title={`Book the same flight as ${firstName(me)}`}
+          detail={`${span} · ${seat ?? "a seat"} still next to ${firstName(me) === "Will" ? "him" : "them"} · ${left} seats left on the ${departs}`}
+          cta="Get Pegasus and book in one tap"
+          text={
+            <>
+              {archie}&rsquo;s in. Just you now mate. The {departs}&rsquo;s down to {left}{" "}
+              seats, grab {seat ?? "the seat"} before it goes 👀
+            </>
+          }
+          time="09:15"
+          onTap={pay}
+        />
       )}
-    </LockScreen>
+      {ready && (
+        <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
+          Drafted by the companion, sent from {firstName(me)}&rsquo;s phone with one tap. The
+          link installs the app and opens his booking, paid for in one more.
+        </p>
+      )}
+    </WhatsAppChat>
   );
 }
 
