@@ -84,7 +84,7 @@ export const ASSUMPTIONS = [
   "Today's app sells the fare it opens on, LIGHT, and offers the bag and seat at the till.",
   "Today's app sells one return to Istanbul; the onward legs are bought elsewhere.",
   "The three friends book today too, on LIGHT, without the app. Nobody joins.",
-  `Taps are touches between the first tap and paid, keystrokes not counted. Today's ${TODAY_TAPS_PER_BOOKING} a booking are read screen by screen off the live journey: search, two flights, two packages, passenger details, seats, bags, extras, card.`,
+  `Clicks are touches between the first tap and paid, keystrokes not counted. Today's ${TODAY_TAPS_PER_BOOKING} a booking are read screen by screen off the live journey: search, two flights, two packages, passenger details, seats, bags, extras, card.`,
   "A stay booked through the app counts its commission, 12% of the total. Today's app sells no stays.",
   "Today, nobody messages Mum. When Will keeps her posted, each of the three adds a parent; only Mum's phone is shown.",
 ];
