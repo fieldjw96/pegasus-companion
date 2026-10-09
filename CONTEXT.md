@@ -175,11 +175,6 @@ The phone that appears on the left when the story moves to Archie's, Jess's or
 Mum's device, and goes away when their part is done.
 _Avoid_: modal, popup, aside
 
-**Time strip**:
-The row under the main phone that jumps its clock to a later moment, because a
-phone cannot move its own.
-_Avoid_: timeline, scrubber
-
 **Journey**:
 The end-to-end story the prototype carries: three mates go to Cappadocia, from
 the companion speaking first to the next trip.

@@ -46,9 +46,9 @@ the phone waits for the last one before it shows the result: a screen that needs
 the agents' work asks for a run with `useAgentRun` and renders `Thinking` until
 it is done. Do not show a result the run has not reached.
 
-**Both journeys run by tapping inside the phones.** A beat on someone else's
+**The journey runs by tapping inside the phones.** A beat on someone else's
 device opens the second phone (`components/companion-phone.tsx`); a beat on a
-later day is on the time strip under the main phone. Screens navigate with
+later day is reached from the Scenes view of the panel. Screens navigate with
 `useNav()`, never `next/navigation` directly, so they work in either phone.
 
 **Every screen must open cold.** There is no server state. A screen opened

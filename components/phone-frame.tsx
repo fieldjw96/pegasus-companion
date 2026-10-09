@@ -31,15 +31,12 @@ export function Device({ children }: { children: ReactNode }) {
 export function PhoneFrame({
   children,
   before,
-  below,
   aside,
   after,
 }: {
   children: ReactNode;
   /** The second phone, or null. */
   before?: ReactNode;
-  /** The time strip under the main phone. */
-  below?: ReactNode;
   aside?: ReactNode;
   /** The impact column, at the far right. */
   after?: ReactNode;
@@ -49,7 +46,6 @@ export function PhoneFrame({
       {before}
       <div className="flex shrink-0 flex-col items-center gap-3">
         <Device>{children}</Device>
-        {below}
       </div>
       {aside}
       {after}

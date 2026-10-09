@@ -99,7 +99,7 @@ export function CompanionPhone() {
   const jessInvited = state.invited.length === 0 || state.invited.includes("Jess Carter");
   return (
     <div className="rise flex shrink-0 flex-col items-center gap-3">
-      {/* The label sits under the phone, like the time strip under the main one, so the two phones line up. */}
+      {/* The label sits under the phone, so the phone itself lines up with the main one. */}
       <Device>
         <NavProvider nav={nav}>{screenFor(aside.route)}</NavProvider>
       </Device>

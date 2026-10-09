@@ -110,8 +110,9 @@ the journey and jumps to it.
 
 When the story moves to someone else's device (Archie's push, Jess's WhatsApp,
 Mum's message) a **second phone** appears on the left and goes away when their
-part is done. The **time strip** under the main phone jumps its clock to the
-later moments. **Reset demo** puts everything back to the lock screen.
+part is done. Later days (the waiting window, check-in, the cancellation, the
+next trip) are reached from Scenes. **Reset demo** puts everything back to the
+lock screen.
 
 The **impact column** on the right is the commercial case, moving as the demo
 moves: revenue, add-ons and new users, each against a stated model of today's
@@ -155,7 +156,6 @@ app/                       One route per screen. Server components rendering cli
 components/
   phone-frame.tsx          The device, and the stage: second phone, main phone, panel.
   companion-phone.tsx      The second phone: Archie's, Jess's or Mum's, when the story is there.
-  time-strip.tsx           Jumps the main phone's clock to the later moments.
   agent-provider.tsx       The agents running: one streaming run per phone, and the wait.
   scenes.tsx               The presenter's panel: Agent (live) and Scenes (the list).
   impact.tsx               The impact column: the companion against today's app.
