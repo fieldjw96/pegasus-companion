@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { PhoneFrame } from "@/components/phone-frame";
-import { CompanionProvider } from "@/components/companion/companion-provider";
+import { JourneyProvider } from "@/components/journey-provider";
+import { CompanionPhone } from "@/components/companion-phone";
+import { Scenes } from "@/components/scenes";
+import { Impact } from "@/components/impact";
 
 export const metadata: Metadata = {
-  title: "Pegasus — booking mock",
+  title: "Pegasus — AI Travel Companion mock",
   description:
-    "A mock of the Pegasus mobile booking journey, used as a harness for an agentic companion layer. Not affiliated with Pegasus Airlines.",
+    "A mock of the Pegasus mobile app with an AI travel companion built into it. Not affiliated with Pegasus Airlines.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,13 +17,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {/*
-          Every screen renders inside the phone frame. Keeping the frame in the
-          root layout rather than per-page means a new screen cannot accidentally
-          render full-width and look right in isolation but wrong in the demo.
+          Every screen renders inside the main phone. A second phone appears on
+          the left when the story moves to someone else's device, and the
+          presenter's panel sits on the right; its Scenes view is how the demo
+          jumps to a later day. The provider holds what the passengers have done so far, so a
+          ticket built on the home screen is the ticket the checkout prints.
         */}
-        <CompanionProvider>
-          <PhoneFrame>{children}</PhoneFrame>
-        </CompanionProvider>
+        <JourneyProvider>
+          <PhoneFrame before={<CompanionPhone />} aside={<Scenes />} after={<Impact />}>
+            {children}
+          </PhoneFrame>
+        </JourneyProvider>
       </body>
     </html>
   );

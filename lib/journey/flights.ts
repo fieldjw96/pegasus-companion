@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { scriptedFlights } from "./script";
 
 /**
  * Mock Pegasus inventory.
@@ -19,6 +20,7 @@ export const AIRPORTS = {
   BJV: { city: "Bodrum", name: "Milas-Bodrum", country: "Turkiye" },
   DLM: { city: "Dalaman", name: "Dalaman", country: "Turkiye" },
   TZX: { city: "Trabzon", name: "Trabzon", country: "Turkiye" },
+  ASR: { city: "Cappadocia", name: "Kayseri", country: "Turkiye" },
   STN: { city: "London", name: "Stansted", country: "United Kingdom" },
   LGW: { city: "London", name: "Gatwick", country: "United Kingdom" },
   BER: { city: "Berlin", name: "Brandenburg", country: "Germany" },
@@ -182,6 +184,8 @@ const DURATIONS: Record<string, number> = {
   "BJV-SAW": 75,
   "DLM-SAW": 80,
   "SAW-TZX": 105,
+  "ASR-SAW": 80,
+  "ASR-AYT": 75,
   "SAW-STN": 230,
   "LGW-SAW": 235,
   "BER-SAW": 170,
@@ -224,6 +228,32 @@ const HUBS = ["ADB", "SAW", "ESB"] as const;
  * should have an opinion about.
  */
 export function inventory(origin: string, destination: string, date: string): Flight[] {
+  // The demo's routes are written down, not hashed. See script.ts for why.
+  const scripted = scriptedFlights(origin, destination);
+  if (scripted !== null) {
+    return scripted.map((s, i) => ({
+      id: `${s.flightNo.replace(" ", "")}-${date.replace(/-/g, "")}-${i}`,
+      flightNo: s.flightNo,
+      origin,
+      destination,
+      date,
+      departs: s.departs,
+      arrives: s.arrives,
+      durationMinutes: s.durationMinutes,
+      arrivesNextDay: false,
+      aircraft: s.aircraft,
+      seatsLeft: s.seatsLeft,
+      via: null,
+      layoverMinutes: 0,
+      fares: {
+        light: s.light,
+        saver: Math.round((s.light + FARE_RULES.saver.uplift) * 100) / 100,
+        saverPlus: Math.round((s.light + FARE_RULES.saverPlus.uplift) * 100) / 100,
+        comfortFlex: Math.round((s.light + FARE_RULES.comfortFlex.uplift) * 100) / 100,
+      },
+    }));
+  }
+
   const random = rng(seedOf(`${origin}|${destination}|${date}`));
   const duration = baseDuration(origin, destination);
   const count = 3 + Math.floor(random() * 4);

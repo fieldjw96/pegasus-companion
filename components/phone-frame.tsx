@@ -1,40 +1,54 @@
 import type { ReactNode } from "react";
-import { DemoControls } from "@/components/demo-controls";
-import { CompanionSurface } from "@/components/companion/companion-surface";
-import { BottomNav } from "@/components/bottom-nav";
 
 /**
  * The device frame the whole mock renders inside.
  *
  * This is a web app pretending to be a phone, so the frame is load-bearing for
  * the demo: a judge watching a screen share needs to read it as an app, not a
- * website. 390x844 is an iPhone 15 logical viewport.
+ * website. 390x844 is an iPhone 15 logical viewport, and every artboard on the
+ * design canvas is drawn at exactly that size.
+ *
+ * The status bar is not here. A lock screen draws its own, in white, and an app
+ * screen draws its own, in navy, so each screen owns the top 44px of itself.
  */
-export function PhoneFrame({ children }: { children: ReactNode }) {
+export function Device({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center gap-6 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-10 lg:p-10">
-      <div className="relative shrink-0">
-        <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[2.75rem] border-[10px] border-black bg-pg-surface shadow-2xl">
-          {/* Status bar. Static on purpose: a live clock changes every screenshot. */}
-          <div className="relative z-10 flex h-11 items-center justify-between px-6 pt-1 text-[14px] font-semibold text-pg-navy">
-            <span>15:06</span>
-            <span className="absolute left-1/2 top-1.5 h-8 w-32 -translate-x-1/2 rounded-full bg-black" />
-            <span className="flex items-center gap-1 text-[12px]">
-              <span aria-hidden>▂▄▆</span>
-              <span className="rounded-sm bg-[#30D158] px-1 text-[10px] text-black">33</span>
-            </span>
-          </div>
+    <div className="relative h-[864px] w-[410px] overflow-hidden rounded-[46px] border-[10px] border-black bg-pg-surface shadow-2xl">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-3 left-1/2 z-30 h-8 w-32 -translate-x-1/2 rounded-full bg-black"
+      />
+      <div className="relative h-full w-full">{children}</div>
+    </div>
+  );
+}
 
-          <div className="no-scrollbar h-[calc(844px-2.75rem)] overflow-y-auto">
-            {children}
-          </div>
-
-          <BottomNav />
-          <CompanionSurface />
-        </div>
+/**
+ * The stage: an optional second phone on the left, the main phone, and the
+ * presenter's panel on the right. The second phone appears when the story
+ * moves to someone else's device and goes away when it comes back.
+ */
+export function PhoneFrame({
+  children,
+  before,
+  aside,
+  after,
+}: {
+  children: ReactNode;
+  /** The second phone, or null. */
+  before?: ReactNode;
+  aside?: ReactNode;
+  /** The impact column, at the far right. */
+  after?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center gap-6 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-8 lg:p-8">
+      {before}
+      <div className="flex shrink-0 flex-col items-center gap-3">
+        <Device>{children}</Device>
       </div>
-
-      <DemoControls />
+      {aside}
+      {after}
     </div>
   );
 }
