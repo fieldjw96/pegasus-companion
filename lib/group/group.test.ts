@@ -51,6 +51,7 @@ describe("Archie's booking", () => {
 
   it("has the hot meal already in the basket, and pays only for himself", () => {
     const extras = inviteeExtras(jess, archie, me);
+    expect(inviteeExtras(jess, archie, me, false)).toEqual([]);
     expect(extras.map((e) => e.label)).toEqual(["Hot meal, Pegasus Café"]);
     const total = withLines(breakdown(draft), extras).total;
     expect(total).toBe(priceOf(jess) + 26);

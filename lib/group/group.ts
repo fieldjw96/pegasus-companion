@@ -197,14 +197,19 @@ export function seatBeside(
   return `${row}${next}`;
 }
 
-/** What an invitee's booking carries beyond the fare: a remembered meal, if there is one. */
+/**
+ * What an invitee's booking carries beyond the fare: a remembered meal, if
+ * there is one and the invitee has not taken it off. Remembered means already
+ * in the basket; it never means stuck there.
+ */
 export function inviteeExtras(
   organiser: TripDraft,
   friend: Friend,
   organiserName: string,
+  withMeal = true,
 ): PriceLine[] {
   const legs = itineraryFor(organiser, organiserName).legs.length;
-  if (!friend.remembered?.meal) return [];
+  if (!friend.remembered?.meal || !withMeal) return [];
   return [
     {
       label: friend.remembered.meal,

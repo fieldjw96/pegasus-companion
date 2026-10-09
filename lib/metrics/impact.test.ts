@@ -18,6 +18,7 @@ const COLD: ImpactState = {
   breakfast: false,
   hostel: null,
   dadTold: false,
+  mealsDropped: [],
 };
 
 describe("the impact column", () => {
@@ -61,6 +62,17 @@ describe("the impact column", () => {
     // Jess's two, her one send, and three each for Archie and Will.
     expect(companion.taps).toBe(2 + 1 + 3 + 3);
     expect(today.taps).toBe(3 * 39);
+  });
+
+  it("drops Archie's meal from revenue and add-ons when he takes it off", () => {
+    const booked = { ...COLD, booked: true, inviteesBooked: { "Archie Bell": "14B" } };
+    const withMeal = impactOf(booked);
+    const without = impactOf({ ...booked, mealsDropped: ["Archie Bell"] });
+    expect(
+      Math.round((withMeal.companion.revenue - without.companion.revenue) * 100) / 100,
+    ).toBe(26);
+    expect(withMeal.companion.addOns - without.companion.addOns).toBeCloseTo(26, 2);
+    expect(without.today).toEqual(withMeal.today);
   });
 
   it("counts a parent for each of the three once Jess keeps Dad posted", () => {

@@ -37,6 +37,8 @@ export type JourneyState = {
   hostel: "booked" | "declined" | null;
   /** Dad was sent the flight: a new user, and told if it moves. */
   dadTold: boolean;
+  /** Invitees who took the remembered meal off their booking, by name. */
+  mealsDropped: string[];
   /** The companion's opening nudge, and what Jess said to it. */
   nudge: {
     /** "Not this time": quiet until the next free week it finds. */
@@ -67,6 +69,7 @@ const INITIAL: JourneyState = {
   breakfast: false,
   hostel: null,
   dadTold: false,
+  mealsDropped: [],
   nudge: { declined: false, never: false, spoken: 0 },
   aside: null,
 };

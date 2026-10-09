@@ -23,6 +23,7 @@ const COLD: TraceState = {
   inviteesBooked: {},
   hostel: null,
   dadTold: false,
+  mealsDropped: [],
   nudge: { declined: false, never: false, spoken: 0 },
 };
 

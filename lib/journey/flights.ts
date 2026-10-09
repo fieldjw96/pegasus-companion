@@ -269,10 +269,11 @@ export function inventory(origin: string, destination: string, date: string): Fl
     const layoverMinutes = via === null ? 0 : 90 + Math.floor(random() * 660);
     const total = duration + layoverMinutes;
 
-    // A connection is cheaper per hour but costs the traveller a day; price it so
-    // the trade-off is real rather than decorative.
-    const base = 28 + duration * 0.42 + random() * 55 - (via === null ? 0 : 22);
-    const essentials = Math.max(19, Math.round(base * 100) / 100);
+    // Sized to Pegasus's own LIGHT fares: a domestic hop from the low thirties, London
+    // to Istanbul from the low sixties. A connection is cheaper per hour but costs
+    // the traveller a day; price it so the trade-off is real rather than decorative.
+    const base = 14 + duration * 0.2 + random() * 25 - (via === null ? 0 : 8);
+    const essentials = Math.max(15, Math.round(base * 100) / 100);
 
     flights.push({
       id: `PC${number}-${date.replace(/-/g, "")}-${i}`,

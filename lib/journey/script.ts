@@ -76,7 +76,7 @@ export const NEXT_TRIP = {
   /** Days after the squad gets home that the card appears. */
   daysAfter: 60,
   /** LIGHT per person, out and back, the week before the drop. */
-  lastWeek: { out: 125, back: 130 },
+  lastWeek: { out: 99, back: 111 },
 } as const;
 
 /**
@@ -172,7 +172,7 @@ const SCRIPTED: Record<string, ScriptedFlight[]> = {
       durationMinutes: 265,
       aircraft: "A320neo",
       seatsLeft: 42,
-      light: 112.5,
+      light: 89.1,
     },
   ],
   "BJV|STN": [
@@ -183,7 +183,7 @@ const SCRIPTED: Record<string, ScriptedFlight[]> = {
       durationMinutes: 275,
       aircraft: "A320neo",
       seatsLeft: 38,
-      light: 117,
+      light: 99.9,
     },
   ],
   "SAW|TZX": [
@@ -194,7 +194,7 @@ const SCRIPTED: Record<string, ScriptedFlight[]> = {
       durationMinutes: 105,
       aircraft: "A320neo",
       seatsLeft: 11,
-      light: 47.9,
+      light: 29.9,
     },
     {
       flightNo: "PC 2656",
@@ -203,7 +203,7 @@ const SCRIPTED: Record<string, ScriptedFlight[]> = {
       durationMinutes: 105,
       aircraft: "A320neo",
       seatsLeft: 18,
-      light: 52.4,
+      light: 34.4,
     },
   ],
   "TZX|SAW": [
@@ -214,7 +214,7 @@ const SCRIPTED: Record<string, ScriptedFlight[]> = {
       durationMinutes: 110,
       aircraft: "A320neo",
       seatsLeft: 13,
-      light: 47.9,
+      light: 29.9,
     },
   ],
 };

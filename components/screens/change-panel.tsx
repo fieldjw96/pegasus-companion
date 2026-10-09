@@ -31,6 +31,8 @@ export type ExtraRow = {
   source: Source;
   value: string;
   reason?: string;
+  /** A remembered thing that can be taken off, or put back. */
+  action?: ReactNode;
 };
 
 export function ChangePanel({
@@ -139,6 +141,7 @@ export function ChangePanel({
           label={row.label}
           tags={<Tag source={row.source} />}
           reason={row.reason}
+          action={row.action}
         >
           {row.value}
         </FieldRow>

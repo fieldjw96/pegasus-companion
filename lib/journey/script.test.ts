@@ -70,12 +70,12 @@ describe("Emre's usual trip", () => {
     expect(new Date(`${draft.returnDate.value}T00:00:00Z`).getUTCDay()).toBe(0);
   });
 
-  it("sits in 3A under E9MBTZ, SAVER, all-in 169.80", () => {
+  it("sits in 3A under E9MBTZ, SAVER, all-in 133.80", () => {
     const itinerary = itineraryFor(draft, me);
     expect(itinerary.reference).toBe(HOME.reference);
     expect(itinerary.out?.seats).toEqual([HOME.seat]);
     expect(draft.package.value).toBe("saver");
-    expect(priceOf(draft)).toBe(169.8);
+    expect(priceOf(draft)).toBe(133.8);
   });
 
   it("guesses only the return, and says so", () => {
@@ -90,11 +90,11 @@ describe("the next trip", () => {
     const { fareDrop } = await import("@/lib/group/next-trip");
     const drop = fareDrop(jessDraft(), 3);
     expect(drop.city).toBe("Bodrum");
-    expect(drop.nowEach).toBe(229.5);
-    expect(drop.wasEach).toBe(255);
+    expect(drop.nowEach).toBe(189);
+    expect(drop.wasEach).toBe(210);
     expect(drop.dropPercent).toBe(10);
-    expect(drop.savingEach).toBe(25.5);
-    expect(drop.savingSquad).toBe(76.5);
+    expect(drop.savingEach).toBe(21);
+    expect(drop.savingSquad).toBe(63);
     expect(drop.out.slice(5, 7)).toBe("09");
   });
 });

@@ -107,6 +107,7 @@ export type TraceState = {
   inviteesBooked: Record<string, string | null>;
   hostel: "booked" | "declined" | null;
   dadTold: boolean;
+  mealsDropped: string[];
   nudge: { declined: boolean; never: boolean; spoken: number };
 };
 
@@ -709,7 +710,8 @@ function inviteeTrace(
   const draft = buildInviteeDraft(w.draft, friend, w.me);
   const counts = countBySource(draft);
   const seat = seatBeside(w.draft, friend, w.me);
-  const extras = inviteeExtras(w.draft, friend, w.me);
+  const mealDropped = state.mealsDropped.includes(friend.name);
+  const extras = inviteeExtras(w.draft, friend, w.me, !mealDropped);
   const base = breakdown(draft);
   const total = base.total + extras.reduce((a, l) => a + l.amount, 0);
   const itinerary = itineraryFor(draft, friend.name);
@@ -790,14 +792,21 @@ function inviteeTrace(
   if (stage === "ticket") {
     steps.push(
       built,
-      step(
-        "Offer",
-        "think",
-        friend.remembered?.meal ? "Remembered the meal" : "Nothing to remember",
-        friend.remembered?.meal
-          ? `${friend.remembered.meal} on his last bookings: ${formatFare(MEAL_PRICE)} × ${itinerary.legs.length} legs = ${gbp(extras[0]?.amount ?? 0)}, already in the basket and removable in one tap.`
-          : `No history, so no extras. Everything not from Jess is predicted and underlined.`,
-      ),
+      friend.remembered?.meal && mealDropped
+        ? step(
+            "Offer",
+            "read",
+            `${first} took the meal off`,
+            `One tap in Change anything, and ${formatFare(MEAL_PRICE)} × ${itinerary.legs.length} legs came off the total. Remembered means already in the basket, not stuck there. I don't put it back and I don't ask again.`,
+          )
+        : step(
+            "Offer",
+            "think",
+            friend.remembered?.meal ? "Remembered the meal" : "Nothing to remember",
+            friend.remembered?.meal
+              ? `${friend.remembered.meal} on ${friend.pronoun.possessive} last bookings: ${formatFare(MEAL_PRICE)} × ${itinerary.legs.length} legs = ${gbp(extras[0]?.amount ?? 0)}, already in the basket and removable in one tap.`
+              : `No history, so no extras. Everything not from Jess is predicted and underlined.`,
+          ),
       step(
         "Trip",
         "act",
@@ -811,6 +820,16 @@ function inviteeTrace(
   if (stage === "checkout") {
     steps.push(
       built,
+      ...(friend.remembered?.meal && mealDropped
+        ? [
+            step(
+              "Offer",
+              "read",
+              `${first} took the meal off`,
+              `One tap on the ticket, and ${formatFare(MEAL_PRICE)} × ${itinerary.legs.length} legs came off the total. Remembered means already in the basket, not stuck there. Not offered again here.`,
+            ),
+          ]
+        : []),
       friend.remembered === null
         ? step(
             "Trip",

@@ -13,6 +13,7 @@ import {
   Initials,
   PrimaryButton,
   SecondaryButton,
+  TextButton,
   Wordmark,
 } from "@/components/ui/primitives";
 import { CheckoutScreen } from "./checkout-screen";
@@ -29,6 +30,7 @@ import { dateSpan, shortDate, JESS, jessDraft } from "@/lib/demo/personas";
 import {
   INVITE,
   FRIENDS,
+  MEAL_PRICE,
   buildInviteeDraft,
   firstName,
   friendByName,
@@ -57,7 +59,8 @@ function useInvitee(id: FriendId) {
     friendByName(id === "archie" ? "Archie Bell" : "Will Parker") ?? FRIENDS[0]!;
   const draft = buildInviteeDraft(organiser, friend, me);
   const seat = seatBeside(organiser, friend, me);
-  const extras = inviteeExtras(organiser, friend, me);
+  const mealDropped = state.mealsDropped.includes(friend.name);
+  const extras = inviteeExtras(organiser, friend, me, !mealDropped);
   const booked = friend.name in state.inviteesBooked;
   const city = cityOf(organiser.destination.value);
   const itinerary = itineraryFor(organiser, me);
@@ -70,6 +73,7 @@ function useInvitee(id: FriendId) {
     draft,
     seat,
     extras,
+    mealDropped,
     booked,
     city,
     itinerary,
@@ -329,15 +333,26 @@ function InviteBubble({
 
 export function InviteeTicketScreen({ id }: { id: FriendId }) {
   const router = useNav();
-  const { me, friend, draft, seat, extras, itinerary, state, update } = useInvitee(id);
+  const { me, friend, draft, seat, extras, mealDropped, itinerary, state, update } =
+    useInvitee(id);
   const [local, setLocal] = useState<TripDraft | null>(null);
   const [sheet, setSheet] = useState(false);
   const shown = local ?? draft;
+  // The remembered meal comes off, or goes back on, in one tap; the ticket reprints.
+  const toggleMeal = () =>
+    update((prev) => ({
+      mealsDropped: prev.mealsDropped.includes(friend.name)
+        ? prev.mealsDropped.filter((n) => n !== friend.name)
+        : [...prev.mealsDropped, friend.name],
+    }));
+  const rows = extraRowsFor(friend, mealDropped, toggleMeal);
   const counts = countBySource(shown);
-  counts.profile += extraRowsFor(friend).length;
+  counts.profile += rows.filter((r) => r.source === "profile").length;
   const price = withLines(breakdown(shown), extras);
   const away = nights(shown);
   const first = firstName(me);
+  // Taking the meal off reprints the ticket in place, like any other change;
+  // the panel narrates it at checkout, where the total is paid.
   const ready = useAgentRun(`invite:${id}:ticket`, () =>
     traceFor(`/invite/${id}/ticket`, state),
   );
@@ -438,26 +453,60 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
         seatDotted={shown.seating.source !== "said"}
         onSeat={() => setSheet(true)}
         extraLines={extras}
-        extraRows={extraRowsFor(friend)}
+        extraRows={rows}
         compact
       />
     </AppShell>
   );
 }
 
-function extraRowsFor(friend: Friend): ExtraRow[] {
+/**
+ * The remembered rows under the draft's fields. The meal is the one with a
+ * price on it, so it can be taken off here and put back; the passport and the
+ * card are checked at checkout.
+ */
+function extraRowsFor(
+  friend: Friend,
+  mealDropped: boolean,
+  toggleMeal: () => void,
+): ExtraRow[] {
   if (friend.remembered === null) return [];
   return [
     { label: "Passport", source: "profile", value: friend.remembered.passport },
     { label: "Payment", source: "profile", value: friend.remembered.payment },
     ...(friend.remembered.meal
       ? [
-          {
-            label: "Meal",
-            source: "profile" as const,
-            value: friend.remembered.meal,
-            reason: "Already in the basket, as on your last bookings.",
-          },
+          mealDropped
+            ? {
+                label: "Meal",
+                source: "said" as const,
+                value: "None",
+                reason: "Taken off. Nothing is offered in its place.",
+                action: (
+                  <TextButton
+                    onClick={toggleMeal}
+                    ariaLabel="Add the meal back"
+                    className="pl-3"
+                  >
+                    Add back
+                  </TextButton>
+                ),
+              }
+            : {
+                label: "Meal",
+                source: "profile" as const,
+                value: friend.remembered.meal,
+                reason: `Already in the basket, as on your last bookings: ${formatFare(MEAL_PRICE)} a leg.`,
+                action: (
+                  <TextButton
+                    onClick={toggleMeal}
+                    ariaLabel="Remove the meal"
+                    className="pl-3"
+                  >
+                    Remove
+                  </TextButton>
+                ),
+              },
         ]
       : []),
   ];

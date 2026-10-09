@@ -43,6 +43,7 @@ export type ImpactState = {
   breakfast: boolean;
   hostel: "booked" | "declined" | null;
   dadTold: boolean;
+  mealsDropped: string[];
 };
 
 const ZERO: Figures = { revenue: 0, addOns: 0, taps: 0, newUsers: 0 };
@@ -111,7 +112,12 @@ export function impactOf(state: ImpactState): Impact {
     if (!(friend.name in state.inviteesBooked)) continue;
     friendsBooked += 1;
     const draft = buildInviteeDraft(jess, friend, me);
-    const extras = inviteeExtras(jess, friend, me).reduce((a, l) => a + l.amount, 0);
+    const extras = inviteeExtras(
+      jess,
+      friend,
+      me,
+      !state.mealsDropped.includes(friend.name),
+    ).reduce((a, l) => a + l.amount, 0);
     const total = breakdown(draft).total + extras;
     const base = openingFare(draft);
     companion = add(companion, {
