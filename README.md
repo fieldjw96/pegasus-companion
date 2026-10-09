@@ -12,12 +12,30 @@ Lai) for the Pegasus × Berkeley Haas **AI Travel Companion Hackathon**. **Not
 affiliated with Pegasus Airlines.** Every fare, flight, price and person is
 invented. Nothing books anything and no payment is taken.
 
+## The submission
+
+Everything the hackathon asks for, and the extras, in one place at
+**https://flykanat.com**.
+
+| What              | Where                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------- |
+| Working prototype | https://app.flykanat.com (this repository, deployed from `main`)                                      |
+| README            | This file                                                                                             |
+| Pitch deck        | https://flykanat.com/deck/Pegasus-Companion-Team-Winging-It.pdf (ten slides and a closing team slide) |
+| The film          | https://youtu.be/vXQ2r2krzn4                                                                          |
+| Upside model      | https://flykanat.com/deck/Pegasus-Companion-Model.xlsx                                                |
+| Model walkthrough | https://www.loom.com/share/2a56fb1976cb406ea1fbbe58a0898509                                           |
+| How we built it   | https://flykanat.com/process/                                                                         |
+
 ## Try it
 
-Live: **https://pegasus-companion-git-feat-pegasus-companion-demo-jf-6a2d.vercel.app/nudge**
+Live: **https://app.flykanat.com**
 
-Start on the lock screen and tap through. Everything after that is tapped
-inside the phones; the panel beside them is for whoever is presenting.
+It opens on Jess's home screen. The sentence box, the Scenes list and the
+**Agent** view in the panel beside the phone are the three ways in; everything
+else is tapped inside the phones. The panel is for whoever is presenting. To
+follow the story from its first beat, with the companion speaking on Jess's lock
+screen, open **https://app.flykanat.com/nudge**.
 
 To run it locally, with no database, auth, secrets or `.env`:
 
@@ -60,6 +78,24 @@ confirms every purchase. Silence is a feature: ignored offers are not repeated,
 "not this time" holds until the next free week, "don't suggest trips" holds for
 good. And every number the companion says is computed in code and handed over
 as a sentence; nothing is a model's guess.
+
+## What it is worth
+
+Four levers, one per agent, sized on Pegasus's FY2025 numbers in the team's
+upside model (linked above). The base case is **about 53m EUR of extra EBITDA a
+year**, 6.4% of FY2025 EBITDA, with 23m EUR in the bear case and 98m EUR in the
+bull case.
+
+| Lever                   | Agent   | What we assumed                                                               |
+| ----------------------- | ------- | ----------------------------------------------------------------------------- |
+| Convert more searchers  | Trip    | +2% web and +1.5% app bookings among users; the app already has less friction |
+| Sell more per passenger | Offer   | +6% ancillary on 29.46 EUR a passenger, about 1.77 EUR                        |
+| Bring the friends       | Group   | 3% of users' passengers move from OTAs to direct                              |
+| Bring them back         | Moments | +1.5% extra repeat trips per user                                             |
+
+Adoption is 80% of direct customers (65% bear, 95% bull). The figures are after
+about 10m EUR a year of AI running cost and exclude the one-off cost to build
+and roll it out. The same model gives 89m EUR of extra revenue in the base case.
 
 ## The journey: three mates go to Cappadocia
 
@@ -194,9 +230,10 @@ face is a cartoon Pegasus from the myth, drawn as inline SVG so its wings beat
 while it thinks. It is not the airline's trademark. Destination photographs are
 from Wikimedia Commons and credited at `/credits`.
 
-## Hosting on Cloudflare (flykanat.com)
+## Where it is hosted
 
-Static export, no server needed. Build command `CF_EXPORT=1 npm run build`,
-deploy command `npx wrangler deploy` (config in `wrangler.jsonc`, assets from
-`./out`). Vercel is unaffected: `output: "export"` only turns on when
-`CF_EXPORT=1`.
+This repository deploys to Vercel from `main`. The address
+**https://app.flykanat.com** serves that Vercel deployment through a small
+Cloudflare Worker, so every push shows up there on its own; nothing in this
+repository is Cloudflare-specific. The submission site at
+**https://flykanat.com** (deck, film, model, process) is a separate project.
