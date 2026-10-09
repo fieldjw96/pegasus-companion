@@ -204,7 +204,7 @@ export function GroupStatusScreen() {
               <Avatar size={36} />
               <div className="flex flex-col gap-0.5">
                 <p className="text-[16px] leading-[22px] font-extrabold">
-                  Breakfast for the squad?
+                  Breakfast for the group?
                 </p>
                 <p
                   className="text-[14px] leading-5 text-pg-ink"

@@ -67,7 +67,7 @@ export const ACTS: Act[] = [
       {
         href: "/group",
         title: "Squad complete",
-        note: "Breakfast for the squad",
+        note: "Breakfast for the group",
         agent: "Offer",
       },
       {
