@@ -14,7 +14,7 @@ type Art = {
   /** Two-stop sky, warm to cool, chosen to suit the place. */
   sky: [string, string];
   /** The silhouette drawn across the bottom third. */
-  shape: "coast" | "skyline" | "domes" | "desert" | "bridge";
+  shape: "coast" | "skyline" | "domes" | "desert" | "bridge" | "balloons";
 };
 
 const ART: Record<string, Art> = {
@@ -33,6 +33,9 @@ const ART: Record<string, Art> = {
   DXB: { sky: ["#FFCF7A", "#D96C2C"], shape: "desert" },
   ESB: { sky: ["#D8C3A0", "#8A6A3F"], shape: "skyline" },
   TZX: { sky: ["#9ED8C0", "#2F7A66"], shape: "coast" },
+  /* Cappadocia at dawn: the balloons are the point, so they are drawn in colour. */
+  ASR: { sky: ["#F6C9A8", "#B98AC8"], shape: "balloons" },
+  NAV: { sky: ["#F6C9A8", "#B98AC8"], shape: "balloons" },
 };
 
 const FALLBACK: Art = { sky: ["#FFD88A", "#E8872C"], shape: "coast" };
@@ -65,6 +68,7 @@ export function DestinationArt({
       {/* Sun, low and soft, which reads as evening on every palette here. */}
       <circle cx="248" cy="52" r="26" fill="#fff" opacity="0.28" />
       <Silhouette shape={art.shape} />
+      {art.shape === "balloons" && <Balloons />}
       {/* Darkened foot so overlaid text stays readable whatever the sky does. */}
       <rect y="108" width="320" height="72" fill="#0B1220" opacity="0.38" />
     </svg>
@@ -103,6 +107,24 @@ function Silhouette({ shape }: { shape: Art["shape"] }) {
     );
   }
 
+  if (shape === "balloons") {
+    // Fairy chimneys: tall cones with capstones, the valley floor under them.
+    return (
+      <g fill={fill} opacity={opacity}>
+        <path d="M0 180v-26q40-14 80-4t70-10 90 6 80-8v42z" />
+        <path d="M22 158l10-44 10 44z" />
+        <path d="M27 116l5-8 5 8z" />
+        <path d="M56 162l8-30 8 30z" />
+        <path d="M118 156l11-52 11 52z" />
+        <path d="M124 106l5-9 5 9z" />
+        <path d="M150 160l7-24 7 24z" />
+        <path d="M232 158l10-40 10 40z" />
+        <path d="M237 120l5-8 5 8z" />
+        <path d="M270 162l8-28 8 28z" />
+      </g>
+    );
+  }
+
   if (shape === "bridge") {
     return (
       <g fill={fill} opacity={opacity}>
@@ -118,6 +140,62 @@ function Silhouette({ shape }: { shape: Art["shape"] }) {
     <g fill={fill} opacity={opacity}>
       <path d="M0 180v-44q58-40 118-14t104-34 98 22v70z" />
       <path d="M214 132l16-34 16 34z" opacity="0.85" />
+    </g>
+  );
+}
+
+/** A hot-air balloon: envelope, a darker gore down the middle, lines and a basket. */
+function Balloon({
+  cx,
+  cy,
+  r,
+  colour,
+  gore,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  colour: string;
+  gore: string;
+}) {
+  const envelope = `M${cx - r} ${cy} C${cx - r} ${cy - 1.35 * r} ${cx + r} ${cy - 1.35 * r} ${cx + r} ${cy} C${cx + r} ${cy + 0.55 * r} ${cx + 0.3 * r} ${cy + 0.95 * r} ${cx + 0.22 * r} ${cy + 1.1 * r} L${cx - 0.22 * r} ${cy + 1.1 * r} C${cx - 0.3 * r} ${cy + 0.95 * r} ${cx - r} ${cy + 0.55 * r} ${cx - r} ${cy}Z`;
+  const stripe = `M${cx - 0.34 * r} ${cy} C${cx - 0.34 * r} ${cy - 1.35 * r} ${cx + 0.34 * r} ${cy - 1.35 * r} ${cx + 0.34 * r} ${cy} C${cx + 0.34 * r} ${cy + 0.6 * r} ${cx + 0.12 * r} ${cy + 1.1 * r} ${cx + 0.1 * r} ${cy + 1.1 * r} L${cx - 0.1 * r} ${cy + 1.1 * r} C${cx - 0.12 * r} ${cy + 1.1 * r} ${cx - 0.34 * r} ${cy + 0.6 * r} ${cx - 0.34 * r} ${cy}Z`;
+  const basketY = cy + 1.5 * r;
+  return (
+    <g>
+      <path d={envelope} fill={colour} />
+      <path d={stripe} fill={gore} opacity="0.85" />
+      <path
+        d={`M${cx - 0.22 * r} ${cy + 1.1 * r} L${cx - 0.14 * r} ${basketY} M${cx + 0.22 * r} ${cy + 1.1 * r} L${cx + 0.14 * r} ${basketY}`}
+        stroke="#0B1220"
+        strokeWidth={Math.max(0.5, r * 0.05)}
+        opacity="0.6"
+      />
+      <rect
+        x={cx - 0.18 * r}
+        y={basketY}
+        width={0.36 * r}
+        height={0.24 * r}
+        rx={0.04 * r}
+        fill="#4A2E1A"
+      />
+    </g>
+  );
+}
+
+/** Dawn over Göreme: a dozen balloons at different heights, the nearest largest. */
+function Balloons() {
+  return (
+    <g>
+      <Balloon cx={286} cy={92} r={6} colour="#F2E6D8" gore="#C9B8A6" />
+      <Balloon cx={64} cy={78} r={7} colour="#F2E6D8" gore="#C9B8A6" />
+      <Balloon cx={190} cy={64} r={8} colour="#FFD166" gore="#E0A42C" />
+      <Balloon cx={128} cy={84} r={9} colour="#6EC6E6" gore="#2E86AB" />
+      <Balloon cx={240} cy={44} r={10} colour="#FF8A5B" gore="#D94E00" />
+      <Balloon cx={30} cy={40} r={11} colour="#FDB913" gore="#E5A70C" />
+      <Balloon cx={160} cy={30} r={13} colour="#FF5C00" gore="#B83D00" />
+      <Balloon cx={92} cy={46} r={16} colour="#E84A6F" gore="#B22E52" />
+      <Balloon cx={212} cy={104} r={19} colour="#FDB913" gore="#FF5C00" />
     </g>
   );
 }

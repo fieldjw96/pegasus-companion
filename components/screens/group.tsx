@@ -2,16 +2,11 @@
 
 import { Thinking, useAgentRun } from "@/components/agent-provider";
 import { useJourney } from "@/components/journey-provider";
+import { useNav } from "@/components/phone-nav";
 import { traceFor } from "@/lib/agent/trace";
 import { AppHeader, AppShell } from "@/components/ui/app-shell";
 import { Avatar } from "@/components/ui/avatar";
-import {
-  ClockIcon,
-  Initials,
-  PrimaryButton,
-  TextButton,
-  Tick,
-} from "@/components/ui/primitives";
+import { ClockIcon, Initials, PrimaryButton, Tick } from "@/components/ui/primitives";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { formatFare } from "@/lib/journey/flights";
 import {
@@ -47,6 +42,7 @@ function useOrganiser() {
 }
 
 export function GroupStatusScreen() {
+  const router = useNav();
   const { state, update, groupName, me, itinerary, draft } = useOrganiser();
   const invited = state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name);
   const members = groupMembers(
@@ -229,12 +225,12 @@ export function GroupStatusScreen() {
         )}
       </section>
       {!state.sent && (
-        <p className="mt-4 px-1 text-[13px] leading-[18px] text-pg-ink">
-          Not sent yet.{" "}
-          <TextButton href="/confirmation" className="min-h-0 text-[13px]">
+        <section aria-label="Not sent yet" className="pg-card mt-4 flex flex-col gap-3 p-5">
+          <p className="text-[15px] leading-[22px] font-bold">Not sent yet.</p>
+          <PrimaryButton className="w-full" onClick={() => router.push("/confirmation")}>
             Send it to your friends to claim a voucher
-          </TextButton>
-        </p>
+          </PrimaryButton>
+        </section>
       )}
       <p className="mt-4 px-1 text-[12px] leading-[18px] text-pg-ink">
         {draft.stops.value.length} stops · {itinerary.legs.length} flights each.
