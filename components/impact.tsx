@@ -21,7 +21,7 @@ type Tile = { key: keyof Figures; label: string; money: boolean; fewer?: boolean
 const TILES: Tile[] = [
   { key: "revenue", label: "Revenue", money: true },
   { key: "addOns", label: "Add-ons", money: true },
-  { key: "taps", label: "Taps to book", money: false, fewer: true },
+  { key: "taps", label: "Clicks", money: false, fewer: true },
   { key: "newUsers", label: "New users", money: false },
 ];
 

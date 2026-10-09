@@ -1,5 +1,5 @@
 /**
- * Taps to book: the companion against today's app.
+ * Clicks: the companion against today's app. The tile says clicks; on a phone each is a tap.
  *
  * A tap is one touch that is not a keystroke: opening a field counts, typing
  * into it does not, so today's count is the floor of what the form asks for.
