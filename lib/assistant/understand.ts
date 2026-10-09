@@ -57,7 +57,8 @@ const CITY_TO_CODE: Record<string, AirportCode> = {
   paris: "CDG",
   amsterdam: "AMS",
   rome: "FCO",
-  dubai: "DXB",
+  cyprus: "ECN",
+  ercan: "ECN",
 };
 
 const MONTHS = [

@@ -163,6 +163,51 @@ const SCRIPTED: Record<string, ScriptedFlight[]> = {
       seatsLeft: 6,
       light: 101.3,
     },
+    /* Second, so the week keeps its 16:40; the cheapest fare on the route for discovery. */
+    {
+      flightNo: "PC 1187",
+      departs: "09:20",
+      arrives: "11:35",
+      durationMinutes: 255,
+      aircraft: "A320neo",
+      seatsLeft: 29,
+      light: 55.4,
+    },
+  ],
+  /* Stansted to Dalaman direct, seasonal, so "from" on the card holds whatever the date. */
+  "STN|DLM": [
+    {
+      flightNo: "PC 1176",
+      departs: "07:30",
+      arrives: "13:35",
+      durationMinutes: 245,
+      aircraft: "A320neo",
+      seatsLeft: 27,
+      light: 49.9,
+    },
+  ],
+  "DLM|STN": [
+    {
+      flightNo: "PC 1177",
+      departs: "14:25",
+      arrives: "16:30",
+      durationMinutes: 245,
+      aircraft: "A320neo",
+      seatsLeft: 31,
+      light: 55.4,
+    },
+  ],
+  /* Stansted to Antalya direct, seasonal: the cheapest beach on the network. */
+  "STN|AYT": [
+    {
+      flightNo: "PC 1170",
+      departs: "06:55",
+      arrives: "13:05",
+      durationMinutes: 250,
+      aircraft: "A320neo",
+      seatsLeft: 33,
+      light: 42.9,
+    },
   ],
   "STN|BJV": [
     {

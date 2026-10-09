@@ -471,8 +471,8 @@ function discoveryTrace(state: TraceState): Trace {
         "Trip",
         "think",
         "Scored the network",
-        `Every destination against ${said.vibes.length > 0 ? said.vibes.join(", ") : "what a first-timer usually wants"}${said.budget === null ? "" : `, then anything over £${said.budget} dropped, not demoted`}. Fares from the inventory for ${shortDate(when)}.`,
-        picks.map((p) => `${p.city}: from ${formatFare(p.from)}`),
+        `Every destination against ${said.vibes.length > 0 ? said.vibes.join(", ") : "what a first-timer usually wants"}${said.budget === null ? "" : `, then anything over £${said.budget} dropped, not demoted`}. Each price is the cheapest LIGHT out on ${shortDate(when)} plus the cheapest LIGHT back ${said.nights ?? 7} nights later, for one: the lowest anyone would actually pay, from the same inventory as the ticket.`,
+        picks.map((p) => `${p.city}: from ${formatFare(p.from)} return`),
       ),
       step(
         "Trip",

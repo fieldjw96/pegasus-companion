@@ -27,7 +27,7 @@ export function Suggestions({
         Three that fit
       </h2>
       <p className="mt-0.5 text-[13px] text-pg-ink">
-        Cheapest LIGHT fare, for {travellers} travelling.
+        Cheapest LIGHT return each, for {travellers} travelling.
       </p>
       <div className="mt-3 flex flex-col gap-3">
         {suggestions.map((s) => (

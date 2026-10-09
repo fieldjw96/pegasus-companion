@@ -1,4 +1,4 @@
-import { AIRPORTS, inventory, type AirportCode } from "@/lib/journey/flights";
+import { AIRPORTS, inventory, shiftDate, type AirportCode } from "@/lib/journey/flights";
 import type { Extracted } from "./understand";
 import type { Profile } from "./profiles";
 
@@ -54,9 +54,9 @@ const DESTINATIONS: Destination[] = [
     pitch: "Two hours door to gate, and you have done it before.",
   },
   {
-    code: "DXB",
-    tags: ["warm", "sunny", "city"],
-    pitch: "Guaranteed sun, but the longest flight and the dearest fare here.",
+    code: "ECN",
+    tags: ["warm", "sunny", "beach"],
+    pitch: "Sun into November and the sea still warm. Through Istanbul, so a longer day.",
   },
 ];
 
@@ -64,18 +64,34 @@ export type Suggestion = {
   code: AirportCode;
   city: string;
   pitch: string;
-  /** Cheapest LIGHT fare found on the chosen date. */
+  /** The lowest you would actually pay: the cheapest LIGHT out on the date plus the cheapest LIGHT back, for one. */
   from: number;
   /** Why this one is in the list at all. */
   because: string;
 };
 
+/** The cheapest LIGHT fare on a route on a date, or null when nothing flies. */
+function cheapestLight(origin: string, destination: string, date: string): number | null {
+  return inventory(origin, destination, date).reduce<number | null>((min, f) => {
+    const price = f.fares.light;
+    if (price === undefined) return min;
+    return min === null || price < min ? price : min;
+  }, null);
+}
+
+/** How long the passenger said, or a week when they did not. */
+export function returnDateFor(said: Extracted, departDate: string): string {
+  return said.returnDate ?? shiftDate(departDate, said.nights ?? 7);
+}
+
 /**
  * Rank destinations against what was asked for.
  *
- * Budget is applied as a hard filter rather than a preference: a passenger who
- * says "under £300" and is shown a £420 option has been ignored, however good
- * the option is.
+ * "From" is a return, because nobody flies out and stays: the cheapest LIGHT
+ * out on the date plus the cheapest LIGHT back, for one person. Budget is
+ * applied as a hard filter rather than a preference: a passenger who says
+ * "under £300" and is shown a £420 option has been ignored, however good the
+ * option is.
  */
 export function suggest(
   said: Extracted,
@@ -84,14 +100,22 @@ export function suggest(
   origin = "STN",
 ): Suggestion[] {
   const vibes = said.vibes.length > 0 ? said.vibes : defaultVibes(profile);
+  const returnDate = returnDateFor(said, departDate);
+  // Pegasus's network from outside Türkiye is Türkiye and Cyprus; the European
+  // cities are reachable from Istanbul, not from London.
+  const abroad = AIRPORTS[origin as AirportCode]?.country !== "Turkiye";
+  const reachable = DESTINATIONS.filter((d) => {
+    if (d.code === origin) return false;
+    const country = AIRPORTS[d.code].country;
+    return !abroad || country === "Turkiye" || country === "Cyprus";
+  });
 
-  const scored = DESTINATIONS.filter((d) => d.code !== origin).map((d) => {
+  const scored = reachable.map((d) => {
     const matched = vibes.filter((v) => d.tags.includes(v));
-    const cheapest = inventory(origin, d.code, departDate).reduce<number | null>((min, f) => {
-      const price = f.fares.light;
-      if (price === undefined) return min;
-      return min === null || price < min ? price : min;
-    }, null);
+    const out = cheapestLight(origin, d.code, departDate);
+    const back = cheapestLight(d.code, origin, returnDate);
+    const cheapest =
+      out === null || back === null ? null : Math.round((out + back) * 100) / 100;
     return { destination: d, matched, cheapest };
   });
 

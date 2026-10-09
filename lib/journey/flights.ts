@@ -27,7 +27,7 @@ export const AIRPORTS = {
   CDG: { city: "Paris", name: "Charles de Gaulle", country: "France" },
   AMS: { city: "Amsterdam", name: "Schiphol", country: "Netherlands" },
   FCO: { city: "Rome", name: "Fiumicino", country: "Italy" },
-  DXB: { city: "Dubai", name: "Dubai Intl", country: "UAE" },
+  ECN: { city: "Cyprus", name: "Ercan", country: "Cyprus" },
 } as const;
 
 export type AirportCode = keyof typeof AIRPORTS;
@@ -192,7 +192,12 @@ const DURATIONS: Record<string, number> = {
   "CDG-SAW": 185,
   "AMS-SAW": 195,
   "FCO-SAW": 160,
-  "DXB-SAW": 275,
+  "ECN-SAW": 95,
+  "AYT-STN": 250,
+  "DLM-STN": 245,
+  "BJV-STN": 240,
+  "ADB-STN": 235,
+  "ECN-STN": 290,
 };
 
 function baseDuration(origin: string, destination: string): number {
@@ -269,10 +274,11 @@ export function inventory(origin: string, destination: string, date: string): Fl
     const layoverMinutes = via === null ? 0 : 90 + Math.floor(random() * 660);
     const total = duration + layoverMinutes;
 
-    // Sized to Pegasus's own LIGHT fares: a domestic hop from the low thirties, London
-    // to Istanbul from the low sixties. A connection is cheaper per hour but costs
-    // the traveller a day; price it so the trade-off is real rather than decorative.
-    const base = 14 + duration * 0.2 + random() * 25 - (via === null ? 0 : 8);
+    // Sized to Pegasus's own LIGHT fares: a domestic hop from the low twenties, London
+    // to Istanbul or the coast from about fifty, so a return starts near a hundred.
+    // A connection is cheaper per hour but costs the traveller a day; price it so
+    // the trade-off is real rather than decorative.
+    const base = 10 + duration * 0.17 + random() * 22 - (via === null ? 0 : 8);
     const essentials = Math.max(15, Math.round(base * 100) / 100);
 
     flights.push({

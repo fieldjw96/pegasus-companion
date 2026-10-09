@@ -30,7 +30,7 @@ const ART: Record<string, Art> = {
   AMS: { sky: ["#A8C8E8", "#3F6A9E"], shape: "bridge" },
   STN: { sky: ["#AFC3D9", "#48617F"], shape: "skyline" },
   LGW: { sky: ["#AFC3D9", "#48617F"], shape: "skyline" },
-  DXB: { sky: ["#FFCF7A", "#D96C2C"], shape: "desert" },
+  ECN: { sky: ["#FFD28A", "#2E86AB"], shape: "coast" },
   ESB: { sky: ["#D8C3A0", "#8A6A3F"], shape: "skyline" },
   TZX: { sky: ["#9ED8C0", "#2F7A66"], shape: "coast" },
   /* Cappadocia at dawn: the balloons are the point, so they are drawn in colour. */

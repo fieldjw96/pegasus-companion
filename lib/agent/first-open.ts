@@ -99,15 +99,27 @@ function monthName(iso: string): string {
   return MONTHS[new Date(`${iso}T00:00:00Z`).getUTCMonth()] ?? "";
 }
 
-/** A LIGHT return for one between two dates, from the same inventory the ticket uses. */
+/** The cheapest LIGHT fare on a route on a date, from the same inventory the ticket uses. */
+function cheapestLight(from: AirportCode, to: AirportCode, date: string): number {
+  return inventory(from, to, date).reduce(
+    (min, f) => Math.min(min, f.fares.light ?? min),
+    Infinity,
+  );
+}
+
+/**
+ * The lowest a passenger would actually pay to go and come back: the cheapest
+ * LIGHT out on the date plus the cheapest LIGHT back, for one.
+ */
 export function returnFare(
   from: AirportCode,
   to: AirportCode,
   out: string,
   back: string,
 ): number {
-  const a = inventory(from, to, out)[0]?.fares.light ?? 0;
-  const b = inventory(to, from, back)[0]?.fares.light ?? 0;
+  const a = cheapestLight(from, to, out);
+  const b = cheapestLight(to, from, back);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
   return Math.round((a + b) * 100) / 100;
 }
 

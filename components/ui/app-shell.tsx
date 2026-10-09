@@ -77,7 +77,7 @@ export function StatusBar({
 
 /** Wordmark on the left, account on the right. The avatar joins once the companion is at work. */
 export function AppHeader({
-  user = "Jack Field",
+  user = "Jess Carter",
   withAvatar = false,
 }: {
   user?: string;
