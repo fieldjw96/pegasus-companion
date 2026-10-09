@@ -36,14 +36,14 @@ describe("the impact column", () => {
     expect(today.addOns).toBe(0);
   });
 
-  it("counts Will's two taps against the live journey's forty-one", () => {
+  it("counts Will's two taps against the live journey's thirty-nine", () => {
     const { companion, today } = impactOf({ ...COLD, booked: true });
     expect(companion.taps).toBe(COMPANION_TAPS.organiser);
     expect(companion.taps).toBe(2);
     expect(today.taps).toBe(TODAY_TAPS_PER_BOOKING);
-    expect(today.taps).toBe(41);
+    expect(today.taps).toBe(39);
     // The screen-by-screen count adds up to the figure the column prints.
-    expect(TODAY_TAPS.reduce((n, s) => n + s.taps, 0)).toBe(41);
+    expect(TODAY_TAPS.reduce((n, s) => n + s.taps, 0)).toBe(39);
   });
 
   it("adds each friend who books, on both sides, and Jess as a new user", () => {
@@ -60,7 +60,7 @@ describe("the impact column", () => {
     expect(companion.addOns).toBeGreaterThan(3 * 7 * 2 + 22.5);
     // Will's two, his one send, and three each for Archie and Jess.
     expect(companion.taps).toBe(2 + 1 + 3 + 3);
-    expect(today.taps).toBe(3 * 41);
+    expect(today.taps).toBe(3 * 39);
   });
 
   it("counts a parent for each of the three once Will keeps Mum posted", () => {
