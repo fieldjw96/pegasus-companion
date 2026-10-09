@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SQUAD, HOME } from "./script";
 import { inventory } from "./flights";
-import { EMRE, WILL, emreDraft, willDraft } from "@/lib/demo/personas";
+import { EMRE, JESS, emreDraft, jessDraft } from "@/lib/demo/personas";
 import { breakdown, naivePath, priceOf } from "@/lib/assistant/price";
 import { itineraryFor, legPlan } from "@/lib/assistant/itinerary";
 import { countBySource } from "@/lib/assistant/draft";
@@ -13,9 +13,9 @@ import { countBySource } from "@/lib/assistant/draft";
  * the friend's notification. If any one of them drifts, the demo contradicts
  * itself in front of the jury, and nothing but a test will notice.
  */
-describe("Will's week", () => {
-  const draft = willDraft();
-  const me = WILL.travellers[0]!.name;
+describe("Jess's week", () => {
+  const draft = jessDraft();
+  const me = JESS.travellers[0]!.name;
 
   it("is four flights, on the pinned routes, whatever the dates", () => {
     const legs = legPlan(draft);
@@ -44,7 +44,7 @@ describe("Will's week", () => {
 
   it("prints K4T7QX, gate B12 and seat 14A on every leg", () => {
     const itinerary = itineraryFor(draft, me);
-    expect(itinerary.reference).toBe(SQUAD.references.will);
+    expect(itinerary.reference).toBe(SQUAD.references.jess);
     expect(itinerary.out?.gate).toBe(SQUAD.gate);
     expect(itinerary.legs.map((l) => l.seats[0])).toEqual(["14A", "14A", "14A", "14A"]);
   });
@@ -88,7 +88,7 @@ describe("Emre's usual trip", () => {
 describe("the next trip", () => {
   it("is a 10% drop to the penny, for three", async () => {
     const { fareDrop } = await import("@/lib/group/next-trip");
-    const drop = fareDrop(willDraft(), 3);
+    const drop = fareDrop(jessDraft(), 3);
     expect(drop.city).toBe("Bodrum");
     expect(drop.nowEach).toBe(229.5);
     expect(drop.wasEach).toBe(255);

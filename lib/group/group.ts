@@ -6,15 +6,15 @@ import { SQUAD, ownerOf } from "@/lib/journey/script";
 /**
  * Group booking.
  *
- * Will books once. The sentence said mates, not who, so the companion asks
- * whether to send the trip on and suggests two people from his contacts. Each
- * gets a nudge in Will's name with the seat next to his offered, and a booking
- * already built: the flights from Will, the rest from whatever Pegasus knows
+ * Jess books once. The sentence said mates, not who, so the companion asks
+ * whether to send the trip on and suggests two people from her contacts. Each
+ * gets a nudge in Jess's name with the seat next to hers offered, and a booking
+ * already built: the flights from Jess, the rest from whatever Pegasus knows
  * about them. They pay their own way, and nobody sees anybody else's fare.
  * Nothing is frozen or held: the seat beside is an offer, not a reservation.
  *
  * Two kinds of invitee: Archie has the app, so his booking is built from his
- * saved preferences and arrives as a push. Jess does not, so a WhatsApp link
+ * saved preferences and arrives as a push. Will does not, so a WhatsApp link
  * opens the same booking on the web and brings him into the app.
  */
 
@@ -44,10 +44,10 @@ export const FRIENDS: Friend[] = [
     },
   },
   {
-    name: "Jess Carter",
+    name: "Will Parker",
     account: false,
     channel: "whatsapp",
-    pronoun: { subject: "she", object: "her", possessive: "her" },
+    pronoun: { subject: "he", object: "him", possessive: "his" },
     because: "In the group chat you message most. No app, so a WhatsApp link.",
     remembered: null,
   },
@@ -61,17 +61,17 @@ export function firstName(name: string): string {
   return name.split(" ")[0] ?? name;
 }
 
-/** When Will booked and the invites went out. */
+/** When Jess booked and the invites went out. */
 export const INVITE = {
   sentAt: "Tue 3 Mar, 18:30",
   sentLong: "Tuesday 3 March",
 } as const;
 
 /**
- * The rest of Will's contacts, for the search under the two suggestions. The
- * companion suggests two and guesses no further; anyone else is Will's call,
- * found by name. A contact added here gets the same link in Will's name, but
- * no seat is held: the row has two seats beside him, and he said two mates.
+ * The rest of Jess's contacts, for the search under the two suggestions. The
+ * companion suggests two and guesses no further; anyone else is Jess's call,
+ * found by name. A contact added here gets the same link in Jess's name, but
+ * no seat is held: the row has two seats beside her, and she said two mates.
  */
 export type Contact = { name: string; note: string };
 
@@ -98,7 +98,7 @@ export function searchContacts(query: string, limit = 4): Contact[] {
   ).slice(0, limit);
 }
 
-/** "Archie and Jess", "Archie, Jess and Sam". */
+/** "Archie and Will", "Archie, Will and Sam". */
 export function listNames(names: string[]): string {
   const first = names.map(firstName);
   if (first.length <= 1) return first.join("");
@@ -112,8 +112,8 @@ export const MEAL_PRICE = 6.5;
  * An invitee's booking, built from the organiser's flights and what Pegasus
  * knows about the invitee.
  *
- * The route and dates are "from Will": the only tag with a face on it. The
- * fare and seat are predicted from Will's reasons, which apply to the whole
+ * The route and dates are "from Jess": the only tag with a face on it. The
+ * fare and seat are predicted from Jess's reasons, which apply to the whole
  * squad. With an account, the passport, payment and the hot meal are
  * remembered and already in the basket.
  */
@@ -188,7 +188,7 @@ export function seatBeside(
   if (first === undefined) return null;
   const who = ownerOf(friend.name);
   if (who === "archie") return SQUAD.seats.archie;
-  if (who === "jess") return SQUAD.seats.jess;
+  if (who === "will") return SQUAD.seats.will;
   const row = first.slice(0, -1);
   const letter = first.slice(-1);
   const next = String.fromCharCode(

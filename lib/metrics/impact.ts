@@ -2,7 +2,7 @@ import type { TripDraft } from "@/lib/assistant/draft";
 import { breakdown } from "@/lib/assistant/price";
 import { BREAKFAST, FRIENDS, buildInviteeDraft, inviteeExtras } from "@/lib/group/group";
 import { stayFor } from "@/lib/group/stay";
-import { WILL, willDraft } from "@/lib/demo/personas";
+import { JESS, jessDraft } from "@/lib/demo/personas";
 import { COMPANION_TAPS, TODAY_TAPS_PER_BOOKING } from "./taps";
 
 /**
@@ -23,7 +23,7 @@ export type Figures = {
   addOns: number;
   /** Touches between the first tap and "paid", across everyone who booked. Fewer is better. */
   taps: number;
-  /** People who joined the app because of the companion: Jess, and a parent each. */
+  /** People who joined the app because of the companion: Will, and a parent each. */
   newUsers: number;
 };
 
@@ -42,7 +42,7 @@ export type ImpactState = {
   inviteesBooked: Record<string, string | null>;
   breakfast: boolean;
   hostel: "booked" | "declined" | null;
-  mumTold: boolean;
+  dadTold: boolean;
 };
 
 const ZERO: Figures = { revenue: 0, addOns: 0, taps: 0, newUsers: 0 };
@@ -86,18 +86,18 @@ export const ASSUMPTIONS = [
   "The three friends book today too, on LIGHT, without the app. Nobody joins.",
   `Clicks are touches between the first tap and paid, keystrokes not counted. Today's ${TODAY_TAPS_PER_BOOKING} a booking are read screen by screen off the live journey: search, two flights, two packages, passenger details, seats, bags, extras, card.`,
   "A stay booked through the app counts its commission, 12% of the total. Today's app sells no stays.",
-  "Today, nobody messages Mum. When Will keeps her posted, each of the three adds a parent; only Mum's phone is shown.",
+  "Today, nobody messages Dad. When Jess keeps him posted, each of the three adds a parent; only Dad's phone is shown.",
 ];
 
 export function impactOf(state: ImpactState): Impact {
   let companion = ZERO;
   let today = ZERO;
 
-  // Journey 1: Will.
-  const will = state.draft ?? willDraft();
+  // Journey 1: Jess.
+  const jess = state.draft ?? jessDraft();
   if (state.booked) {
-    const total = breakdown(will).total;
-    const base = openingFare(will);
+    const total = breakdown(jess).total;
+    const base = openingFare(jess);
     companion = add(companion, {
       revenue: total,
       addOns: total - base,
@@ -105,13 +105,13 @@ export function impactOf(state: ImpactState): Impact {
     });
     today = add(today, { revenue: base, taps: TODAY_TAPS_PER_BOOKING });
   }
-  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const me = JESS.travellers[0]?.name ?? "Jess Carter";
   let friendsBooked = 0;
   for (const friend of FRIENDS) {
     if (!(friend.name in state.inviteesBooked)) continue;
     friendsBooked += 1;
-    const draft = buildInviteeDraft(will, friend, me);
-    const extras = inviteeExtras(will, friend, me).reduce((a, l) => a + l.amount, 0);
+    const draft = buildInviteeDraft(jess, friend, me);
+    const extras = inviteeExtras(jess, friend, me).reduce((a, l) => a + l.amount, 0);
     const total = breakdown(draft).total + extras;
     const base = openingFare(draft);
     companion = add(companion, {
@@ -122,7 +122,7 @@ export function impactOf(state: ImpactState): Impact {
     });
     today = add(today, { revenue: base, taps: TODAY_TAPS_PER_BOOKING });
   }
-  // Will's one tap that sent the trip on, counted once the first friend books off it.
+  // Jess's one tap that sent the trip on, counted once the first friend books off it.
   if (friendsBooked > 0) companion = add(companion, { taps: COMPANION_TAPS.send });
   if (state.breakfast) {
     const squad = 1 + Object.keys(state.inviteesBooked).length;
@@ -133,12 +133,12 @@ export function impactOf(state: ImpactState): Impact {
   }
 
   if (state.hostel === "booked") {
-    const stay = stayFor(state.draft ?? willDraft());
+    const stay = stayFor(state.draft ?? jessDraft());
     companion = add(companion, { revenue: stay.commission, addOns: stay.commission });
   }
 
-  // A parent for each of the squad: Will's Mum, and one each for the friends the trip is for.
-  if (state.mumTold) {
+  // A parent for each of the squad: Jess's Dad, and one each for the friends the trip is for.
+  if (state.dadTold) {
     const squad = 1 + (state.invited.length > 0 ? state.invited.length : FRIENDS.length);
     companion = add(companion, { newUsers: squad });
   }

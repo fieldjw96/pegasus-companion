@@ -9,8 +9,8 @@ import { firstName } from "@/lib/group/group";
 /**
  * The seat sheet: one row, who is in it, the price, and honest exits.
  *
- * For Will it gives a reason to buy: the early flight, the window, and the two
- * seats beside him shown to his friends. For a friend it is the one question
+ * For Jess it gives a reason to buy: the early flight, the window, and the two
+ * seats beside her shown to her friends. For a friend it is the one question
  * the companion will not answer on their behalf: whether to pay to sit next to
  * the organiser.
  */

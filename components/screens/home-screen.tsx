@@ -22,7 +22,7 @@ import { breakdown } from "@/lib/assistant/price";
 import { AIRPORTS, formatFare } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
 import { firstName } from "@/lib/group/group";
-import { WILL } from "@/lib/demo/personas";
+import { JESS } from "@/lib/demo/personas";
 
 /**
  * Home: the greeting, the thinking beat, and the ticket.
@@ -32,7 +32,7 @@ import { WILL } from "@/lib/demo/personas";
  * rather than being walked through nine screens of questions the app could
  * mostly have answered itself.
  *
- * Will has never been here: everything he did not say is a prediction, and
+ * Jess has never been here: everything she did not say is a prediction, and
  * the first question under the ticket is whether the companion got it right.
  */
 
@@ -41,7 +41,7 @@ type Phase = "idle" | "thinking" | "discovery" | "trip";
 export function HomeScreen() {
   const router = useNav();
   const { state, update } = useJourney();
-  const profile = WILL;
+  const profile = JESS;
   const draft = state.draft;
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const discovery = state.prompt !== null && draft === null;

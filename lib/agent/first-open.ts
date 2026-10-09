@@ -1,13 +1,13 @@
 import { AIRPORTS, inventory, type AirportCode } from "@/lib/journey/flights";
-import { WILL, dayLongMonth, shift } from "@/lib/demo/personas";
+import { JESS, dayLongMonth, shift } from "@/lib/demo/personas";
 
 /**
  * The first open, before a word has been said.
  *
- * Will has no history, so the companion has nothing remembered to go on. It
+ * Jess has no history, so the companion has nothing remembered to go on. It
  * still has more than nothing: what the phone will tell an app with
  * permission, what the sign-up said, and what Pegasus knows about its own
- * network and about passengers like him in aggregate. The three trips it
+ * network and about passengers like her in aggregate. The three trips it
  * pitches are built from those, and every input is named on the trace so a
  * judge can see exactly how little was used, and that none of it is personal
  * data the passenger did not hand over.
@@ -49,7 +49,7 @@ export function nextFreeWeekend(today: string): { from: string; to: string } {
 export function firstOpen(today = new Date().toISOString().slice(0, 10)): FirstOpen {
   return {
     signup: {
-      firstName: (WILL.travellers[0]?.name ?? "Will").split(" ")[0] ?? "Will",
+      firstName: (JESS.travellers[0]?.name ?? "Jess").split(" ")[0] ?? "Jess",
       ageBand: "25 to 34",
       bookings: 0,
     },
@@ -57,7 +57,7 @@ export function firstOpen(today = new Date().toISOString().slice(0, 10)): FirstO
       locale: "en-GB",
       timeZone: "Europe/London",
       region: "United Kingdom",
-      city: WILL.homeCity,
+      city: JESS.homeCity,
       nearest: ["STN", "LGW"],
     },
     today,

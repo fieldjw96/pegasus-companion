@@ -18,7 +18,7 @@ describe("the first open", () => {
     expect(new Date(`${from}T00:00:00Z`).getUTCDay()).toBe(5);
   });
 
-  it("never pitches Cappadocia: that is Will's to say", () => {
+  it("never pitches Cappadocia: that is Jess's to say", () => {
     expect(picks.map((p) => p.code)).not.toContain("ASR");
     expect(picks).toHaveLength(3);
   });

@@ -3,7 +3,7 @@
  *
  * Everything else in the inventory is hashed from (origin, destination, date),
  * which is deterministic but arbitrary. The routes the two journeys are built
- * around are not allowed to be arbitrary: the flight number on Will's ticket is
+ * around are not allowed to be arbitrary: the flight number on Jess's ticket is
  * the one in Archie's notification, the one on the squad tracker, and the one
  * in the deck. So they are written down here, keyed by route and not by date,
  * and `inventory()` serves them before it hashes anything. Keying by route
@@ -23,7 +23,7 @@ export type ScriptedFlight = {
   light: number;
 };
 
-/** Journey 1: Will, Archie and Jess's week. Four sectors each. */
+/** Journey 1: Jess, Archie and Will's week. Four sectors each. */
 export const SQUAD = {
   origin: "STN",
   /** The headline place. The route runs through Istanbul and out via Antalya. */
@@ -33,20 +33,20 @@ export const SQUAD = {
     { code: "ASR", nights: 3 },
     { code: "AYT", nights: 2 },
   ],
-  references: { will: "K4T7QX", archie: "M2PR8V", jess: "X7K2PQ" },
+  references: { jess: "K4T7QX", archie: "M2PR8V", will: "X7K2PQ" },
   row: 14,
-  seats: { will: "14A", archie: "14B", jess: "14C" },
+  seats: { jess: "14A", archie: "14B", will: "14C" },
   seatPricePerLeg: 7,
   gate: "B12",
 } as const;
 
 /**
- * The companion's opening move. Will has never said a word to it; what it has
+ * The companion's opening move. Jess has never said a word to it; what it has
  * is what the phone and the app give away, with permission, and it speaks
  * once. These are the signals, pinned, so the card and the panel agree.
  */
 export const TRIP_NUDGE = {
-  /** The morning it speaks: the day Will then books. */
+  /** The morning it speaks: the day Jess then books. */
   date: "Tuesday 3 March",
   time: "08:30",
   /** In-app searches for the place, and when. */
@@ -228,11 +228,11 @@ export function isScriptedRoute(origin: string, destination: string): boolean {
 }
 
 /** Who a pinned seat or reference belongs to, by first name, lower case. */
-export type Owner = "will" | "archie" | "jess" | "emre";
+export type Owner = "jess" | "archie" | "will" | "emre";
 
 export function ownerOf(name: string | undefined): Owner | null {
   const first = (name ?? "").split(" ")[0]?.toLowerCase();
-  return first === "will" || first === "archie" || first === "jess" || first === "emre"
+  return first === "jess" || first === "archie" || first === "will" || first === "emre"
     ? first
     : null;
 }

@@ -30,7 +30,7 @@ export function ConfirmationScreen({
   owner?: string;
   /** Anything bought on top of the fare. */
   extraLines?: PriceLine[];
-  /** Over the city: "You're going, Will". */
+  /** Over the city: "You're going, Jess". */
   headline?: string;
   /** The companion's one line under the receipt, if any. */
   says?: ReactNode;

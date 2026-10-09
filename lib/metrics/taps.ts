@@ -6,7 +6,7 @@
  * Today's figures are read screen by screen off pegasus-baseline, the mock of
  * the live journey, for one return booking with a seat and a bag, by a
  * passenger with no account and no saved card. Where the live app's defaults
- * are wrong for Will but right for a Turkish passenger, the fix is not
+ * are wrong for Jess but right for a Turkish passenger, the fix is not
  * counted, so the figure is one Pegasus can check against its own funnel. The
  * companion's are the taps the demo's own screens take between the first
  * touch and "paid", so the two columns count the same thing.
@@ -47,9 +47,9 @@ export const TODAY_TAPS_PER_BOOKING = TODAY_TAPS.reduce((sum, s) => sum + s.taps
 /**
  * The companion's taps, per person, from the demo's own screens.
  *
- * Will: "Yes, plan it" (or the sentence sent) and Pay. Sending the trip on
- * is one tap of his that the friends' bookings depend on, so it is counted
- * with theirs. Archie: the push, Book in one tap, Book. Jess: the WhatsApp
+ * Jess: "Yes, plan it" (or the sentence sent) and Pay. Sending the trip on
+ * is one tap of hers that the friends' bookings depend on, so it is counted
+ * with theirs. Archie: the push, Book in one tap, Book. Will: the WhatsApp
  * card, Continue with Apple, Book and pay. The stall route is the same three.
  */
 export const COMPANION_TAPS = {

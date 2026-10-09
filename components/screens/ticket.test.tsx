@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Ticket } from "./ticket";
-import { WILL, willDraft } from "@/lib/demo/personas";
+import { JESS, jessDraft } from "@/lib/demo/personas";
 import { itineraryFor } from "@/lib/assistant/itinerary";
 import { breakdown } from "@/lib/assistant/price";
 
@@ -10,10 +10,10 @@ import { breakdown } from "@/lib/assistant/price";
  * underneath it computed? Typecheck, lint and build cannot see whether a
  * component renders at all; a render test is the cheapest thing that can.
  */
-const NAMES = WILL.travellers.map((t) => t.name);
+const NAMES = JESS.travellers.map((t) => t.name);
 
 function mount() {
-  const draft = willDraft();
+  const draft = jessDraft();
   const onChange = vi.fn();
   render(<Ticket draft={draft} onChange={onChange} names={NAMES} owner={NAMES[0]} />);
   return { draft, onChange };
@@ -28,7 +28,7 @@ describe("Ticket", () => {
       expect(screen.getByText(leg.flight.flightNo)).toBeTruthy();
     }
     expect(screen.getAllByText(breakdown(draft).total.toFixed(2)).length).toBeGreaterThan(0);
-    expect(screen.getByText("Will Parker")).toBeTruthy();
+    expect(screen.getByText("Jess Carter")).toBeTruthy();
     cleanup();
   });
 

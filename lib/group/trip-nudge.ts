@@ -3,12 +3,12 @@ import { priceOf } from "@/lib/assistant/price";
 import { AIRPORTS, formatFare, inventory, type AirportCode } from "@/lib/journey/flights";
 import { SQUAD, TRIP_NUDGE } from "@/lib/journey/script";
 import { FRIENDS, firstName, listNames } from "@/lib/group/group";
-import { WILL, dayMonth, willDraft } from "@/lib/demo/personas";
+import { JESS, dayMonth, jessDraft } from "@/lib/demo/personas";
 import type { TripDraft } from "@/lib/assistant/draft";
 
 /**
  * The companion's opening nudge: what it noticed, whether it may speak, and
- * what it says. Will has typed nothing. Three signals, each one the phone or
+ * what it says. Jess has typed nothing. Three signals, each one the phone or
  * the app already has with permission, and a budget of one unasked message a
  * quarter. Any one of "not this time", "don't suggest trips" or the budget
  * being spent keeps it silent; the panel shows the silence as a step.
@@ -33,8 +33,8 @@ export type Nudge = {
 };
 
 export function tripNudge(state: NudgeState): Nudge {
-  const draft = willDraft();
-  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const draft = jessDraft();
+  const me = JESS.travellers[0]?.name ?? "Jess Carter";
   const itinerary = itineraryFor(draft, me);
   const first = itinerary.out?.flight;
   const place = AIRPORTS[SQUAD.destination as AirportCode]?.city ?? SQUAD.destination;
@@ -77,13 +77,13 @@ export function tripNudge(state: NudgeState): Nudge {
 }
 
 /**
- * The week the nudge builds when Will says yes. The same trip the sentence
+ * The week the nudge builds when Jess says yes. The same trip the sentence
  * would build, to the penny, but every field says where it came from: the
- * place from his searches, the week from the calendars, the bag from what
- * the searches were for. Yes on the card is what he said.
+ * place from her searches, the week from the calendars, the bag from what
+ * the searches were for. Yes on the card is what she said.
  */
 export function nudgeDraft(): TripDraft {
-  const draft = willDraft();
+  const draft = jessDraft();
   const said = <T>(value: T, why: string) => ({ value, source: "said" as const, why });
   return {
     ...draft,

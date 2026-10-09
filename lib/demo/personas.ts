@@ -12,14 +12,14 @@ import { usualTrip } from "@/lib/moments/moments";
  */
 export type Persona = Profile["id"];
 
-export const WILL: Profile = profileById("will");
+export const JESS: Profile = profileById("jess");
 export const EMRE: Profile = profileById("emre");
 export { PROFILES };
 
-export const WILL_PROMPT = "Balloons in Cappadocia, backpacking, a week in May";
+export const JESS_PROMPT = "Balloons in Cappadocia, backpacking, a week in May";
 
-export function willDraft(): TripDraft {
-  return buildDraft(WILL_PROMPT, WILL);
+export function jessDraft(): TripDraft {
+  return buildDraft(JESS_PROMPT, JESS);
 }
 
 export function emreDraft(): TripDraft {
@@ -27,7 +27,7 @@ export function emreDraft(): TripDraft {
 }
 
 export function draftFor(persona: Persona): TripDraft {
-  return persona === "emre" ? emreDraft() : willDraft();
+  return persona === "emre" ? emreDraft() : jessDraft();
 }
 
 /*

@@ -23,24 +23,24 @@ import {
   INVITE,
   listNames,
 } from "@/lib/group/group";
-import { WILL, willDraft } from "@/lib/demo/personas";
+import { JESS, jessDraft } from "@/lib/demo/personas";
 import { cityOf } from "./ticket";
 
 /**
  * The organiser's side of a group booking.
  *
- * Will has booked and sent the trip on. From then on the squad lives in My
+ * Jess has booked and sent the trip on. From then on the squad lives in My
  * Flights as a card that fills in as people book, and the companion nudges the
- * last straggler once, in Will's name, when the flight is filling up.
+ * last straggler once, in Jess's name, when the flight is filling up.
  *
  * Privacy is in the layout: the organiser's screens carry names, status and
- * seat only. No fare of anyone else's appears on his side.
+ * seat only. No fare of anyone else's appears on her side.
  */
 function useOrganiser() {
   const { state, update } = useJourney();
-  const draft = state.draft ?? willDraft();
-  const names = WILL.travellers.map((t) => t.name);
-  const me = names[0] ?? "Will Parker";
+  const draft = state.draft ?? jessDraft();
+  const names = JESS.travellers.map((t) => t.name);
+  const me = names[0] ?? "Jess Carter";
   const groupName = `${cityOf(draft.destination.value)} squad`;
   const itinerary = itineraryFor(draft, me);
   return { state, update, draft, names, me, groupName, itinerary };
@@ -190,7 +190,7 @@ export function GroupStatusScreen() {
               <PrimaryButton
                 size="sm"
                 onClick={() =>
-                  update({ aside: { who: "jess", route: "/invite/jess/stalls" } })
+                  update({ aside: { who: "will", route: "/invite/will/stalls" } })
                 }
               >
                 Nudge {firstName(waiting.name)} to claim voucher

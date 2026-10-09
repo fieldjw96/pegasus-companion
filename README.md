@@ -63,38 +63,38 @@ as a sentence; nothing is a model's guess.
 
 ## The journey: three mates go to Cappadocia
 
-Will, 26, London, with Archie and Jess. A cold start: no history, no profile.
+Jess, 26, London, with Archie and Will. A cold start: no history, no profile.
 
-1. **The companion speaks first.** Will has typed nothing. One Tuesday morning
-   it speaks once on his lock screen: "Balloons in Cappadocia with Archie and
-   Jess?", 409.40 GBP each, all in. _Why I spoke_ is a tap away: two searches
-   for hostels in Göreme in February, a week in May free in his calendar and in
+1. **The companion speaks first.** Jess has typed nothing. One Tuesday morning
+   it speaks once on her lock screen: "Balloons in Cappadocia with Archie and
+   Will?", 409.40 GBP each, all in. _Why I spoke_ is a tap away: two searches
+   for hostels in Göreme in February, a week in May free in her calendar and in
    theirs, May fares at their lowest since October. One unasked message a
    quarter.
-2. **A wish becomes a week.** Yes builds the week he would have asked for: four
+2. **A wish becomes a week.** Yes builds the week she would have asked for: four
    flights on Pegasus's network, in through Istanbul and out via Antalya, with
    seat, fare and bag. Everything guessed carries a dotted underline and a
    reason, and any field changes in a tap or a sentence. Four sectors where
    today's app sells one.
-3. **Nothing to type.** Checkout fills the passport from his Wallet, checks it
+3. **Nothing to type.** Checkout fills the passport from her Wallet, checks it
    against the 150 days Türkiye asks for, and pays with Apple Pay.
 4. **Send it to your friends to claim a voucher?** The confirmation suggests
-   two people from his contacts and lets him search for more. Each gets the
-   trip in Will's name, with the seat next to his offered at 7 GBP a leg.
-   Under it, **keep Mum posted?**: one button, and she gets the dates, who he
-   is with and when he lands, told the same second if a flight moves, never an
+   two people from her contacts and lets her search for more. Each gets the
+   trip in Jess's name, with the seat next to hers offered at 7 GBP a leg.
+   Under it, **keep Dad posted?**: one button, and he gets the dates, who she
+   is with and when she lands, told the same second if a flight moves, never an
    offer.
-5. **Archie has the app.** A push in Will's name opens a booking already built:
-   flights from Will, fare and seat predicted, passport, payment and his usual
+5. **Archie has the app.** A push in Jess's name opens a booking already built:
+   flights from Jess, fare and seat predicted, passport, payment and his usual
    hot meal remembered. He checks and pays.
-6. **Jess doesn't.** A WhatsApp from Will opens the app on a sign-up with
-   nothing to type, then the same booking, ready to pay. When she stalls, one
-   more WhatsApp in Will's name, drafted by the companion.
+6. **Will doesn't.** A WhatsApp from Jess opens the app on a sign-up with
+   nothing to type, then the same booking, ready to pay. When he stalls, one
+   more WhatsApp in Jess's name, drafted by the companion.
 7. **Group complete.** All three booked, seats together, one offer that makes
    sense for three: breakfast for the 06:10. That evening, one more: a cave
    dorm in Göreme for the balloon nights, priced for three, one tap.
 8. **Checked in for them**, then the unhappy path: the 06:10 is cancelled, all
-   three are rebooked before anyone queues, told second, and Mum's phone shows
+   three are rebooked before anyone queues, told second, and Dad's phone shows
    the new landing time the same second.
 9. **The next trip.** Two months after they get home, fares to Bodrum drop
    10%: same three, a long weekend in September. One card, then quiet.
@@ -108,8 +108,8 @@ when the last step has landed. What each agent read, thought and did, and what
 it decided not to do, with the figures it used. **Scenes** lists every beat of
 the journey and jumps to it.
 
-When the story moves to someone else's device (Archie's push, Jess's WhatsApp,
-Mum's message) a **second phone** appears on the left and goes away when their
+When the story moves to someone else's device (Archie's push, Will's WhatsApp,
+Dad's message) a **second phone** appears on the left and goes away when their
 part is done. Later days (the waiting window, check-in, the cancellation, the
 next trip) are reached from Scenes. **Reset demo** puts everything back to the
 lock screen.
@@ -123,7 +123,7 @@ is counted.
 
 ## What is real here, and what is not
 
-**Every figure is arithmetic in code.** "14B next to him is free", "down to 9
+**Every figure is arithmetic in code.** "14B next to her is free", "down to 9
 seats", 409.40 GBP: computed from pinned routes in `lib/journey/script.ts`,
 never asserted, and tested in `lib/journey/script.test.ts`.
 
@@ -146,16 +146,16 @@ colocated. Dependencies: next, react, zod. No database, no auth, no secrets.
 
 ```
 app/                       One route per screen. Server components rendering client islands.
-  nudge/                   The first screen: the companion speaks first, on Will's lock screen.
-  page.tsx                 Will's home: the week as a ticket, changeable in a sentence.
-  checkout/ confirmation/  Will's checkout and confirmation (send it to your friends, Mum).
+  nudge/                   The first screen: the companion speaks first, on Jess's lock screen.
+  page.tsx                 Jess's home: the week as a ticket, changeable in a sentence.
+  checkout/ confirmation/  Jess's checkout and confirmation (send it to your friends, Dad).
   group/                   Organiser side: who has booked, the one group offer.
-  invite/archie/ jess/      Invitee side: push or WhatsApp, sign-up, ticket, checkout, confirmation, stalls.
+  invite/archie/ will/      Invitee side: push or WhatsApp, sign-up, ticket, checkout, confirmation, stalls.
   squad/                   Lock-screen moments: waiting window, hostel, check-in, cancelled, next trip.
-  follow/mum/              Mum's phone: the landing time, the cancellation, STOP.
+  follow/dad/              Dad's phone: the landing time, the cancellation, STOP.
 components/
   phone-frame.tsx          The device, and the stage: second phone, main phone, panel.
-  companion-phone.tsx      The second phone: Archie's, Jess's or Mum's, when the story is there.
+  companion-phone.tsx      The second phone: Archie's, Will's or Dad's, when the story is there.
   agent-provider.tsx       The agents running: one streaming run per phone, and the wait.
   scenes.tsx               The presenter's panel: Agent (live) and Scenes (the list).
   impact.tsx               The impact column: the companion against today's app.

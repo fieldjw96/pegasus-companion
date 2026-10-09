@@ -12,7 +12,7 @@ export type Act = { part: string; journey: string; scenes: Scene[] };
 export const ACTS: Act[] = [
   {
     part: "Three mates go to Cappadocia",
-    journey: "Will, 26, London, with Archie and Jess. Cold start: no history, no profile.",
+    journey: "Jess, 26, London, with Archie and Will. Cold start: no history, no profile.",
     scenes: [
       {
         href: "/nudge",
@@ -35,21 +35,21 @@ export const ACTS: Act[] = [
       {
         href: "/confirmation",
         title: "Send it to your friends to claim a voucher?",
-        note: "Two suggested, search for more, keep Mum posted",
+        note: "Two suggested, search for more, keep Dad posted",
         agent: "Group",
       },
-      { href: "/follow/mum", title: "Mum's phone", note: "The landing time, or STOP" },
+      { href: "/follow/dad", title: "Dad's phone", note: "The landing time, or STOP" },
       {
         href: "/invite/archie",
         title: "Archie has the app",
-        note: "A nudge in Will's name: 14B is free",
+        note: "A nudge in Jess's name: 14B is free",
         agent: "Group",
       },
       { href: "/invite/archie/ticket", title: "Archie's booking, pre-filled" },
       {
-        href: "/invite/jess",
-        title: "Jess doesn't",
-        note: "A WhatsApp from Will, a sign-up with nothing to type",
+        href: "/invite/will",
+        title: "Will doesn't",
+        note: "A WhatsApp from Jess, a sign-up with nothing to type",
         agent: "Group",
       },
       {
@@ -59,9 +59,9 @@ export const ACTS: Act[] = [
         agent: "Group",
       },
       {
-        href: "/invite/jess/stalls",
-        title: "Jess stalls",
-        note: "A second WhatsApp in Will's name",
+        href: "/invite/will/stalls",
+        title: "Will stalls",
+        note: "A second WhatsApp in Jess's name",
         agent: "Moments",
       },
       {
@@ -80,7 +80,7 @@ export const ACTS: Act[] = [
       {
         href: "/squad/cancelled",
         title: "Unhappy path: flight cancelled",
-        note: "Rebooked first, told second, Mum too",
+        note: "Rebooked first, told second, Dad too",
       },
       {
         href: "/squad/next-trip",
@@ -96,12 +96,12 @@ export const ACTS: Act[] = [
 const ALIASES: Record<string, string> = {
   "/invite/archie/checkout": "/invite/archie/ticket",
   "/invite/archie/confirmation": "/invite/archie/ticket",
-  "/invite/jess/signup": "/invite/jess",
-  "/invite/jess/ticket": "/invite/jess",
-  "/invite/jess/checkout": "/invite/jess",
-  "/invite/jess/confirmation": "/invite/jess",
-  "/follow/mum/cancelled": "/squad/cancelled",
-  "/follow/mum/stop": "/follow/mum",
+  "/invite/will/signup": "/invite/will",
+  "/invite/will/ticket": "/invite/will",
+  "/invite/will/checkout": "/invite/will",
+  "/invite/will/confirmation": "/invite/will",
+  "/follow/dad/cancelled": "/squad/cancelled",
+  "/follow/dad/stop": "/follow/dad",
 };
 
 /** The scene a route belongs to, for the panel's heading. */

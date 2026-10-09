@@ -9,7 +9,7 @@ import { useJourney } from "./journey-provider";
 import { ACTS, sceneFor } from "@/lib/agent/scenes";
 import type { AgentName, Step, StepKind } from "@/lib/agent/trace";
 import { buildDraft } from "@/lib/assistant/understand";
-import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
+import { JESS, JESS_PROMPT } from "@/lib/demo/personas";
 
 /**
  * The presenter's panel beside the phone, with two views.
@@ -132,8 +132,8 @@ function SceneList({ pathname }: { pathname: string }) {
               type="button"
               onClick={() => {
                 update({
-                  prompt: WILL_PROMPT,
-                  draft: buildDraft(WILL_PROMPT, WILL),
+                  prompt: JESS_PROMPT,
+                  draft: buildDraft(JESS_PROMPT, JESS),
                   edit: null,
                   origin: "sentence",
                   booked: false,
@@ -143,7 +143,7 @@ function SceneList({ pathname }: { pathname: string }) {
               }}
               className="mt-1.5 ml-2.5 text-[12px] font-semibold text-pg-orange hover:underline"
             >
-              Say the sentence for Will ↗
+              Say the sentence for Jess ↗
             </button>
           )}
         </section>

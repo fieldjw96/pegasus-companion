@@ -3,7 +3,7 @@ import type { FareFamily } from "@/lib/journey/flights";
 /**
  * Who is holding the phone.
  *
- * Two people, two starts. Will has never used the app: a cold start, where
+ * Two people, two starts. Jess has never used the app: a cold start, where
  * everything the companion fills in is a prediction and says so. Emre flies
  * the same route home a few times a year: a warm start, where most of the
  * ticket is remembered from the last time.
@@ -20,7 +20,7 @@ export type Traveller = {
 };
 
 export type Profile = {
-  id: "will" | "emre";
+  id: "jess" | "emre";
   label: string;
   travellers: Traveller[];
   /** True when there is no history to remember from. */
@@ -44,13 +44,14 @@ export type Profile = {
   onFile: { passport: string; from: string; payment: string };
   /** Who is at home: the parent the companion can keep posted, with permission. */
   parent: { name: string; relation: string; city: string } | null;
+  pronoun: { subject: string; object: string; possessive: string };
 };
 
 export const PROFILES: Profile[] = [
   {
-    id: "will",
+    id: "jess",
     label: "First time here",
-    travellers: [{ name: "Will Parker", kind: "adult" }],
+    travellers: [{ name: "Jess Carter", kind: "adult" }],
     coldStart: true,
     homeAirport: "STN",
     homeCity: "London",
@@ -69,7 +70,8 @@ export const PROFILES: Profile[] = [
       from: "From your Wallet, with permission",
       payment: "Apple Pay",
     },
-    parent: { name: "Mum", relation: "mum", city: "Norwich" },
+    parent: { name: "Dad", relation: "dad", city: "Norwich" },
+    pronoun: { subject: "she", object: "her", possessive: "her" },
   },
   {
     id: "emre",
@@ -94,6 +96,7 @@ export const PROFILES: Profile[] = [
       payment: "VISA •••• 2210",
     },
     parent: null,
+    pronoun: { subject: "he", object: "him", possessive: "his" },
   },
 ];
 

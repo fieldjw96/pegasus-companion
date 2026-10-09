@@ -27,7 +27,7 @@ year" holds for a year; "don't suggest again" holds for good. A change that make
 it speak more often is a regression unless the Ticket says otherwise.
 
 **Every number the companion says is computed.** "56.00 GBP cheaper", "14B next
-to him is free", "down to 9 seats", and every figure in the impact column: all
+to her is free", "down to 9 seats", and every figure in the impact column: all
 arithmetic in `lib/`, handed to the screen as a finished sentence. The demo's routes are pinned in
 `lib/journey/script.ts`, keyed by route so the figures hold whichever month the
 demo runs in, and asserted in its test so every screen agrees.
@@ -52,7 +52,7 @@ later day is reached from the Scenes view of the panel. Screens navigate with
 `useNav()`, never `next/navigation` directly, so they work in either phone.
 
 **Every screen must open cold.** There is no server state. A screen opened
-directly falls back to Will's week, so a presenter can start the demo anywhere.
+directly falls back to Jess's week, so a presenter can start the demo anywhere.
 
 ## Stack
 

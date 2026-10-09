@@ -16,7 +16,7 @@ import { FRIENDS, INVITE, firstName, listNames } from "@/lib/group/group";
 import { fareDrop } from "@/lib/group/next-trip";
 import { stayFor } from "@/lib/group/stay";
 import type { TripDraft } from "@/lib/assistant/draft";
-import { WILL, dayMonth, longDate, shift, willDraft } from "@/lib/demo/personas";
+import { JESS, dayMonth, longDate, shift, jessDraft } from "@/lib/demo/personas";
 import { cityOf } from "./ticket";
 
 /**
@@ -28,8 +28,8 @@ import { cityOf } from "./ticket";
 /** The waiting window: who's booked, and an extra for the ones who have. */
 export function WaitingWindowScreen() {
   const { state } = useJourney();
-  const draft = state.draft ?? willDraft();
-  const me = WILL.travellers[0]?.name ?? "Will";
+  const draft = state.draft ?? jessDraft();
+  const me = JESS.travellers[0]?.name ?? "Jess";
   const invited = state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name);
   const everyone = [me, ...invited];
   const booked = everyone.filter(
@@ -82,13 +82,13 @@ export function WaitingWindowScreen() {
 /** Just before check-in opens: the last chance to sit together, then everyone checked in. */
 export function CheckInScreen() {
   const { state } = useJourney();
-  const draft = state.draft ?? willDraft();
-  const jess = FRIENDS[1]?.name ?? "Jess Carter";
+  const draft = state.draft ?? jessDraft();
+  const will = FRIENDS[1]?.name ?? "Will Parker";
   const seat = "14C";
-  // Whether Jess took the seat next to Will when she booked. If not, this is the
+  // Whether Will took the seat next to Jess when he booked. If not, this is the
   // last chance to put him there before check-in seats him at random.
-  const jessSeated = (state.inviteesBooked[jess] ?? null) !== null;
-  const ready = useAgentRun(`squad:check-in:${jessSeated}`, () =>
+  const willSeated = (state.inviteesBooked[will] ?? null) !== null;
+  const ready = useAgentRun(`squad:check-in:${willSeated}`, () =>
     traceFor("/squad/check-in", state),
   );
   return (
@@ -98,9 +98,9 @@ export function CheckInScreen() {
           <Notice
             lead="Check-in opens tomorrow."
             rest={
-              jessSeated
+              willSeated
                 ? " You're sat together: 14A, 14B and 14C. I'll check all three of you in the moment it opens."
-                : ` ${firstName(jess)} hasn't got a seat yet, so ${FRIENDS[1]?.pronoun.subject ?? "she"}'ll be placed randomly. Move ${FRIENDS[1]?.pronoun.object ?? "her"} to ${seat} next to you?`
+                : ` ${firstName(will)} hasn't got a seat yet, so ${FRIENDS[1]?.pronoun.subject ?? "she"}'ll be placed randomly. Move ${FRIENDS[1]?.pronoun.object ?? "her"} to ${seat} next to you?`
             }
           />
           <Notice
@@ -123,7 +123,7 @@ export function CheckInScreen() {
  */
 export function HostelScreen() {
   const { state, update } = useJourney();
-  const draft = state.draft ?? willDraft();
+  const draft = state.draft ?? jessDraft();
   const stay = stayFor(draft);
   const mates = FRIENDS.map((f) => firstName(f.name));
   const ready = useAgentRun(`squad:hostel:${state.hostel ?? "offered"}`, () =>
@@ -207,22 +207,22 @@ function stopStart(draft: TripDraft): string {
 
 export function SquadCancelledScreen() {
   const { state, update } = useJourney();
-  const draft = state.draft ?? willDraft();
-  const itinerary = itineraryFor(draft, WILL.travellers[0]?.name);
+  const draft = state.draft ?? jessDraft();
+  const itinerary = itineraryFor(draft, JESS.travellers[0]?.name);
   const first = itinerary.out;
   const ready = useAgentRun("squad:cancelled", () => traceFor("/squad/cancelled", state));
-  // Mum is told the same second, if Will asked for that: her phone appears beside his.
-  const mumTold = state.mumTold;
+  // Dad is told the same second, if Jess asked for that: his phone appears beside hers.
+  const dadTold = state.dadTold;
   useEffect(() => {
-    if (ready && mumTold) update({ aside: { who: "mum", route: "/follow/mum/cancelled" } });
-  }, [ready, mumTold, update]);
+    if (ready && dadTold) update({ aside: { who: "dad", route: "/follow/dad/cancelled" } });
+  }, [ready, dadTold, update]);
   return (
     <LockScreen date={longDate(draft.departDate.value)} time="04:50" bottom={150}>
       {ready && (
         <Notice
           mood="sad"
           lead={`${first?.flight.departs ?? "06:10"} cancelled.`}
-          rest={` All 3 of you are on the 13:30, seats 21A–C together. Archie and Jess have been told the same second${state.mumTold ? ", and Mum" : ""}.`}
+          rest={` All 3 of you are on the 13:30, seats 21A–C together. Archie and Will have been told the same second${state.dadTold ? ", and Dad" : ""}.`}
         />
       )}
     </LockScreen>
@@ -233,7 +233,7 @@ export function SquadCancelledScreen() {
 export function NextTripScreen() {
   const router = useNav();
   const { state } = useJourney();
-  const draft = state.draft ?? willDraft();
+  const draft = state.draft ?? jessDraft();
   const mates = FRIENDS.map((f) => firstName(f.name));
   const drop = fareDrop(draft, 1 + FRIENDS.length);
   const ready = useAgentRun("squad:next-trip", () => traceFor("/squad/next-trip", state));
@@ -254,7 +254,7 @@ export function NextTripScreen() {
             Same three, {drop.city} in {monthName(drop.out)}?
           </p>
           <div className="mt-3 flex items-center">
-            {[WILL.travellers[0]?.name ?? "Will", ...FRIENDS.map((f) => f.name)].map(
+            {[JESS.travellers[0]?.name ?? "Jess", ...FRIENDS.map((f) => f.name)].map(
               (n, i) => (
                 <Initials
                   key={n}
@@ -293,21 +293,21 @@ function monthName(iso: string): string {
 }
 
 /**
- * Mum's phone. Will said keep her posted, so she gets the flight and the
+ * Dad's phone. Jess said keep him posted, so he gets the flight and the
  * landing time, a follow link and STOP in the same message. If the flight
- * moves she hears the same second Will does.
+ * moves he hears the same second Jess does.
  */
-export function MumFollowsScreen({ cancelled = false }: { cancelled?: boolean }) {
+export function DadFollowsScreen({ cancelled = false }: { cancelled?: boolean }) {
   const router = useNav();
   const { state } = useJourney();
-  const draft = state.draft ?? willDraft();
-  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const draft = state.draft ?? jessDraft();
+  const me = JESS.travellers[0]?.name ?? "Jess Carter";
   const itinerary = itineraryFor(draft, me);
   const first = itinerary.out;
   const later = inventory(SQUAD.origin, first?.to ?? "SAW", draft.departDate.value)[1];
   const mates = listNames(FRIENDS.map((f) => f.name));
-  const ready = useAgentRun(`mum:${cancelled ? "cancelled" : "follows"}`, () =>
-    traceFor(cancelled ? "/follow/mum/cancelled" : "/follow/mum", state),
+  const ready = useAgentRun(`dad:${cancelled ? "cancelled" : "follows"}`, () =>
+    traceFor(cancelled ? "/follow/dad/cancelled" : "/follow/dad", state),
   );
   return (
     <LockScreen
@@ -333,7 +333,7 @@ export function MumFollowsScreen({ cancelled = false }: { cancelled?: boolean })
                     : `${firstName(me)}'s booked ${cityOf(draft.destination.value)} with ${mates}, ${dayMonth(draft.departDate.value)} to ${dayMonth(draft.returnDate.value ?? draft.departDate.value)}.`}
                 </strong>{" "}
                 {cancelled
-                  ? "He knows; nothing to do."
+                  ? "She knows; nothing to do."
                   : `Lands ${cityOf(first?.to ?? "SAW")} ${first?.flight.arrives ?? "12:05"} on ${dayMonth(draft.departDate.value)}.`}
               </span>
               <span className="mt-1 text-[14px] font-extrabold text-pg-orange">
@@ -344,7 +344,7 @@ export function MumFollowsScreen({ cancelled = false }: { cancelled?: boolean })
               </span>
               <button
                 type="button"
-                onClick={() => router.push("/follow/mum/stop")}
+                onClick={() => router.push("/follow/dad/stop")}
                 className="mt-2 self-start rounded-full bg-pg-surface px-3 py-1 text-[12px] font-bold"
               >
                 Reply STOP
@@ -357,13 +357,13 @@ export function MumFollowsScreen({ cancelled = false }: { cancelled?: boolean })
   );
 }
 
-/** Mum wants out. She replies STOP and only ever gets flight status. */
-export function MumStopScreen() {
+/** Dad wants out. He replies STOP and only ever gets flight status. */
+export function DadStopScreen() {
   const { state } = useJourney();
-  const draft = state.draft ?? willDraft();
-  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const draft = state.draft ?? jessDraft();
+  const me = JESS.travellers[0]?.name ?? "Jess Carter";
   const first = itineraryFor(draft, me).out;
-  useAgentRun("mum:stop", () => traceFor("/follow/mum/stop", state));
+  useAgentRun("dad:stop", () => traceFor("/follow/dad/stop", state));
   return (
     <div className="flex h-full flex-col bg-white text-pg-navy">
       <div className="flex shrink-0 flex-col items-center gap-1 border-b border-pg-line px-4 pt-12 pb-3">
@@ -385,7 +385,7 @@ export function MumStopScreen() {
           offers.
         </Bubble>
         <p className="mt-3 text-center text-[12px] leading-[18px] text-pg-ink">
-          Messages she never asked for would cost the family&rsquo;s trust. Status only, for
+          Messages he never asked for would cost the family&rsquo;s trust. Status only, for
           good.
         </p>
       </div>

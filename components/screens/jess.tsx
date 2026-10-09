@@ -15,36 +15,36 @@ import {
   listNames,
   searchContacts,
 } from "@/lib/group/group";
-import { WILL, willDraft } from "@/lib/demo/personas";
+import { JESS, jessDraft } from "@/lib/demo/personas";
 
 /**
- * Will's checkout and confirmation: the organiser's side of the booking.
+ * Jess's checkout and confirmation: the organiser's side of the booking.
  *
  * Both fall back to the week the opening sentence builds when opened cold, so
  * a presenter can start the demo at either screen and see the same ticket.
  *
  * The confirmation is where the group starts. The sentence said mates, not
  * who, so the companion asks whether to send the trip on and suggests two
- * people from his contacts, by name only: the reasons are the panel's. Each
- * gets a nudge in Will's name with the seat next to his offered, and a voucher
- * to claim when they book. Nothing is frozen or held. Under it, his mum: one
- * button, and she gets the dates and the landing time, told if a flight moves.
+ * people from her contacts, by name only: the reasons are the panel's. Each
+ * gets a nudge in Jess's name with the seat next to hers offered, and a voucher
+ * to claim when they book. Nothing is frozen or held. Under it, her dad: one
+ * button, and he gets the dates and the landing time, told if a flight moves.
  */
 function useWill() {
   const { state, update } = useJourney();
-  const draft = state.draft ?? willDraft();
-  const names = WILL.travellers.map((t) => t.name);
+  const draft = state.draft ?? jessDraft();
+  const names = JESS.travellers.map((t) => t.name);
   return { draft, names, state, update };
 }
 
-export function WillCheckout() {
+export function JessCheckout() {
   const { draft, names, state, update } = useWill();
   return (
     <CheckoutScreen
       draft={draft}
       names={names}
       owner={names[0]}
-      onFile={WILL.onFile}
+      onFile={JESS.onFile}
       backHref="/"
       nextHref="/confirmation"
       note={
@@ -56,7 +56,7 @@ export function WillCheckout() {
       }
       onPay={() => update({ draft, booked: true })}
       thinking={{
-        key: "checkout:will",
+        key: "checkout:jess",
         trace: () => traceFor("/checkout", state),
         label: "Filling in the form…",
       }}
@@ -64,10 +64,10 @@ export function WillCheckout() {
   );
 }
 
-export function WillConfirmation() {
+export function JessConfirmation() {
   const router = useNav();
   const { draft, names, state, update } = useWill();
-  const me = names[0] ?? "Will Parker";
+  const me = names[0] ?? "Jess Carter";
   const [picked, setPicked] = useState<string[]>(
     state.invited.length > 0 ? state.invited : FRIENDS.map((f) => f.name),
   );
@@ -89,7 +89,7 @@ export function WillConfirmation() {
       owner={me}
       headline={`You're going, ${firstName(me)}`}
       thinking={{
-        key: `confirmation:will:${state.sent}`,
+        key: `confirmation:jess:${state.sent}`,
         trace: () => traceFor("/confirmation", state),
         label: "Booking…",
       }}
@@ -224,7 +224,7 @@ export function WillConfirmation() {
                       ? null
                       : lead.account
                         ? { who: "archie", route: "/invite/archie" }
-                        : { who: "jess", route: "/invite/jess" },
+                        : { who: "will", route: "/invite/will" },
                 });
                 router.push("/group");
               }}
@@ -234,32 +234,32 @@ export function WillConfirmation() {
           </>
         )}
       </section>
-      {WILL.parent !== null && (
+      {JESS.parent !== null && (
         <section
-          aria-label="Keep Mum posted"
+          aria-label="Keep Dad posted"
           className="pg-card mt-4 flex flex-col gap-2.5 p-5"
         >
           <div className="flex items-center gap-3">
-            <Initials name={WILL.parent.name} size={36} />
+            <Initials name={JESS.parent.name} size={36} />
             <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
-              Keep {WILL.parent.name} posted?
+              Keep {JESS.parent.name} posted?
             </h2>
           </div>
-          {state.mumTold ? (
+          {state.dadTold ? (
             <TextButton
-              onClick={() => update({ aside: { who: "mum", route: "/follow/mum" } })}
+              onClick={() => update({ aside: { who: "dad", route: "/follow/dad" } })}
               className="min-h-0"
             >
-              See what {WILL.parent.name} got
+              See what {JESS.parent.name} got
             </TextButton>
           ) : (
             <PrimaryButton
               className="mt-1 w-full"
               onClick={() =>
-                update({ mumTold: true, aside: { who: "mum", route: "/follow/mum" } })
+                update({ dadTold: true, aside: { who: "dad", route: "/follow/dad" } })
               }
             >
-              Notify {WILL.parent.name}
+              Notify {JESS.parent.name}
             </PrimaryButton>
           )}
         </section>

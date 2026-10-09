@@ -1,5 +1,5 @@
-import { WillConfirmation } from "@/components/screens/will";
+import { JessConfirmation } from "@/components/screens/jess";
 
 export default function ConfirmationPage() {
-  return <WillConfirmation />;
+  return <JessConfirmation />;
 }

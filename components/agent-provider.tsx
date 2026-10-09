@@ -16,7 +16,7 @@ import type { Step, Trace } from "@/lib/agent/trace";
  * point: a trip that appears instantly looks looked up; one that appears
  * after visible reasoning looks decided.
  *
- * Two phones can think at once: Will's updates while Archie's opens. Each
+ * Two phones can think at once: Jess's updates while Archie's opens. Each
  * phone is a lane with one run in it; starting a run in a lane retires the
  * lane's previous run to history, finished.
  *

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ACTS } from "./scenes";
 import { traceFor, type TraceState } from "./trace";
-import { WILL, WILL_PROMPT } from "@/lib/demo/personas";
+import { JESS, JESS_PROMPT } from "@/lib/demo/personas";
 import { amendDraft, buildDraft } from "@/lib/assistant/understand";
 import { nudgeDraft } from "@/lib/group/trip-nudge";
 
@@ -22,7 +22,7 @@ const COLD: TraceState = {
   sent: false,
   inviteesBooked: {},
   hostel: null,
-  mumTold: false,
+  dadTold: false,
   nudge: { declined: false, never: false, spoken: 0 },
 };
 
@@ -62,8 +62,8 @@ describe("the agent trace", () => {
     expect(found.steps.find((s) => s.did.startsWith("Offered"))?.thought).toContain("Antalya");
   });
 
-  it("prices Will's week to the same penny as the ticket", () => {
-    const home = traceFor("/", { ...COLD, prompt: WILL_PROMPT });
+  it("prices Jess's week to the same penny as the ticket", () => {
+    const home = traceFor("/", { ...COLD, prompt: JESS_PROMPT });
     const priced = home.steps.find((s) => s.did.startsWith("Priced it"));
     expect(priced?.did).toBe("Priced it at 409.40 GBP");
     expect(priced?.thought).toContain("112.00 GBP cheaper");
@@ -96,15 +96,15 @@ describe("the agent trace", () => {
     expect(declined.steps.some((s) => s.kind === "act")).toBe(false);
   });
 
-  it("tells Mum about a cancellation the same second, once Will said keep her posted", () => {
-    const mum = traceFor("/follow/mum/cancelled", { ...COLD, mumTold: true });
-    expect(mum.title).toBe("Unhappy path: flight cancelled");
-    expect(mum.steps[mum.steps.length - 1]?.did).toBe("Told her the same second as Will");
-    expect(text("/squad/cancelled", { ...COLD, mumTold: true })).toContain(
-      "and Mum the same second",
+  it("tells Dad about a cancellation the same second, once Jess said keep him posted", () => {
+    const dad = traceFor("/follow/dad/cancelled", { ...COLD, dadTold: true });
+    expect(dad.title).toBe("Unhappy path: flight cancelled");
+    expect(dad.steps[dad.steps.length - 1]?.did).toBe("Told him the same second as Jess");
+    expect(text("/squad/cancelled", { ...COLD, dadTold: true })).toContain(
+      "and Dad the same second",
     );
     expect(text("/confirmation", COLD)).toContain("sent nothing");
-    expect(text("/confirmation", { ...COLD, mumTold: true })).toContain(
+    expect(text("/confirmation", { ...COLD, dadTold: true })).toContain(
       "the dates and the landing time",
     );
   });
@@ -113,12 +113,12 @@ describe("the agent trace", () => {
     expect(text("/invite/archie/confirmation")).toContain("2 of 3 booked");
     expect(text("/invite/archie/confirmation")).toContain("No offer yet");
     const complete = { ...COLD, inviteesBooked: { "Archie Bell": "14B" } };
-    expect(text("/invite/jess/confirmation", complete)).toContain("3 of 3 booked");
-    expect(text("/invite/jess/confirmation", complete)).toContain("Squad complete");
+    expect(text("/invite/will/confirmation", complete)).toContain("3 of 3 booked");
+    expect(text("/invite/will/confirmation", complete)).toContain("Squad complete");
     expect(
       text("/group", {
         ...complete,
-        inviteesBooked: { ...complete.inviteesBooked, "Jess Carter": "14C" },
+        inviteesBooked: { ...complete.inviteesBooked, "Will Parker": "14C" },
       }),
     ).toContain("22.50 GBP");
   });
@@ -126,11 +126,11 @@ describe("the agent trace", () => {
 
 describe("a change said in a sentence", () => {
   it("narrates what moved and rebuilds the rest from the same draft", () => {
-    const week = buildDraft(WILL_PROMPT, WILL);
+    const week = buildDraft(JESS_PROMPT, JESS);
     const amended = amendDraft(week, "Make it the 20th instead");
     const changed = traceFor("/", {
       ...COLD,
-      prompt: WILL_PROMPT,
+      prompt: JESS_PROMPT,
       draft: amended?.draft ?? null,
       edit: { said: "Make it the 20th instead", changed: amended?.changed ?? [] },
     });
@@ -149,7 +149,7 @@ describe("the week built from the nudge", () => {
   it("traces every field to a signal, not to a sentence", () => {
     const yes = {
       ...COLD,
-      prompt: WILL_PROMPT,
+      prompt: JESS_PROMPT,
       draft: nudgeDraft(),
       origin: "nudge" as const,
     };
@@ -161,13 +161,13 @@ describe("the week built from the nudge", () => {
       "free in your calendar",
     );
     expect(home.steps.find((s) => s.did === "Printed the ticket")?.thought).toContain(
-      "from the nudge he said yes to",
+      "from the nudge she said yes to",
     );
     expect(home.steps.find((s) => s.did.startsWith("Priced it"))?.did).toBe(
       "Priced it at 409.40 GBP",
     );
     expect(text("/confirmation", { ...yes, booked: true })).toContain("The nudge named them");
     expect(text("/checkout", yes)).toContain("Checked the passport before payment");
-    expect(text("/invite/jess/ticket", yes)).toContain("Jess pays her own way");
+    expect(text("/invite/will/ticket", yes)).toContain("Will pays his own way");
   });
 });

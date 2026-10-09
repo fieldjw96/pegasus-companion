@@ -1,5 +1,5 @@
 import { InviteeConfirmation } from "@/components/screens/invitee";
 
 export default function InviteJessConfirmationPage() {
-  return <InviteeConfirmation id="jess" />;
+  return <InviteeConfirmation id="will" />;
 }

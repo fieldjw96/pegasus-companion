@@ -17,16 +17,16 @@ import { traceFor } from "@/lib/agent/trace";
 import { nudgeDraft, tripNudge } from "@/lib/group/trip-nudge";
 import { formatFare } from "@/lib/journey/flights";
 import { TRIP_NUDGE } from "@/lib/journey/script";
-import { WILL_PROMPT, dayMonth } from "@/lib/demo/personas";
+import { JESS_PROMPT, dayMonth } from "@/lib/demo/personas";
 
 /**
- * The demo's first screen. Will has said nothing; the companion speaks first,
+ * The demo's first screen. Jess has said nothing; the companion speaks first,
  * once, on the lock screen, with "Why I spoke" a tap away. Yes builds the
- * week he would have asked for and lands on the ticket. Not this time keeps
+ * week she would have asked for and lands on the ticket. Not this time keeps
  * it quiet until the next free week it finds; don't suggest trips keeps it
  * quiet for good. Either way it does not ask twice.
  */
-export function WillNudgeScreen() {
+export function JessNudgeScreen() {
   const router = useNav();
   const { state, update } = useJourney();
   const nudge = tripNudge(state.nudge);
@@ -42,8 +42,8 @@ export function WillNudgeScreen() {
         {ready && (
           <p className="px-3 text-center text-[13px] leading-[18px] text-white/60">
             {state.nudge.never
-              ? "Nothing. Will said don’t suggest trips, and it holds."
-              : "Nothing. Will said not this time, and it holds until the next free week."}
+              ? "Nothing. Jess said don’t suggest trips, and it holds."
+              : "Nothing. Jess said not this time, and it holds until the next free week."}
           </p>
         )}
       </LockScreen>
@@ -99,9 +99,9 @@ export function WillNudgeScreen() {
             <PrimaryButton
               className="h-12 w-full px-0 text-[16px]"
               onClick={() => {
-                // Yes: the week is built as if he had said the sentence.
+                // Yes: the week is built as if she had said the sentence.
                 update((prev) => ({
-                  prompt: WILL_PROMPT,
+                  prompt: JESS_PROMPT,
                   draft: nudgeDraft(),
                   edit: null,
                   origin: "nudge",

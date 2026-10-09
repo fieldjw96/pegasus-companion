@@ -1,6 +1,6 @@
-import { WillNudgeScreen } from "@/components/screens/will-nudge";
+import { JessNudgeScreen } from "@/components/screens/jess-nudge";
 
-/** The demo's first screen: the companion speaks first, on Will's lock screen. */
+/** The demo's first screen: the companion speaks first, on Jess's lock screen. */
 export default function NudgePage() {
-  return <WillNudgeScreen />;
+  return <JessNudgeScreen />;
 }

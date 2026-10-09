@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { amendDraft, bestWeekIn, buildDraft, extract, stopsFor } from "./understand";
-import { WILL_PROMPT } from "@/lib/demo/personas";
+import { JESS_PROMPT } from "@/lib/demo/personas";
 import { PROFILES, profileById } from "./profiles";
 import { visibleKeys } from "./draft";
 
@@ -9,7 +9,7 @@ import { visibleKeys } from "./draft";
  * exactly what the ticket prints. These assert the demo's own opening line,
  * word by word, and the cold-start rule that nothing not said is "remembered".
  */
-const WILL = profileById("will");
+const JESS = profileById("jess");
 const EMRE = profileById("emre");
 
 describe("extract", () => {
@@ -99,8 +99,8 @@ describe("the route for a week in Cappadocia", () => {
   });
 });
 
-describe("Will's week, built from the opening sentence", () => {
-  const draft = buildDraft("Balloons in Cappadocia, backpacking, a week in May", WILL);
+describe("Jess's week, built from the opening sentence", () => {
+  const draft = buildDraft("Balloons in Cappadocia, backpacking, a week in May", JESS);
 
   it("is Stansted to Cappadocia for a week, in May, with the route predicted", () => {
     expect(draft.origin.value).toBe("STN");
@@ -159,7 +159,7 @@ describe("a warm start", () => {
 
 describe("a change said in a sentence", () => {
   const amend = amendDraft;
-  const week = () => buildDraft(WILL_PROMPT, WILL);
+  const week = () => buildDraft(JESS_PROMPT, JESS);
 
   it("moves the dates and keeps the week, the route and the bag", () => {
     const out = amend(week(), "Make it the 20th instead");

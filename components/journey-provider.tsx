@@ -10,34 +10,34 @@ import type { DraftKey, TripDraft } from "@/lib/assistant/draft";
  * Kept in session storage rather than the URL: a trip is a dozen fields with
  * provenance on each, which is more than a query string should carry, and a
  * presenter refreshing the page mid-demo should land where they were. Every
- * screen still works cold, by falling back to Will's week.
+ * screen still works cold, by falling back to Jess's week.
  */
 export type JourneyState = {
   prompt: string | null;
   draft: TripDraft | null;
   /** The last change said in a sentence, and which fields it moved. */
   edit: { said: string; changed: DraftKey[] } | null;
-  /** Where the trip came from: the nudge he said yes to, or a sentence he typed. */
+  /** Where the trip came from: the nudge she said yes to, or a sentence she typed. */
   origin: "nudge" | "sentence" | null;
-  /** Will has paid. */
+  /** Jess has paid. */
   booked: boolean;
   /** "Did we get your trip right?" */
   thumbs: "up" | "down" | null;
-  /** Who the trip was sent to, by name: the squad, with seats beside Will. */
+  /** Who the trip was sent to, by name: the squad, with seats beside Jess. */
   invited: string[];
-  /** Anyone else Will found in his contacts: the same link, no seat held. */
+  /** Anyone else Jess found in her contacts: the same link, no seat held. */
   shared: string[];
   /** The invites have gone out. */
   sent: boolean;
   /** Invitees who have paid, with the seat they took. */
   inviteesBooked: Record<string, string | null>;
-  /** Will took the one group offer: breakfast for the three of them. */
+  /** Jess took the one group offer: breakfast for the three of them. */
   breakfast: boolean;
   /** The hostel for the balloon nights: booked for three, or declined for this trip. */
   hostel: "booked" | "declined" | null;
-  /** Mum was sent the flight: a new user, and told if it moves. */
-  mumTold: boolean;
-  /** The companion's opening nudge, and what Will said to it. */
+  /** Dad was sent the flight: a new user, and told if it moves. */
+  dadTold: boolean;
+  /** The companion's opening nudge, and what Jess said to it. */
   nudge: {
     /** "Not this time": quiet until the next free week it finds. */
     declined: boolean;
@@ -50,7 +50,7 @@ export type JourneyState = {
    * The second phone, when the story is on someone else's device: whose it
    * is and which screen it shows. Null when the main phone is the only one.
    */
-  aside: { who: "archie" | "jess" | "mum"; route: string } | null;
+  aside: { who: "archie" | "will" | "dad"; route: string } | null;
 };
 
 const INITIAL: JourneyState = {
@@ -66,12 +66,12 @@ const INITIAL: JourneyState = {
   inviteesBooked: {},
   breakfast: false,
   hostel: null,
-  mumTold: false,
+  dadTold: false,
   nudge: { declined: false, never: false, spoken: 0 },
   aside: null,
 };
 
-const KEY = "pegasus-companion-journey-v4";
+const KEY = "pegasus-companion-journey-v5";
 
 type Journey = {
   state: JourneyState;

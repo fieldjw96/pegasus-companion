@@ -1,5 +1,5 @@
-import { WillCheckout } from "@/components/screens/will";
+import { JessCheckout } from "@/components/screens/jess";
 
 export default function CheckoutPage() {
-  return <WillCheckout />;
+  return <JessCheckout />;
 }

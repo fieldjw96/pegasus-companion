@@ -15,7 +15,7 @@ _Avoid_: assistant, chatbot, bot
 
 **Trip agent**:
 Turns a wish into a full itinerary on Pegasus's network, and rebuilds repeat
-trips. Will's week is its work, before and after he says yes.
+trips. Jess's week is its work, before and after she says yes.
 _Avoid_: planner, search
 
 **Offer agent**:
@@ -63,7 +63,7 @@ _Avoid_: source, confidence, inferred
 
 **Cold start**:
 A passenger with no history. Nothing is remembered, so everything not said is a
-prediction and is tagged as one. Will.
+prediction and is tagged as one. Jess.
 _Avoid_: new user, anonymous
 
 **Warm start**:
@@ -81,13 +81,13 @@ _Avoid_: rating, survey, feedback form
 
 **Organiser**:
 The passenger who booked first and sent the trip on. Sees names, status and
-seat only; never anybody else's fare. Will.
+seat only; never anybody else's fare. Jess.
 _Avoid_: host, leader, admin
 
 **Invitee**:
 Someone the organiser invited. With the app, the companion builds their booking
 from what Pegasus knows about them and sends a push in the organiser's name.
-Without it, a WhatsApp link opens the same booking on the web. Archie and Jess.
+Without it, a WhatsApp link opens the same booking on the web. Archie and Will.
 _Avoid_: guest, member
 
 **Suggested friends**:
@@ -145,9 +145,9 @@ sentence. Restraint nobody can see reads as no restraint at all, and a proposal
 nobody can check reads as a push.
 _Avoid_: explanation, rationale
 
-**Keep Mum posted**:
-A parent follows the trip because the passenger said so: the dates, who he's
-with, when he lands, told the same second if a flight moves, never an offer.
+**Keep Dad posted**:
+A parent follows the trip because the passenger said so: the dates, who she's
+with, when she lands, told the same second if a flight moves, never an offer.
 A card on the confirmation, honoured by every message after; STOP ends it.
 _Avoid_: sharing, notifications
 
@@ -171,8 +171,8 @@ and the phone shows its result when the last step lands. One run per phone.
 _Avoid_: loading state, spinner
 
 **Second phone**:
-The phone that appears on the left when the story moves to Archie's, Jess's or
-Mum's device, and goes away when their part is done.
+The phone that appears on the left when the story moves to Archie's, Will's or
+Dad's device, and goes away when their part is done.
 _Avoid_: modal, popup, aside
 
 **Journey**:

@@ -25,7 +25,7 @@ import { itineraryFor, nights } from "@/lib/assistant/itinerary";
 import { breakdown, withLines } from "@/lib/assistant/price";
 import { formatFare } from "@/lib/journey/flights";
 import { SQUAD } from "@/lib/journey/script";
-import { dateSpan, shortDate, WILL, willDraft } from "@/lib/demo/personas";
+import { dateSpan, shortDate, JESS, jessDraft } from "@/lib/demo/personas";
 import {
   INVITE,
   FRIENDS,
@@ -38,23 +38,23 @@ import {
 } from "@/lib/group/group";
 
 /**
- * The invitee's side: Archie's phone, then Jess's.
+ * The invitee's side: Archie's phone, then Will's.
  *
- * Neither said anything. Archie has the app, so a push in Will's name opens a
- * booking already built: the flights from Will, the fare and seat predicted,
+ * Neither said anything. Archie has the app, so a push in Jess's name opens a
+ * booking already built: the flights from Jess, the fare and seat predicted,
  * the passport, payment and his usual hot meal remembered. He checks and pays.
- * Jess has no app, so a WhatsApp from Will opens the same booking on the web
- * and brings her into the app. When she stalls, the companion finishes the
- * booking up to the pay button and nudges her in Will's name.
+ * Will has no app, so a WhatsApp from Jess opens the same booking on the web
+ * and brings him into the app. When he stalls, the companion finishes the
+ * booking up to the pay button and nudges him in Jess's name.
  */
-export type FriendId = "archie" | "jess";
+export type FriendId = "archie" | "will";
 
 function useInvitee(id: FriendId) {
   const { state, update } = useJourney();
-  const organiser = state.draft ?? willDraft();
-  const me = WILL.travellers[0]?.name ?? "Will Parker";
+  const organiser = state.draft ?? jessDraft();
+  const me = JESS.travellers[0]?.name ?? "Jess Carter";
   const friend: Friend =
-    friendByName(id === "archie" ? "Archie Bell" : "Jess Carter") ?? FRIENDS[0]!;
+    friendByName(id === "archie" ? "Archie Bell" : "Will Parker") ?? FRIENDS[0]!;
   const draft = buildInviteeDraft(organiser, friend, me);
   const seat = seatBeside(organiser, friend, me);
   const extras = inviteeExtras(organiser, friend, me);
@@ -91,12 +91,12 @@ function bookInvitee(
 function noticeText(me: string, city: string, organiser: TripDraft, seat: string | null) {
   return {
     lead: `${firstName(me)}'s booked ${city}.`,
-    rest: ` ${seat ?? "A seat"} next to ${firstName(me) === "Will" ? "him" : "them"} is free. Your booking's ready.`,
+    rest: ` ${seat ?? "A seat"} next to ${JESS.pronoun.object} is free. Your booking's ready.`,
     span: dateSpan(organiser.departDate.value, organiser.returnDate.value),
   };
 }
 
-/** Archie's lock screen: a push in Will's name. */
+/** Archie's lock screen: a push in Jess's name. */
 export function ArchiePushScreen() {
   const router = useNav();
   const { me, city, organiser, seat, state } = useInvitee("archie");
@@ -144,12 +144,12 @@ export function ArchiePushScreen() {
   );
 }
 
-/** Jess's WhatsApp: an invite from Will that opens the trip, pre-filled. */
-export function JessWhatsAppScreen() {
+/** Will's WhatsApp: an invite from Jess that opens the trip, pre-filled. */
+export function WillWhatsAppScreen() {
   const router = useNav();
-  const { me, city, organiser, seat, state } = useInvitee("jess");
+  const { me, city, organiser, seat, state } = useInvitee("will");
   const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
-  const ready = useAgentRun("invite:jess:arrive", () => traceFor("/invite/jess", state));
+  const ready = useAgentRun("invite:will:arrive", () => traceFor("/invite/will", state));
   return (
     <WhatsAppChat me={me}>
       <DayDivider>{INVITE.sentLong}</DayDivider>
@@ -159,7 +159,7 @@ export function JessWhatsAppScreen() {
           city={city}
           span={span}
           seat={seat}
-          onTap={() => router.push("/invite/jess/signup")}
+          onTap={() => router.push("/invite/will/signup")}
         />
       )}
       <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
@@ -171,19 +171,19 @@ export function JessWhatsAppScreen() {
 }
 
 /**
- * Jess's first screen in the app: a sign-up with nothing to type. The invite
- * link carries who she is, so the account is one tap and the form is skipped.
- * The booking, already built from Will's, is the reason to join; it is the
+ * Will's first screen in the app: a sign-up with nothing to type. The invite
+ * link carries who he is, so the account is one tap and the form is skipped.
+ * The booking, already built from Jess's, is the reason to join; it is the
  * next screen, not a reward after a form.
  */
-export function JessSignUpScreen() {
+export function WillSignUpScreen() {
   const router = useNav();
-  const { me, friend, city, state } = useInvitee("jess");
-  const ready = useAgentRun("invite:jess:signup", () =>
-    traceFor("/invite/jess/signup", state),
+  const { me, friend, city, state } = useInvitee("will");
+  const ready = useAgentRun("invite:will:signup", () =>
+    traceFor("/invite/will/signup", state),
   );
   if (!ready) return <Thinking label="Opening your invite…" header={null} />;
-  const join = () => router.push("/invite/jess/ticket");
+  const join = () => router.push("/invite/will/ticket");
   return (
     <div className="flex h-full flex-col bg-pg-surface text-pg-navy">
       <StatusBar />
@@ -209,7 +209,7 @@ export function JessSignUpScreen() {
             <span className="caps">Joining as</span>
             <span className="text-[16px] leading-5 font-extrabold">{friend.name}</span>
             <span className="text-[13px] leading-[18px] text-pg-ink">
-              From {firstName(me)}&rsquo;s invite · the number he messaged
+              From {firstName(me)}&rsquo;s invite · the number she messaged
             </span>
           </span>
         </div>
@@ -227,7 +227,7 @@ export function JessSignUpScreen() {
   );
 }
 
-/** The WhatsApp chrome: Will's chat, as Jess sees it. */
+/** The WhatsApp chrome: Jess's chat, as Will sees it. */
 function WhatsAppChat({ me, children }: { me: string; children: ReactNode }) {
   return (
     <div className="flex h-full flex-col bg-[#EFE7DD] text-pg-navy">
@@ -262,7 +262,7 @@ function DayDivider({ children }: { children: ReactNode }) {
   );
 }
 
-/** A message from Will with a Pegasus card in it: the card is the link. */
+/** A message from Jess with a Pegasus card in it: the card is the link. */
 function CardBubble({
   title,
   detail,
@@ -314,7 +314,7 @@ function InviteBubble({
   seat: string | null;
   onTap: () => void;
 }) {
-  const him = firstName(me) === "Will" ? "him" : "them";
+  const him = JESS.pronoun.object;
   return (
     <CardBubble
       title={`${firstName(me)} invited you to ${city} ✈︎`}
@@ -362,9 +362,9 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
         >
           <PrimaryButton
             onClick={() => {
-              // Jess has nothing on file to check, so the tap is the booking.
+              // Will has nothing on file to check, so the tap is the booking.
               // Archie's checkout is the receipt of what was remembered for him.
-              if (id === "jess") {
+              if (id === "will") {
                 bookInvitee(update, friend, seat);
                 router.push(`/invite/${id}/confirmation`);
               } else {
@@ -372,7 +372,7 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
               }
             }}
           >
-            {id === "jess"
+            {id === "will"
               ? `Book and pay · ${formatFare(price.total)} GBP`
               : "Book in one tap"}
           </PrimaryButton>
@@ -392,8 +392,8 @@ export function InviteeTicketScreen({ id }: { id: FriendId }) {
               },
               {
                 letter: "C",
-                name: id === "jess" ? friend.name : (FRIENDS[1]?.name ?? null),
-                held: id !== "jess",
+                name: id === "will" ? friend.name : (FRIENDS[1]?.name ?? null),
+                held: id !== "will",
               },
               { letter: "D", name: null },
               { letter: "E", name: null },
@@ -583,19 +583,19 @@ function ordinal(n: number): string {
   return ["", "1st", "2nd", "3rd", "4th", "5th"][n] ?? `${n}th`;
 }
 
-/** Jess stalls: a second WhatsApp from Will, drafted by the companion. The card opens the app. */
-export function JessStallsScreen() {
+/** Will stalls: a second WhatsApp from Jess, drafted by the companion. The card opens the app. */
+export function WillStallsScreen() {
   const router = useNav();
-  const { me, city, organiser, state, itinerary, seat } = useInvitee("jess");
+  const { me, city, organiser, state, itinerary, seat } = useInvitee("will");
   const archie = firstName(FRIENDS[0]?.name ?? "Archie");
   const span = dateSpan(organiser.departDate.value, organiser.returnDate.value);
   const left = itinerary.out?.flight.seatsLeft ?? 9;
   const departs = itinerary.out?.flight.departs ?? "06:10";
-  const ready = useAgentRun("invite:jess:stalls", () =>
-    traceFor("/invite/jess/stalls", state),
+  const ready = useAgentRun("invite:will:stalls", () =>
+    traceFor("/invite/will/stalls", state),
   );
-  // The card is the way in: the app opens on the sign-up, then her ticket.
-  const open = () => router.push("/invite/jess/signup");
+  // The card is the way in: the app opens on the sign-up, then his ticket.
+  const open = () => router.push("/invite/will/signup");
   return (
     <WhatsAppChat me={me}>
       <DayDivider>{INVITE.sentLong}</DayDivider>
@@ -606,7 +606,7 @@ export function JessStallsScreen() {
       {ready && (
         <CardBubble
           title={`Book the same flight as ${firstName(me)}`}
-          detail={`${span} · ${seat ?? "a seat"} still next to ${firstName(me) === "Will" ? "him" : "them"} · ${left} seats left on the ${departs}`}
+          detail={`${span} · ${seat ?? "a seat"} still next to ${JESS.pronoun.object} · ${left} seats left on the ${departs}`}
           cta="Get Pegasus and book the same flight"
           text={
             <>
@@ -621,7 +621,7 @@ export function JessStallsScreen() {
       {ready && (
         <p className="mt-6 px-1 text-center text-[12px] leading-[18px] text-pg-ink">
           Drafted by the companion, sent from {firstName(me)}&rsquo;s phone with one tap. The
-          link installs the app: one tap to join, then her booking, one tap to pay.
+          link installs the app: one tap to join, then his booking, one tap to pay.
         </p>
       )}
     </WhatsAppChat>

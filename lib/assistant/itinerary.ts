@@ -11,7 +11,7 @@ import type { TripDraft } from "./draft";
  * deterministically, from the flight the pricer already chose, rather than
  * invented in the component where a re-render would reshuffle them.
  *
- * A trip is a list of legs. A simple return has two; Will's week has four.
+ * A trip is a list of legs. A simple return has two; Jess's week has four.
  */
 
 export type LegPlan = { from: string; to: string; date: string };
@@ -93,7 +93,7 @@ export function referenceFor(draft: TripDraft, owner?: string): string {
   if (first !== undefined && isScriptedRoute(first.from, first.to)) {
     if (first.from === HOME.origin && first.to === HOME.destination) return HOME.reference;
     if (who !== null && who !== "emre") return SQUAD.references[who];
-    if (who === null) return SQUAD.references.will;
+    if (who === null) return SQUAD.references.jess;
   }
   let h = hash(
     [
@@ -140,7 +140,7 @@ export function seatsFor(
       }
     }
     const letters = ["A", "B", "C", "D", "E", "F"];
-    const start = who === "archie" ? 1 : who === "jess" ? 2 : 0;
+    const start = who === "archie" ? 1 : who === "will" ? 2 : 0;
     return Array.from(
       { length: people },
       (_, i) => `${SQUAD.row}${letters[(start + i) % letters.length] ?? "A"}`,
