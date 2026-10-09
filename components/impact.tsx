@@ -12,16 +12,15 @@ import { formatFare } from "@/lib/journey/flights";
  *
  * Four figures, each against today's app, each computed from the same drafts
  * the screens print. The bars grow as bookings land, add-ons are taken and
- * new people join; the taps bar is the one where shorter wins. The model of
- * "today" is written at the foot, because a comparison nobody can check reads
- * as a boast.
+ * new people join; the last tile is one number, the clicks the squad did not
+ * have to make. The model of "today" is written at the foot, because a
+ * comparison nobody can check reads as a boast.
  */
-type Tile = { key: keyof Figures; label: string; money: boolean; fewer?: boolean };
+type Tile = { key: keyof Figures; label: string; money: boolean };
 
 const TILES: Tile[] = [
   { key: "revenue", label: "Revenue", money: true },
   { key: "addOns", label: "Add-ons", money: true },
-  { key: "taps", label: "Clicks", money: false, fewer: true },
   { key: "newUsers", label: "New users", money: false },
 ];
 
@@ -126,18 +125,14 @@ export function Impact() {
           const a = companion[tile.key];
           const b = today[tile.key];
           const max = Math.max(a, b, tile.money ? 100 : 1);
-          // The badge says what moved in the companion's favour: more money and
-          // people, or fewer taps.
-          const delta = tile.fewer ? b - a : a - b;
-          const sign = tile.fewer ? "−" : "+";
+          const delta = a - b;
           return (
             <li key={tile.key} className="rounded-2xl bg-pg-surface px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[12px] font-semibold text-pg-ink">{tile.label}</span>
                 {delta > 0 && (
                   <span className="tabular rounded-full bg-pg-yellow px-1.5 text-[11px] leading-[18px] font-bold text-pg-navy">
-                    {sign}
-                    {tile.money ? formatFare(delta) : delta}
+                    +{tile.money ? formatFare(delta) : delta}
                   </span>
                 )}
               </div>
@@ -159,6 +154,13 @@ export function Impact() {
             </li>
           );
         })}
+        {/* Clicks the squad did not make: today's count less the companion's, one figure. */}
+        <li className="rounded-2xl bg-pg-surface px-3.5 py-3">
+          <span className="text-[12px] font-semibold text-pg-ink">Fewer clicks</span>
+          <div className="mt-1">
+            <Figure value={Math.max(0, today.taps - companion.taps)} money={false} />
+          </div>
+        </li>
       </ol>
       <details className="mt-4">
         <summary className="cursor-pointer text-[11px] font-bold tracking-[0.08em] text-pg-ink uppercase">
