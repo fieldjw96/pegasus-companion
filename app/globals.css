@@ -90,8 +90,8 @@ body {
 }
 
 body {
-  /* The stage the device frame sits on. Never the app's own background. */
-  background: #0f1420;
+  /* The stage the device frame sits on: white, so the phone's own grey reads as the app. */
+  background: #fff;
   color: var(--color-pg-navy);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

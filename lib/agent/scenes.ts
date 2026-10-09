@@ -34,7 +34,7 @@ export const ACTS: Act[] = [
       },
       {
         href: "/confirmation",
-        title: "Send it to your friends?",
+        title: "Send it to your friends to claim a voucher?",
         note: "Two suggested, search for more, keep Mum posted",
         agent: "Group",
       },

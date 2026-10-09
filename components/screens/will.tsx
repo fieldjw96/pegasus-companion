@@ -14,7 +14,6 @@ import {
   friendByName,
   listNames,
   searchContacts,
-  seatBeside,
 } from "@/lib/group/group";
 import { WILL, willDraft } from "@/lib/demo/personas";
 
@@ -26,9 +25,10 @@ import { WILL, willDraft } from "@/lib/demo/personas";
  *
  * The confirmation is where the group starts. The sentence said mates, not
  * who, so the companion asks whether to send the trip on and suggests two
- * people from his contacts. Each gets a nudge in Will's name with the seat
- * next to his offered. Nothing is frozen or held. Under it, his mum: the
- * dates and the landing time, if he says so, and told if a flight moves.
+ * people from his contacts, by name only: the reasons are the panel's. Each
+ * gets a nudge in Will's name with the seat next to his offered, and a voucher
+ * to claim when they book. Nothing is frozen or held. Under it, his mum: one
+ * button, and she gets the dates and the landing time, told if a flight moves.
  */
 function useWill() {
   const { state, update } = useJourney();
@@ -99,7 +99,7 @@ export function WillConfirmation() {
         className="pg-card mt-6 flex flex-col gap-3 p-5"
       >
         <h2 className="text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
-          Send this to your friends?
+          Send this to your friends to claim a voucher?
         </h2>
         {state.sent ? (
           <>
@@ -119,7 +119,6 @@ export function WillConfirmation() {
             <div className="flex flex-col gap-2">
               {FRIENDS.map((friend) => {
                 const on = picked.includes(friend.name);
-                const seat = seatBeside(draft, friend, me);
                 return (
                   <button
                     key={friend.name}
@@ -131,12 +130,8 @@ export function WillConfirmation() {
                     }`}
                   >
                     <Initials name={friend.name} tone={on ? "navy" : "surface"} />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-[15px] leading-5 font-bold">{friend.name}</span>
-                      <span className="text-[13px] leading-[18px] text-pg-ink">
-                        {friend.because}
-                        {seat === null ? "" : ` Seat ${seat} is free next to you.`}
-                      </span>
+                    <span className="min-w-0 flex-1 text-[15px] leading-5 font-bold">
+                      {friend.name}
                     </span>
                     <span
                       aria-hidden
@@ -250,11 +245,6 @@ export function WillConfirmation() {
               Keep {WILL.parent.name} posted?
             </h2>
           </div>
-          <p className="text-[15px] leading-[22px]" style={{ textWrap: "pretty" }}>
-            {state.mumTold
-              ? `${WILL.parent.name} has the dates, who you're with and when you land. If a flight moves, she hears the same second you do. Never an offer.`
-              : `The dates, who you're with and when you land. If a flight moves, she hears the same second you do. Never an offer.`}
-          </p>
           {state.mumTold ? (
             <TextButton
               onClick={() => update({ aside: { who: "mum", route: "/follow/mum" } })}
@@ -269,7 +259,7 @@ export function WillConfirmation() {
                 update({ mumTold: true, aside: { who: "mum", route: "/follow/mum" } })
               }
             >
-              Keep {WILL.parent.name} updated
+              Notify {WILL.parent.name}
             </PrimaryButton>
           )}
         </section>

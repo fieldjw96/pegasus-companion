@@ -12,15 +12,16 @@ import { formatFare } from "@/lib/journey/flights";
  *
  * Four figures, each against today's app, each computed from the same drafts
  * the screens print. The bars grow as bookings land, add-ons are taken and
- * new people join. The model of "today" is written at the foot, because a
- * comparison nobody can check reads as a boast.
+ * new people join; the taps bar is the one where shorter wins. The model of
+ * "today" is written at the foot, because a comparison nobody can check reads
+ * as a boast.
  */
-type Tile = { key: keyof Figures; label: string; money: boolean };
+type Tile = { key: keyof Figures; label: string; money: boolean; fewer?: boolean };
 
 const TILES: Tile[] = [
   { key: "revenue", label: "Revenue", money: true },
   { key: "addOns", label: "Add-ons", money: true },
-  { key: "bookings", label: "Bookings", money: false },
+  { key: "taps", label: "Taps to book", money: false, fewer: true },
   { key: "newUsers", label: "New users", money: false },
 ];
 
@@ -53,7 +54,7 @@ function useCountUp(target: number): number {
 function Figure({ value, money }: { value: number; money: boolean }) {
   const shown = useCountUp(value);
   return (
-    <span className="display tabular text-[26px] leading-7 font-extrabold text-white">
+    <span className="display tabular text-[26px] leading-7 font-extrabold text-pg-navy">
       {money ? formatFare(shown) : Math.round(shown)}
     </span>
   );
@@ -89,10 +90,10 @@ export function Impact() {
   return (
     <aside
       aria-label="Impact"
-      className="w-full max-w-[410px] shrink-0 text-white/80 lg:w-[220px] lg:pt-2"
+      className="w-full max-w-[410px] shrink-0 text-pg-navy lg:w-[220px] lg:pt-2"
     >
       <div className="flex items-center justify-between py-1">
-        <h2 className="text-[11px] font-bold tracking-[0.08em] text-white/50 uppercase">
+        <h2 className="text-[11px] font-bold tracking-[0.08em] text-pg-ink uppercase">
           Impact
         </h2>
         <button
@@ -103,19 +104,19 @@ export function Impact() {
             agents.reset();
             router.push("/nudge");
           }}
-          className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white/70 hover:bg-white/15 hover:text-white"
+          className="rounded-full bg-pg-surface px-2.5 py-1 text-[11px] font-bold text-pg-ink hover:bg-pg-line hover:text-pg-navy"
         >
           Reset demo
         </button>
       </div>
       <div className="flex items-center justify-end py-1">
-        <span className="flex items-center gap-3 text-[10px] font-semibold text-white/50">
+        <span className="flex items-center gap-3 text-[10px] font-semibold text-pg-ink">
           <span className="flex items-center gap-1">
             <span aria-hidden className="h-2 w-2 rounded-sm bg-pg-yellow" />
             Companion
           </span>
           <span className="flex items-center gap-1">
-            <span aria-hidden className="h-2 w-2 rounded-sm bg-white/30" />
+            <span aria-hidden className="h-2 w-2 rounded-sm bg-pg-muted" />
             Today
           </span>
         </span>
@@ -125,22 +126,24 @@ export function Impact() {
           const a = companion[tile.key];
           const b = today[tile.key];
           const max = Math.max(a, b, tile.money ? 100 : 1);
-          const delta = a - b;
+          // The badge says what moved in the companion's favour: more money and
+          // people, or fewer taps.
+          const delta = tile.fewer ? b - a : a - b;
+          const sign = tile.fewer ? "−" : "+";
           return (
-            <li key={tile.key} className="rounded-2xl bg-white/[0.06] px-3.5 py-3">
+            <li key={tile.key} className="rounded-2xl bg-pg-surface px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[12px] font-semibold text-white/60">{tile.label}</span>
+                <span className="text-[12px] font-semibold text-pg-ink">{tile.label}</span>
                 {delta > 0 && (
-                  <span className="tabular text-[11px] font-bold text-pg-yellow">
-                    +{tile.money ? formatFare(delta) : delta}
+                  <span className="tabular rounded-full bg-pg-yellow px-1.5 text-[11px] leading-[18px] font-bold text-pg-navy">
+                    {sign}
+                    {tile.money ? formatFare(delta) : delta}
                   </span>
                 )}
               </div>
               <div className="mt-1 flex items-baseline gap-1.5">
                 <Figure value={a} money={tile.money} />
-                {tile.money && (
-                  <span className="text-[11px] font-bold text-white/60">GBP</span>
-                )}
+                {tile.money && <span className="text-[11px] font-bold text-pg-ink">GBP</span>}
               </div>
               <div
                 className="mt-2 flex flex-col gap-1"
@@ -150,7 +153,7 @@ export function Impact() {
                 <Bar value={a} max={max} tone="companion" />
                 <Bar value={b} max={max} tone="today" />
               </div>
-              <div className="mt-1 text-[11px] text-white/45">
+              <div className="mt-1 text-[11px] text-pg-ink">
                 Today: <span className="tabular">{tile.money ? formatFare(b) : b}</span>
               </div>
             </li>
@@ -158,10 +161,10 @@ export function Impact() {
         })}
       </ol>
       <details className="mt-4">
-        <summary className="cursor-pointer text-[11px] font-bold tracking-[0.08em] text-white/40 uppercase">
+        <summary className="cursor-pointer text-[11px] font-bold tracking-[0.08em] text-pg-ink uppercase">
           How today is counted
         </summary>
-        <ul className="mt-2 flex flex-col gap-1.5 text-[11px] leading-4 text-white/45">
+        <ul className="mt-2 flex flex-col gap-1.5 text-[11px] leading-4 text-pg-ink">
           {ASSUMPTIONS.map((a) => (
             <li key={a}>{a}</li>
           ))}
@@ -183,10 +186,10 @@ function Bar({
 }) {
   const width = max === 0 ? 0 : Math.max(value > 0 ? 3 : 0, (value / max) * 100);
   return (
-    <span className="block h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+    <span className="block h-1.5 w-full overflow-hidden rounded-full bg-pg-line">
       <span
         className={`block h-full rounded-full transition-[width] duration-700 ease-out ${
-          tone === "companion" ? "bg-pg-yellow" : "bg-white/30"
+          tone === "companion" ? "bg-pg-yellow" : "bg-pg-muted"
         }`}
         style={{ width: `${width}%` }}
       />

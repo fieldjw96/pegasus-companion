@@ -103,7 +103,7 @@ export function CompanionPhone() {
       <Device>
         <NavProvider nav={nav}>{screenFor(aside.route)}</NavProvider>
       </Device>
-      <div className="flex w-[410px] items-center justify-between px-2 text-[12px] font-semibold text-white/60">
+      <div className="flex w-[410px] items-center justify-between px-2 text-[12px] font-semibold text-pg-ink">
         <span className="flex items-center gap-2">
           <span aria-hidden className="h-2 w-2 rounded-full bg-pg-yellow" />
           {LABEL[aside.who]}
@@ -113,7 +113,7 @@ export function CompanionPhone() {
             <button
               type="button"
               onClick={() => update({ aside: { who: "jess", route: "/invite/jess" } })}
-              className="text-pg-yellow hover:underline"
+              className="text-pg-orange hover:underline"
             >
               Next: Jess&rsquo;s phone →
             </button>
@@ -121,7 +121,7 @@ export function CompanionPhone() {
           <button
             type="button"
             onClick={() => update({ aside: null })}
-            className="hover:text-white"
+            className="hover:text-pg-navy"
             aria-label={`Put ${LABEL[aside.who]} away`}
           >
             Put away ×

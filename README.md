@@ -57,10 +57,11 @@ the phone shows another; `lib/agent/trace.test.ts` holds it to that. Each step
 shows its headline; the reasoning and the figures open on a tap.
 
 The **impact column** at the far right is the commercial case, moving as the
-demo moves: revenue, add-ons, bookings and new users, each against a
+demo moves: revenue, add-ons, taps to book and new users, each against a
 stated model of today's app. `lib/metrics/impact.ts` computes it from the same
 drafts and prices the screens print, and says at its foot how "today" is
-counted.
+counted. Today's taps are read screen by screen off `pegasus-baseline`, the
+mock of the live journey, in `lib/metrics/taps.ts`.
 
 ### The journey · Three mates go to Cappadocia
 
@@ -85,11 +86,11 @@ Will, 26, London, with Archie and Jess. A cold start: no history, no profile.
    against the 150 days Türkiye asks for, and pays with Apple Pay. The Offer
    agent adds nothing at the till: insurance, a car and the lounge don't fit a
    backpacker, so they aren't there.
-4. **Send it to your friends?** The confirmation suggests two people from his
-   contacts and lets him search for more. Each gets it in Will's name, with the
-   seat next to his offered at 7 GBP a leg. Under it, **keep Mum posted?**:
-   the dates, who he's with and when he lands, a follow link and STOP, never
-   an offer. Her phone appears beside his.
+4. **Send it to your friends to claim a voucher?** The confirmation suggests
+   two people from his contacts and lets him search for more. Each gets it in
+   Will's name, with the seat next to his offered at 7 GBP a leg. Under it,
+   **keep Mum posted?**, one button: the dates, who he's with and when he
+   lands, a follow link and STOP, never an offer. Her phone appears beside his.
 5. **Archie has the app.** A push in Will's name leads with the seat and opens a
    booking already built: flights from Will, fare and seat predicted, passport,
    payment and his usual hot meal remembered. He checks and pays.
@@ -154,7 +155,8 @@ lib/
   group/stay.ts, next-trip.ts  The hostel for three, and the fare drop, as figures.
   agent/trace.ts           What each agent read, thought and did on every screen, computed.
   agent/first-open.ts      The first open: the device and sign-up signals, and the three pitches.
-  metrics/impact.ts        Revenue, add-ons, bookings and new users, companion against today.
+  metrics/impact.ts        Revenue, add-ons, taps to book and new users, companion against today.
+  metrics/taps.ts          Today's taps, screen by screen off pegasus-baseline; the companion's per person.
   agent/scenes.ts          Every beat of the journey, with its route.
 ```
 

@@ -253,15 +253,6 @@ export function NextTripScreen() {
           <p className="mt-1 text-[20px] leading-[26px] font-extrabold tracking-[-0.01em]">
             Same three, {drop.city} in {monthName(drop.out)}?
           </p>
-          <p className="mt-2 text-[14px] leading-5" style={{ textWrap: "pretty" }}>
-            {dayMonth(drop.out)} to {dayMonth(drop.back)}, {drop.nights} nights.{" "}
-            <strong className="tabular font-extrabold">{formatFare(drop.nowEach)} each</strong>{" "}
-            return, down from {formatFare(drop.wasEach)} last week:{" "}
-            <strong className="tabular font-extrabold">
-              {formatFare(drop.savingSquad)} GBP
-            </strong>{" "}
-            less for the three of you.
-          </p>
           <div className="mt-3 flex items-center">
             {[WILL.travellers[0]?.name ?? "Will", ...FRIENDS.map((f) => f.name)].map(
               (n, i) => (

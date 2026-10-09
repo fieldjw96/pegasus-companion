@@ -43,7 +43,7 @@ export function TimeStrip() {
       aria-label="Jump in time"
       className="flex w-[410px] flex-wrap items-center gap-1.5 px-1"
     >
-      <span className="mr-1 text-[11px] font-bold tracking-[0.08em] text-white/40 uppercase">
+      <span className="mr-1 text-[11px] font-bold tracking-[0.08em] text-pg-ink uppercase">
         Later
       </span>
       {jumps.map((j) => {
@@ -59,10 +59,12 @@ export function TimeStrip() {
               else router.push(j.href);
             }}
             className={`flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-semibold ${
-              on ? "bg-white/15 text-white" : "bg-white/[0.06] text-white/60 hover:text-white"
+              on ? "bg-pg-navy text-white" : "bg-pg-surface text-pg-ink hover:text-pg-navy"
             }`}
           >
-            <span className="tabular text-white/40">{j.when}</span>
+            <span className={`tabular ${on ? "text-white/60" : "text-pg-muted"}`}>
+              {j.when}
+            </span>
             {j.label}
           </button>
         );

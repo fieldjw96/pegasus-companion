@@ -193,7 +193,7 @@ export function GroupStatusScreen() {
                   update({ aside: { who: "jess", route: "/invite/jess/stalls" } })
                 }
               >
-                Nudge {firstName(waiting.name)}
+                Nudge {firstName(waiting.name)} to claim voucher
               </PrimaryButton>
             </div>
           </div>
@@ -232,7 +232,7 @@ export function GroupStatusScreen() {
         <p className="mt-4 px-1 text-[13px] leading-[18px] text-pg-ink">
           Not sent yet.{" "}
           <TextButton href="/confirmation" className="min-h-0 text-[13px]">
-            Send it to your friends
+            Send it to your friends to claim a voucher
           </TextButton>
         </p>
       )}
