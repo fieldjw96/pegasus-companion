@@ -50,10 +50,23 @@ function useCountUp(target: number): number {
   return shown;
 }
 
-function Figure({ value, money }: { value: number; money: boolean }) {
+function Figure({
+  value,
+  money,
+  tone = "navy",
+}: {
+  value: number;
+  money: boolean;
+  /** Orange for the one figure that is the brand's accent: the clicks not made. */
+  tone?: "navy" | "orange";
+}) {
   const shown = useCountUp(value);
   return (
-    <span className="display tabular text-[26px] leading-7 font-extrabold text-pg-navy">
+    <span
+      className={`display tabular text-[26px] leading-7 font-extrabold ${
+        tone === "orange" ? "text-pg-orange" : "text-pg-navy"
+      }`}
+    >
       {money ? formatFare(shown) : Math.round(shown)}
     </span>
   );
@@ -158,7 +171,11 @@ export function Impact() {
         <li className="rounded-2xl bg-pg-surface px-3.5 py-3">
           <span className="text-[12px] font-semibold text-pg-ink">Fewer clicks</span>
           <div className="mt-1">
-            <Figure value={Math.max(0, today.taps - companion.taps)} money={false} />
+            <Figure
+              value={Math.max(0, today.taps - companion.taps)}
+              money={false}
+              tone="orange"
+            />
           </div>
         </li>
       </ol>
