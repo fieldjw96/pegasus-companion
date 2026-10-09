@@ -48,12 +48,12 @@ Three things Pegasus said on day one became the design rules.
 
 Four agents do the work, each moving a commercial outcome.
 
-| Agent       | What it does                                         | What it moves                         |
-| ----------- | ---------------------------------------------------- | ------------------------------------- |
-| **Trip**    | Turns a wish into a full itinerary on the network    | More passengers, repeat booking       |
-| **Offer**   | Predicts the extra each traveller will buy, and when | More per passenger                    |
-| **Group**   | Turns one booking into a group, seated together      | New direct customers, more passengers |
-| **Moments** | Picks the right moment and channel                   | Repeat booking, protects the booking  |
+| Agent       | What it does                                                                                               | What it moves                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **Trip**    | Spots a trip before anyone searches and offers it, then turns the yes into a full itinerary on the network | More passengers, repeat booking       |
+| **Offer**   | Predicts the extra each traveller will buy, and when                                                       | More per passenger                    |
+| **Group**   | Turns one booking into a group, seated together                                                            | New direct customers, more passengers |
+| **Moments** | Picks the right moment and channel                                                                         | Repeat booking, protects the booking  |
 
 Four guardrails hold throughout. Pegasus sets every price. The passenger
 confirms every purchase. Silence is a feature: ignored offers are not repeated,
