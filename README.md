@@ -193,3 +193,10 @@ neither the build nor the demo depends on the venue's wifi. The companion's
 face is a cartoon Pegasus from the myth, drawn as inline SVG so its wings beat
 while it thinks. It is not the airline's trademark. Destination photographs are
 from Wikimedia Commons and credited at `/credits`.
+
+## Hosting on Cloudflare (flykanat.com)
+
+Static export, no server needed. Build command `CF_EXPORT=1 npm run build`,
+deploy command `npx wrangler deploy` (config in `wrangler.jsonc`, assets from
+`./out`). Vercel is unaffected: `output: "export"` only turns on when
+`CF_EXPORT=1`.
